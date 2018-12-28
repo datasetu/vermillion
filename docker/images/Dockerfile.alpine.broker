@@ -1,0 +1,30 @@
+FROM alpine:latest
+  
+COPY rabbitmq.config /var/lib/rabbitmq/
+
+RUN apk update && \
+    apk upgrade && \
+    echo "https://nl.alpinelinux.org/alpine/edge/testing/" >> /etc/apk/repositories && \
+    apk update && \
+    apk add rabbitmq-server curl && \
+    chmod -R 777 /usr/lib/rabbitmq && \
+    chmod -R 777 /etc && \
+    mkdir /etc/rabbitmq && \
+    apk add git build-base openssl libbsd-dev bsd-compat-headers postgresql-dev && \
+    apk add perl elixir python libxslt xmlto zip rsync && \
+    git clone https://github.com/jorisvink/kore && \
+    cd kore && \
+    make NOTLS=1 PGSQL=1 && \
+    make install && \
+    cd .. && \
+    rm -rf kore && \
+    apk del --purge git curl && \
+    rabbitmq-plugins enable rabbitmq_management && \
+    rabbitmq-plugins enable rabbitmq_mqtt && \
+    rabbitmq-plugins enable rabbitmq_auth_backend_http 
+
+
+RUN chown rabbitmq /usr/lib/rabbitmq/.erlang.cookie && \
+    chmod 600 /usr/lib/rabbitmq/.erlang.cookie    
+
+CMD rabbitmq-server

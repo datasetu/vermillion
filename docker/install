@@ -1,0 +1,31 @@
+#!/bin/bash
+
+directory=`dirname $0`
+cd $directory
+
+sudo chown -R 0:0 ../kore-publisher/jail
+sudo chmod 1555 ../kore-publisher/jail
+sudo chmod 1555 ../kore-publisher/jail/etc
+
+sudo chown -R 0:0 ../authenticator/jail
+sudo chmod 1555 ../authenticator/jail
+sudo chmod 1555 ../authenticator/jail/etc
+
+admin_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+postgres_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+
+if [ -e ".env" ]
+then
+    rm .env
+fi
+
+echo "ADMIN_PWD="$admin_passwd > .env
+echo "POSTGRES_PWD="$postgres_passwd >> .env
+
+docker-compose down -v
+docker-compose up -d
+
+docker exec -d postgres ./scripts/pgsql_install.sh
+docker exec -d broker ./scripts/broker_install.sh
+docker exec -d kore ./scripts/kore_install.sh
+docker exec -d postgres python /scripts/daemon.py > daemon.log &

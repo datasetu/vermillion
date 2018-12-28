@@ -1,0 +1,15 @@
+FROM 	alpine:latest 
+COPY 	schema.db /
+
+RUN 	apk update && \
+	apk upgrade && \
+	apk add postgresql && \
+    	apk add postgresql-contrib && \
+    	apk add postgresql-client && \
+    	mkdir /run/postgresql && \
+    	chown -R postgres /var/lib/postgresql && \
+    	chown -R postgres /run/postgresql/ && \
+    	su postgres -c 'initdb -D /var/lib/postgresql' && \
+    	su postgres -c "postgres -D /var/lib/postgresql > /var/lib/postgresql/logfile 2>&1 &" 
+
+CMD 	tail -f /dev/null

@@ -1,0 +1,68 @@
+version: "3"
+
+networks:
+  kore-net:
+    driver: bridge
+
+volumes:
+  pgsql-data:
+  broker-data:
+
+services:
+
+  kore:
+    image: ideam/kore
+    container_name: kore
+    hostname: kore
+    restart: always
+    hostname: kore
+    ports:
+      - "443:8888"
+    networks:
+      - kore-net
+    cap_add:
+      - ALL
+    volumes:
+      - ../kore-publisher:/kore-publisher/
+      - ../setup/kore:/scripts/
+      - ../vars/:/vars/
+    env_file:
+      - .env
+
+  broker:
+    image: ideam/kore-broker
+    container_name: broker 
+    restart: always
+    hostname: broker
+    ports:
+      - "5671:5671"
+      - "1883:1883"
+      - "15672:15672"
+    networks:
+      - kore-net
+    cap_add:
+      - ALL
+    volumes:
+      - broker-data:/var/lib/rabbitmq/
+      - ../authenticator:/authenticator/
+      - ../rabbitmq:/etc/rabbitmq/
+      - ../setup/broker:/scripts/
+      - ../vars/:/vars/
+    env_file:
+      - .env
+  
+  postgres:
+    image: ideam/postgres
+    container_name: postgres
+    hostname: postgres
+    restart: always
+    networks:
+      - kore-net
+    cap_add:
+      - ALL
+    volumes:
+      - pgsql-data:/var/lib/postgresql
+      - ../setup/pgsql:/scripts/
+      - ../vars/:/vars/
+    env_file:
+      - .env
