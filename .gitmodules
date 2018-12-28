@@ -1,0 +1,6 @@
+[submodule "test-suite"]
+	path = test-suite
+	url = https://github.com/rbccps-iisc/iudx-test-suite
+[submodule "iudx-api-server"]
+	path = iudx-api-server
+	url = https://github.com/rbccps-iisc/iudx-api-server
