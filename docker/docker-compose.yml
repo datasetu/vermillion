@@ -1,7 +1,7 @@
 version: "3"
 
 networks:
-  kore-net:
+  iudx-net:
     driver: bridge
 
 volumes:
@@ -10,21 +10,21 @@ volumes:
 
 services:
 
-  kore:
-    image: ideam/kore
-    container_name: kore
-    hostname: kore
+  vertx:
+    image: ideam/vertx
+    container_name: vertx
+    hostname: vertx
     restart: always
-    hostname: kore
+    hostname: vertx
     ports:
-      - "443:8888"
+      - "8443:8443"
     networks:
-      - kore-net
+      - iudx-net
     cap_add:
       - ALL
     volumes:
-      - ../kore-publisher:/kore-publisher/
-      - ../setup/kore:/scripts/
+      - ../iudx-api-server:/iudx-api-server/
+      - ../setup/vertx:/scripts/
       - ../vars/:/vars/
     env_file:
       - .env
@@ -39,7 +39,7 @@ services:
       - "1883:1883"
       - "15672:15672"
     networks:
-      - kore-net
+      - iudx-net
     cap_add:
       - ALL
     volumes:
@@ -57,7 +57,7 @@ services:
     hostname: postgres
     restart: always
     networks:
-      - kore-net
+      - iudx-net
     cap_add:
       - ALL
     volumes:
