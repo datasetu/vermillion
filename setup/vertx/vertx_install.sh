@@ -2,8 +2,8 @@
 
 cd iudx-api-server 
 
-mvn clean compile assembly:single
+mvn package
 
-cp target/iudx-api-server-0.0.1-SNAPSHOT-jar-with-dependencies.jar . 
+cp target/java -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar .
 
-tmux new-session -d -s vertx 'java -jar iudx-api-server-0.0.1-SNAPSHOT-jar-with-dependencies.jar'
+tmux new-session -d -s vertx 'java -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar'

@@ -1,6 +1,13 @@
-#!/bin/ash
+#!/bin/bash
+
 rm -r /tmp/tmux-* > /dev/null 2>&1
 
-mvn compile assembly:single
+fuser -k 8443/tcp
 
-tmux new-session -d -s vertx 'java -jar iudx-api-server-0.0.1-SNAPSHOT-jar-with-dependencies.jar'
+cd iudx-api-server
+
+mvn package
+
+cp target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar .
+
+tmux new-session -d -s vertx 'java -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar'
