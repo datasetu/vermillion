@@ -17,7 +17,7 @@ services:
     restart: always
     hostname: vertx
     ports:
-      - "8443:8443"
+      - "443:8443"
     networks:
       - iudx-net
     cap_add:
