@@ -1,0 +1,18 @@
+actor owner
+hide footbox
+...
+
+group HTTPS POST /owner/register-entity
+
+owner -> IUDX: **id**: string\r**apikey**: string\r**entity**: string\r (optional) **is-autonomous**: string
+
+end
+
+create entity entity
+IUDX -> entity : new account
+
+group 201 CREATED
+IUDX -> owner: {"**id**": string, "**apikey**": string}
+end
+
+@enduml

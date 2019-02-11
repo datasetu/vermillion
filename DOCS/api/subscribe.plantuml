@@ -1,0 +1,15 @@
+@startuml
+hide footbox
+
+entity subscriber
+
+group HTTPS GET /entity/subscribe
+
+subscriber -> IUDX: **id**: string\r**apikey**: string\r**to**: string\r**num-messages**: string\r**message-type**: string
+end
+
+group 200 OK
+IUDX -> subscriber: [\l\t{\t\r\t\t"**sent-by**": string,\r\t\t"**from**": string,\r\t\t"**subject**": string,\r\t\t"**content-type**": string,\r\t\t"**body**": string,\r\t},\l\t ...\l]
+end
+
+@enduml
