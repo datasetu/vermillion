@@ -11,6 +11,10 @@ IUDX resource server
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/abd48fb6620f4b329ae5a0dd2fc705e0 
     :target: https://app.codacy.com/project/pct960/iudx-resource-server/dashboard
 
+An IUDX compliant IoT resource server for smart cities
+
+Documentation: https://iudx.readthedocs.io
+
 Quickstart
 ========== 
 
