@@ -1,0 +1,38 @@
+@startuml
+hide footbox
+autonumber "<b>[0]"
+
+entity subscriber
+subscriber -> IUDX: POST /entity/follow
+
+IUDX -> subscriber: 202 ACCEPTED
+
+actor "owner of publisher" as owner
+
+entity publisher
+
+IUDX -> owner : follow notification
+
+...
+
+owner -> IUDX : HTTPS POST /owner/share                                                    
+                                                                      
+                                                                                 
+IUDX -> owner : 200 OK                                                              
+
+...
+
+publisher -> IUDX : POST /entity/publish + <message in body>
+
+
+IUDX -> publisher:202 ACCEPTED
+
+...
+subscriber -> IUDX : GET /entity/subscribe
+
+
+
+IUDX -> subscriber: 200 OK + <messages in body>
+
+
+@enduml

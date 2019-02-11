@@ -1,0 +1,32 @@
+@startuml
+hide footbox
+autonumber "<b>[0]"
+
+actor admin
+
+admin -> IUDX : HTTPS POST /admin/register-owner
+
+IUDX -> IUDX : create new owner
+
+IUDX -> admin: 201 CREATED + <credentials in body>
+
+...
+actor owner
+admin -> owner : credentials
+
+...
+
+
+owner -> IUDX : HTTPS POST /owner/register-entity
+
+IUDX -> IUDX : create new entity
+
+
+
+IUDX -> owner:  201 CREATED + <credentials in body>
+
+entity entity
+owner -> entity : <credentials>
+
+
+@enduml
