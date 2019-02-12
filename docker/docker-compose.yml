@@ -7,6 +7,7 @@ networks:
 volumes:
   pgsql-data:
   broker-data:
+  elk-data:
 
 services:
 
@@ -25,7 +26,6 @@ services:
     volumes:
       - ../iudx-api-server:/iudx-api-server/
       - ../setup/vertx:/scripts/
-      - ../vars/:/vars/
     env_file:
       - .env
 
@@ -47,7 +47,6 @@ services:
       - ../authenticator:/authenticator/
       - ../rabbitmq:/etc/rabbitmq/
       - ../setup/broker:/scripts/
-      - ../vars/:/vars/
     env_file:
       - .env
   
@@ -63,6 +62,24 @@ services:
     volumes:
       - pgsql-data:/var/lib/postgresql
       - ../setup/pgsql:/scripts/
-      - ../vars/:/vars/
+    env_file:
+      - .env
+
+  elk:
+    image: ideam/elasticsearch
+    container_name: elk
+    hostname: elk
+    ports:
+      - "9200:9200"
+      - "5601:5601"
+    restart: always
+    networks:
+      - iudx-net
+    cap_add:
+      - ALL
+    volumes:
+      - elk-data:/home/ideam/elasticsearch-6.2.4
+      - ../setup/elk:/scripts/
+      - ../iudx-dbconnector:/iudx-dbconnector/
     env_file:
       - .env

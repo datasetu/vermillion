@@ -4,3 +4,6 @@
 [submodule "iudx-api-server"]
 	path = iudx-api-server
 	url = https://github.com/rbccps-iisc/iudx-api-server
+[submodule "iudx-dbconnector"]
+	path = iudx-dbconnector
+	url = https://github.com/rbccps-iisc/iudx-dbconnector
