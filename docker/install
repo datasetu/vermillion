@@ -22,4 +22,5 @@ docker exec -d postgres ./scripts/pgsql_install.sh
 docker exec -d broker ./scripts/broker_install.sh
 docker exec  vertx ./scripts/vertx_install.sh
 docker exec -d elk ./scripts/elk_install.sh
-docker exec -d postgres python /scripts/daemon.py > daemon.log &
+docker exec dbconnector ./scripts/dbconnector_install.sh
+#docker exec -d postgres python /scripts/daemon.py > daemon.log &
