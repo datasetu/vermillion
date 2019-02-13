@@ -80,6 +80,21 @@ services:
     volumes:
       - elk-data:/home/ideam/elasticsearch-6.2.4
       - ../setup/elk:/scripts/
+    env_file:
+      - .env
+
+  dbconnector:
+    image: ideam/vertx
+    container_name: dbconnector
+    hostname: dbconnector
+    restart: always
+    hostname: dbconnector
+    networks:
+      - iudx-net
+    cap_add:
+      - ALL
+    volumes:
       - ../iudx-dbconnector:/iudx-dbconnector/
+      - ../setup/dbconnector:/scripts/
     env_file:
       - .env
