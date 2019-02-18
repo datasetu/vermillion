@@ -49,11 +49,11 @@ Quickstart
     ./test-suite/test functional --random
 
 
-Restricting admin APIs
-====================
-By default the admin related APIs are allowed from any host. To restrict access 
-of admin APIs through localhost only: unset the "ALLOW_ADMIN_APIS_FROM_OTHER_HOSTS"
-environment variable (in the docker/.env file). 
+.. Restricting admin APIs
+.. ====================
+.. By default the admin related APIs are allowed from any host. To restrict access 
+.. of admin APIs through localhost only: unset the "ALLOW_ADMIN_APIS_FROM_OTHER_HOSTS"
+.. environment variable (in the docker/.env file). 
 
 Use-case diagrams
 =================
