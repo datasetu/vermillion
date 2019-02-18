@@ -1,3 +1,4 @@
+import os
 import psycopg2
 import pika
 import time
@@ -9,11 +10,8 @@ channel = None
 
 def run():
 
-    f = open("/vars/admin.passwd")
-    admin_passwd = f.readline()[:-1]
-
-    f = open("/vars/postgres.passwd")
-    postgres_passwd = f.readline()[:-1]
+    admin_passwd 	= os.getenv("ADMIN_PWD")
+    postgres_passwd 	= os.getenv("POSTGRES_PWD")
 
     conn = psycopg2.connect(database="postgres", user = "postgres", password = postgres_passwd, host = "127.0.0.1", port = "5432")
 
@@ -26,7 +24,7 @@ def run():
 	    print("Connecting to broker ...")
 	    connection = pika.BlockingConnection(parameters)
 	    print("Connected")
-	    break;
+	    break
 	except Exception:
             sys.stderr.write("Failed to connect to broker\n")
 
@@ -39,7 +37,7 @@ def run():
     while True:
 
          print("Looking for expired entries ...")
-         cur.execute("SELECT from_id, exchange, topic from acl where valid_till < now()")
+         cur.execute("SELECT from_id, exchange, topic FROM acl WHERE valid_till < NOW()")
          rows = cur.fetchall()
 
          if rows:

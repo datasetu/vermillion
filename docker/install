@@ -13,7 +13,6 @@ fi
 
 echo "ADMIN_PWD="$admin_passwd > .env
 echo "POSTGRES_PWD="$postgres_passwd >> .env
-echo "ALLOW_ADMIN_APIS_FROM_OTHER_HOSTS=1" >> .env
 
 docker-compose down -v
 docker-compose up -d
@@ -23,4 +22,4 @@ docker exec -d broker ./scripts/broker_install.sh
 docker exec  vertx ./scripts/vertx_install.sh
 docker exec -d elk ./scripts/elk_install.sh
 docker exec dbconnector ./scripts/dbconnector_install.sh
-#docker exec -d postgres python /scripts/daemon.py > daemon.log &
+docker exec -d postgres python /scripts/daemon.py > daemon.log &
