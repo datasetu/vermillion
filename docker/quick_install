@@ -18,7 +18,8 @@ docker-compose down -v
 docker-compose up -d
 
 docker exec -d postgres ./scripts/pgsql_install.sh
-docker exec -d broker ./scripts/broker_install.sh
-docker exec  vertx ./scripts/vertx_quick_install.sh
+docker exec broker ./scripts/broker_install.sh
+docker exec vertx ./scripts/vertx_quick_install.sh
+docker exec dbconnector ./scripts/dbconnector_quick_install.sh
 docker exec -d postgres python /scripts/daemon.py > daemon.log &
 
