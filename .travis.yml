@@ -8,7 +8,7 @@ before_install:
 language: python
 
 install:
-  - ./docker/install
+  - ./single-node/install
 
 before_script:
   - sleep 10
