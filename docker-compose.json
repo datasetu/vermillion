@@ -1,0 +1,124 @@
+{
+    "version": "3",
+    "networks": {
+        "rabbit-net": {
+            "driver": "overlay"
+        }
+    },
+    "services": {
+        "rabbit1": {
+            "image": "rabbitmq:3.7.14-management",
+            "hostname": "rabbit1",
+            "environment": {
+                "RABBITMQ_DEFAULT_USER": "rabbitmq",
+                "RABBITMQ_DEFAULT_PASS": "rabbitmq",
+                "RABBITMQ_DEFAULT_VHOST": "/"
+            },
+            "ports": [
+                "15673:15672",
+                "5673:5672"
+            ],
+            "volumes": [
+                "./enabled_plugins:/etc/rabbitmq/enabled_plugins"
+            ],
+            "networks": [
+                "rabbit-net"
+            ],
+            "deploy": {
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            }
+        },
+        "rabbit2": {
+            "image": "rabbitmq:3.7.14-management",
+            "hostname": "rabbit2",
+            "environment": {
+                "RABBITMQ_DEFAULT_USER": "rabbitmq",
+                "RABBITMQ_DEFAULT_PASS": "rabbitmq",
+                "RABBITMQ_DEFAULT_VHOST": "/"
+            },
+            "ports": [
+                "15674:15672",
+                "5674:5672"
+            ],
+            "volumes": [
+                "./enabled_plugins:/etc/rabbitmq/enabled_plugins"
+            ],
+            "networks": [
+                "rabbit-net"
+            ],
+            "deploy": {
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            }
+        },
+        "rabbit3": {
+            "image": "rabbitmq:3.7.14-management",
+            "hostname": "rabbit3",
+            "environment": {
+                "RABBITMQ_DEFAULT_USER": "rabbitmq",
+                "RABBITMQ_DEFAULT_PASS": "rabbitmq",
+                "RABBITMQ_DEFAULT_VHOST": "/"
+            },
+            "ports": [
+                "15675:15672",
+                "5675:5672"
+            ],
+            "volumes": [
+                "./enabled_plugins:/etc/rabbitmq/enabled_plugins"
+            ],
+            "networks": [
+                "rabbit-net"
+            ],
+            "deploy": {
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            }
+        },
+        "proxy": {
+            "image": "amqproxy",
+            "deploy": {
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                },
+                "replicas": 2
+            },
+            "ports": [
+                "4673:5673"
+            ],
+            "networks": [
+                "rabbit-net"
+            ]
+        },
+        "visualiser": {
+            "image": "dockersamples/visualizer:stable",
+            "ports": [
+                "8080:8080"
+            ],
+            "volumes": [
+                "/var/run/docker.sock:/var/run/docker.sock"
+            ],
+            "deploy": {
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
+            "networks": [
+                "rabbit-net"
+            ]
+        }
+    }
+}

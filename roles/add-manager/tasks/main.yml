@@ -1,0 +1,11 @@
+---
+- name: Check if swarm has already been initialised
+  shell: docker node ls
+  register: swarm_status
+  ignore_errors: true
+  tags: swarm
+
+- name: Add managers to the swarm
+  shell: "docker swarm join --token {{ hostvars['manager-1']['manager_token']['stdout'] }} {{ hostvars['manager-1']['ansible_default_ipv4']['address'] }}:2377"
+  when: swarm_status.rc != 0
+  tags: swarm

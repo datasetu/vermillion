@@ -1,7 +1,7 @@
 #!/bin/bash
 
-directory=`dirname $0`
-cd $directory
+#directory=`dirname $0`
+#cd $directory
 
 admin_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 postgres_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`

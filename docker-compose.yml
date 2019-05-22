@@ -24,8 +24,8 @@ services:
     cap_add:
       - ALL
     volumes:
-      - ../iudx-api-server:/iudx-api-server/
-      - ../setup/vertx:/scripts/
+      - ./iudx-api-server:/iudx-api-server/
+      - ./setup/vertx:/scripts/
     env_file:
       - .env
 
@@ -44,9 +44,9 @@ services:
       - ALL
     volumes:
       - broker-data:/var/lib/rabbitmq/
-      - ../authenticator:/authenticator/
-      - ../rabbitmq:/etc/rabbitmq/
-      - ../setup/broker:/scripts/
+      - ./authenticator:/authenticator/
+      - ./conf/rabbitmq:/etc/rabbitmq/
+      - ./setup/broker:/scripts/
     env_file:
       - .env
   
@@ -61,7 +61,7 @@ services:
       - ALL
     volumes:
       - pgsql-data:/var/lib/postgresql
-      - ../setup/pgsql:/scripts/
+      - ./setup/pgsql:/scripts/
     env_file:
       - .env
 
@@ -79,7 +79,7 @@ services:
       - ALL
     volumes:
       - elk-data:/home/ideam/elasticsearch-6.2.4
-      - ../setup/elk:/scripts/
+      - ./setup/elk:/scripts/
     env_file:
       - .env
 
@@ -94,7 +94,7 @@ services:
     cap_add:
       - ALL
     volumes:
-      - ../iudx-dbconnector:/iudx-dbconnector/
-      - ../setup/dbconnector:/scripts/
+      - ./iudx-dbconnector:/iudx-dbconnector/
+      - ./setup/dbconnector:/scripts/
     env_file:
       - .env

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $1 == "vertx" ]
+if [ $1 == "vertx" -o $1 == "dbconnector" ]
     then
     docker exec -it $1 /bin/bash
 else    

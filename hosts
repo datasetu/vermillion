@@ -1,0 +1,11 @@
+#List of managers
+[managers]
+manager-1 ansible_ssh_host=node-1 ansible_ssh_port=22 ansible_ssh_user=root
+
+#List of workers
+[workers]
+worker-1 ansible_ssh_host=node-2 ansible_ssh_port=22 ansible_ssh_user=root
+
+[swarm-manager]
+manager-1 ansible_ssh_host=node-1 ansible_ssh_port=22 ansible_ssh_user=root
+
