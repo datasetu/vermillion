@@ -10,10 +10,10 @@ language: python
 python: 2.7
 
 install:
-  - ./single-node/install
+  - ./single-node/quick_install
 
 before_script:
-  - sleep 10
+  - sleep 15
   - cd test-suite
   - git pull origin master
   - cd ..
