@@ -1,5 +1,7 @@
 #!/bin/bash
 
+YELLOW='\033[1;33m'
+
 directory=`dirname $0`
 cd $directory
 
@@ -18,3 +20,5 @@ echo "SINGLE_NODE=true" >> .env
 
 docker-compose down -v
 docker-compose up -d
+
+echo -e "\n${YELLOW}All the deployed services are now ready to use${NC}"

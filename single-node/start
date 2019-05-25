@@ -4,7 +4,3 @@ directory=`dirname $0`
 cd $directory
 
 docker-compose start
-
-docker exec postgres ./scripts/pgsql_start.sh
-docker exec broker ./scripts/broker_start.sh
-docker exec vertx ./scripts/vertx_start.sh

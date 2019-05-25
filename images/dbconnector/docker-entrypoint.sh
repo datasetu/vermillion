@@ -11,8 +11,7 @@ if [ "$QUICK_INSTALL" == "true" ];
     java -jar iudx-dbconnector-0.0.1-SNAPSHOT-jar-with-dependencies.jar -d64 -Xms512m -Xmx4g
 else
     cd iudx-dbconnector
-    mvn clean
-    mvn package
+    mvn clean compile assembly:single
     cp target/iudx-dbconnector-0.0.1-SNAPSHOT-jar-with-dependencies.jar .
     java -jar iudx-dbconnector-0.0.1-SNAPSHOT-jar-with-dependencies.jar -d64 -Xms512m -Xmx4g
 fi

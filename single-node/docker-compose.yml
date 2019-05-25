@@ -82,7 +82,7 @@ services:
       - elk-data:/home/ideam/elasticsearch-6.2.4
 
   dbconnector:
-    image: iudx/db-connector
+    image: iudx/dbconnector
     container_name: dbconnector
     hostname: dbconnector
     restart: always

@@ -1,4 +1,0 @@
-#!/bin/bash
-
-docker exec postgres ./scripts/pgsql_reset.sh 
-docker exec broker ./scripts/broker_reset.sh

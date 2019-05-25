@@ -20,4 +20,4 @@ echo "SINGLE_NODE=true" >> .env
 docker-compose down -v
 docker-compose up -d
 
-echo -e "\n\n${YELLOW}Since this is a regular installation, please give it 3-5 mins before using any of the services${NC}"
+echo -e "\n${YELLOW}Since this is a regular installation, please wait for 3-5 mins before using any of the services${NC}"
