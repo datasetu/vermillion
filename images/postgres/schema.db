@@ -1,0 +1,180 @@
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.5 (Ubuntu 10.5-0ubuntu0.18.04)
+-- Dumped by pg_dump version 10.5 (Ubuntu 10.5-0ubuntu0.18.04)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Name: DATABASE postgres; Type: COMMENT; Schema: -; Owner: postgres
+--
+
+COMMENT ON DATABASE postgres IS 'default administrative connection database';
+
+
+--
+-- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: 
+--
+
+CREATE EXTENSION IF NOT EXISTS plpgsql WITH SCHEMA pg_catalog;
+
+
+--
+-- Name: EXTENSION plpgsql; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
+
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: acl; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.acl (
+    from_id character varying NOT NULL,
+    exchange character varying NOT NULL,
+    permission character varying,
+    valid_till timestamp without time zone,
+    follow_id character varying,
+    topic character varying,
+    acl_id integer NOT NULL
+);
+
+
+ALTER TABLE public.acl OWNER TO postgres;
+
+--
+-- Name: acl_acl_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.acl_acl_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.acl_acl_id_seq OWNER TO postgres;
+
+--
+-- Name: acl_acl_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.acl_acl_id_seq OWNED BY public.acl.acl_id;
+
+
+--
+-- Name: follow; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.follow (
+    follow_id integer NOT NULL,
+    requested_by character varying,
+    exchange character varying,
+    "time" timestamp without time zone,
+    permission character varying,
+    topic character varying,
+    validity character varying,
+    status character varying,
+    from_id character varying
+);
+
+
+ALTER TABLE public.follow OWNER TO postgres;
+
+--
+-- Name: follow_follow_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.follow_follow_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.follow_follow_id_seq OWNER TO postgres;
+
+--
+-- Name: follow_follow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.follow_follow_id_seq OWNED BY public.follow.follow_id;
+
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.users (
+    id character varying NOT NULL,
+    password_hash character varying,
+    schema jsonb,
+    salt character varying,
+    blocked boolean,
+    is_autonomous boolean
+);
+
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Name: acl acl_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.acl ALTER COLUMN acl_id SET DEFAULT nextval('public.acl_acl_id_seq'::regclass);
+
+
+--
+-- Name: follow follow_id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.follow ALTER COLUMN follow_id SET DEFAULT nextval('public.follow_follow_id_seq'::regclass);
+
+
+--
+-- Name: acl acl_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.acl
+    ADD CONSTRAINT acl_pkey PRIMARY KEY (from_id, exchange);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: acl acl_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.acl
+    ADD CONSTRAINT acl_id_fkey FOREIGN KEY (from_id) REFERENCES public.users(id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+

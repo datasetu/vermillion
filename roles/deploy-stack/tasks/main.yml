@@ -1,3 +1,5 @@
+- name: Clone the repository
+  shell: git clone https://github.com/
 - name: Copy docker-compose file
   copy:
     src: ./docker-compose.json

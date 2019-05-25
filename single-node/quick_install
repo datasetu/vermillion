@@ -13,13 +13,8 @@ fi
 
 echo "ADMIN_PWD="$admin_passwd > .env
 echo "POSTGRES_PWD="$postgres_passwd >> .env
+echo "QUICK_INSTALL=true" >> .env
+echo "SINGLE_NODE=true" >> .env
 
 docker-compose down -v
 docker-compose up -d
-
-docker exec -d postgres ./scripts/pgsql_install.sh
-docker exec broker ./scripts/broker_install.sh
-docker exec vertx ./scripts/vertx_quick_install.sh
-docker exec dbconnector ./scripts/dbconnector_quick_install.sh
-docker exec -d postgres python /scripts/daemon.py > daemon.log &
-

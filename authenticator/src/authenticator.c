@@ -37,7 +37,7 @@
 
 #define MAX_LEN_HASH_INPUT	(MAX_LEN_APIKEY + MAX_LEN_SALT + MAX_LEN_ENTITY_ID)
 
-#if 0
+#if 1
 	#define debug_printf(...)
 #else
 	#define debug_printf(...) printf(__VA_ARGS__)
@@ -106,7 +106,7 @@ init (int state)
 		fprintf(stderr,"postgres password not set\n");
 		return KORE_RESULT_ERROR;
 	}
-	unsetenv("POSTGRES_PWD");
+	//unsetenv("POSTGRES_PWD");
 
 	// XXX this user must only have read permissions on DB
 

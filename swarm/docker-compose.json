@@ -1,0 +1,227 @@
+{
+    "networks": {
+        "iudx-net": {
+            "driver": "bridge"
+        }
+    },
+    "services": {
+        "dbconnector": {
+            "cap_add": [
+                "ALL"
+            ],
+            "container_name": "dbconnector",
+            "deploy": {
+                "labels": {
+                    "type": "db-connector"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.labels.type != broker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "dbconnector",
+            "image": "ideam/vertx",
+            "networks": [
+                "iudx-net"
+            ],
+            "restart": "always",
+            "volumes": [
+                "./iudx-dbconnector:/iudx-dbconnector/",
+                "./setup/dbconnector:/scripts/"
+            ]
+        },
+        "elk": {
+            "cap_add": [
+                "ALL"
+            ],
+            "container_name": "elk",
+            "deploy": {
+                "labels": {
+                    "type": "database"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role != manager",
+                        "node.labels.type != broker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "elk",
+            "image": "ideam/elasticsearch",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "9200:9200",
+                "5601:5601"
+            ],
+            "restart": "always",
+            "volumes": [
+                "elk-data:/home/ideam/elasticsearch-6.2.4",
+                "./setup/elk:/scripts/"
+            ]
+        },
+        "postgres": {
+            "cap_add": [
+                "ALL"
+            ],
+            "container_name": "postgres",
+            "deploy": {
+                "labels": {
+                    "type": "auth-db"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.labels.type != broker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "postgres",
+            "image": "ideam/postgres",
+            "networks": [
+                "iudx-net"
+            ],
+            "restart": "always",
+            "volumes": [
+                "pgsql-data:/var/lib/postgresql",
+                "./setup/pgsql:/scripts/"
+            ]
+        },
+        "rabbit1": {
+            "cap_add": [
+                "ALL"
+            ],
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role != manager",
+                        "node.labels.type != broker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "rabbit1",
+            "image": "ideam/kore-broker",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "15673:15672"
+            ],
+            "restart": "always",
+            "volumes": [
+                "broker-data:/var/lib/rabbitmq/",
+                "./authenticator:/authenticator/",
+                "./conf/rabbitmq:/etc/rabbitmq/",
+                "./setup/broker:/scripts/"
+            ]
+        },
+        "rabbit2": {
+            "cap_add": [
+                "ALL"
+            ],
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role != manager",
+                        "node.labels.type != broker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "rabbit2",
+            "image": "ideam/kore-broker",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "15674:15672"
+            ],
+            "restart": "always",
+            "volumes": [
+                "broker-data:/var/lib/rabbitmq/",
+                "./authenticator:/authenticator/",
+                "./conf/rabbitmq:/etc/rabbitmq/",
+                "./setup/broker:/scripts/"
+            ]
+        },
+        "vertx": {
+            "cap_add": [
+                "ALL"
+            ],
+            "container_name": "vertx",
+            "deploy": {
+                "labels": {
+                    "type": "http-proxy"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.labels.type != broker"
+                    ]
+                },
+                "replicas": 2
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "vertx",
+            "image": "ideam/vertx",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "443:8443"
+            ],
+            "restart": "always",
+            "volumes": [
+                "./iudx-api-server:/iudx-api-server/",
+                "./setup/vertx:/scripts/"
+            ]
+        },
+        "visualiser": {
+            "deploy": {
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
+            "image": "dockersamples/visualizer:stable",
+            "networks": [
+                "rabbit-net"
+            ],
+            "ports": [
+                "8080:8080"
+            ],
+            "volumes": [
+                "/var/run/docker.sock:/var/run/docker.sock"
+            ]
+        }
+    },
+    "version": "3",
+    "volumes": {
+        "broker-data": null,
+        "elk-data": null,
+        "pgsql-data": null
+    }
+}

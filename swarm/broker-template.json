@@ -1,0 +1,34 @@
+{
+    "cap_add": [
+        "ALL"
+    ],
+    "deploy": {
+        "labels": {
+            "type": "broker"
+        },
+        "placement": {
+            "constraints": [
+                "node.role != manager",
+                "node.labels.type != broker"
+            ]
+        }
+    },
+    "env_file": [
+        ".env"
+    ],
+    "hostname": "broker",
+    "image": "ideam/kore-broker",
+    "networks": [
+        "iudx-net"
+    ],
+    "ports": [
+        "15672:15672"
+    ],
+    "restart": "always",
+    "volumes": [
+        "broker-data:/var/lib/rabbitmq/",
+        "./authenticator:/authenticator/",
+        "./conf/rabbitmq:/etc/rabbitmq/",
+        "./setup/broker:/scripts/"
+    ]
+}
