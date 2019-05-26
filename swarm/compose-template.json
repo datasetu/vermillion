@@ -6,20 +6,6 @@
     },
     "services": {
         "dbconnector": {
-            "cap_add": [
-                "ALL"
-            ],
-            "container_name": "dbconnector",
-            "deploy": {
-                "labels": {
-                    "type": "dbconnector"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == worker"
-                    ]
-                }
-            },
             "env_file": [
                 ".env"
             ],
@@ -28,26 +14,11 @@
             "networks": [
                 "iudx-net"
             ],
-            "restart": "always",
             "volumes": [
                 "../iudx-dbconnector:/iudx-dbconnector/"
             ]
         },
         "elk": {
-            "cap_add": [
-                "ALL"
-            ],
-            "container_name": "elk",
-            "deploy": {
-                "labels": {
-                    "type": "database"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == worker"
-                    ]
-                }
-            },
             "env_file": [
                 ".env"
             ],
@@ -60,26 +31,11 @@
                 "9200:9200",
                 "5601:5601"
             ],
-            "restart": "always",
             "volumes": [
                 "elk-data:/home/ideam/elasticsearch-6.2.4"
             ]
         },
         "postgres": {
-            "cap_add": [
-                "ALL"
-            ],
-            "container_name": "postgres",
-            "deploy": {
-                "labels": {
-                    "type": "auth-db"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == worker"
-                    ]
-                }
-            },
             "env_file": [
                 ".env"
             ],
@@ -88,26 +44,11 @@
             "networks": [
                 "iudx-net"
             ],
-            "restart": "always",
             "volumes": [
                 "pgsql-data:/var/lib/postgresql"
             ]
         },
         "unbind-daemon": {
-            "cap_add": [
-                "ALL"
-            ],
-            "container_name": "daemon",
-            "deploy": {
-                "labels": {
-                    "type": "unbind-daemon"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == manager"
-                    ]
-                }
-            },
             "env_file": [
                 ".env"
             ],
@@ -115,25 +56,9 @@
             "image": "iudx/unbind-daemon",
             "networks": [
                 "iudx-net"
-            ],
-            "restart": "always"
+            ]
         },
         "vertx": {
-            "cap_add": [
-                "ALL"
-            ],
-            "container_name": "vertx",
-            "deploy": {
-                "labels": {
-                    "type": "http-proxy"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == manager"
-                    ]
-                },
-                "replicas": 1
-            },
             "env_file": [
                 ".env"
             ],
@@ -145,10 +70,13 @@
             "ports": [
                 "443:8443"
             ],
-            "restart": "always",
             "volumes": [
                 "../iudx-api-server:/iudx-api-server/"
-            ]
+            ],
+	    "deploy": {
+		"replicas": 1
+	    }
+
         }
     },
     "version": "3",

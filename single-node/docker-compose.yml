@@ -46,7 +46,7 @@ services:
     volumes:
       - broker-data:/var/lib/rabbitmq/
       - ../authenticator:/authenticator/
-      - ./conf/rabbitmq/:/etc/rabbitmq/
+      - ../conf/rabbitmq/:/etc/rabbitmq/
     env_file:
       - .env
     depends_on:

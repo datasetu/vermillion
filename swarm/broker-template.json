@@ -1,17 +1,4 @@
 {
-    "cap_add": [
-        "ALL"
-    ],
-    "deploy": {
-        "labels": {
-            "type": "broker"
-        },
-        "placement": {
-            "constraints": [
-                "node.role == worker"
-            ]
-        }
-    },
     "env_file": [
         ".env"
     ],
@@ -23,10 +10,9 @@
     "ports": [
         "15672:15672"
     ],
-    "restart": "always",
     "volumes": [
         "broker-data:/var/lib/rabbitmq/",
-        "./authenticator:/authenticator/",
-        "./conf/rabbitmq:/etc/rabbitmq/"
+        "../authenticator:/authenticator/",
+        "../conf/rabbitmq:/etc/rabbitmq/"
     ]
 }
