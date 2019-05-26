@@ -9,6 +9,16 @@
             "env_file": [
                 ".env"
             ],
+	    "deploy": {
+                "labels": {
+                    "type": "dbconnector"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
             "hostname": "dbconnector",
             "image": "iudx/dbconnector",
             "networks": [
@@ -23,6 +33,16 @@
                 ".env"
             ],
             "hostname": "elk",
+	    "deploy": {
+                "labels": {
+                    "type": "database"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
             "image": "nshou/elasticsearch-kibana",
             "networks": [
                 "iudx-net"
@@ -39,6 +59,16 @@
             "env_file": [
                 ".env"
             ],
+	    "deploy": {
+                "labels": {
+                    "type": "auth-db"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
             "hostname": "postgres",
             "image": "iudx/postgres",
             "networks": [
@@ -62,6 +92,17 @@
             "env_file": [
                 ".env"
             ],
+	    "deploy": {
+                "labels": {
+                    "type": "unbind-daemon"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                },
+		"replicas": 1
+            },
             "hostname": "vertx",
             "image": "iudx/vertx",
             "networks": [
@@ -72,10 +113,7 @@
             ],
             "volumes": [
                 "../iudx-api-server:/iudx-api-server/"
-            ],
-	    "deploy": {
-		"replicas": 1
-	    }
+            ]
 
         }
     },

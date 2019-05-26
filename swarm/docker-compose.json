@@ -6,6 +6,16 @@
     },
     "services": {
         "dbconnector": {
+            "deploy": {
+                "labels": {
+                    "type": "dbconnector"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
             "env_file": [
                 ".env"
             ],
@@ -19,6 +29,16 @@
             ]
         },
         "elk": {
+            "deploy": {
+                "labels": {
+                    "type": "database"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
             "env_file": [
                 ".env"
             ],
@@ -36,6 +56,16 @@
             ]
         },
         "postgres": {
+            "deploy": {
+                "labels": {
+                    "type": "auth-db"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
             "env_file": [
                 ".env"
             ],
@@ -49,6 +79,16 @@
             ]
         },
         "rabbit1": {
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
             "env_file": [
                 ".env"
             ],
@@ -66,6 +106,16 @@
             ]
         },
         "rabbit2": {
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
             "env_file": [
                 ".env"
             ],
@@ -94,6 +144,14 @@
         },
         "vertx": {
             "deploy": {
+                "labels": {
+                    "type": "unbind-daemon"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                },
                 "replicas": 1
             },
             "env_file": [

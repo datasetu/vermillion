@@ -1,4 +1,14 @@
 {
+    "deploy": {
+        "labels": {
+            "type": "broker"
+        },
+        "placement": {
+            "constraints": [
+                "node.role == worker"
+            ]
+        }
+    },
     "env_file": [
         ".env"
     ],
@@ -11,7 +21,6 @@
         "15672:15672"
     ],
     "volumes": [
-        "broker-data:/var/lib/rabbitmq/",
         "../authenticator:/authenticator/",
         "../conf/rabbitmq:/etc/rabbitmq/"
     ]
