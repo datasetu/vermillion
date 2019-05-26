@@ -1,7 +1,7 @@
 {
     "networks": {
         "iudx-net": {
-            "driver": "bridge"
+            "driver": "overlay"
         }
     },
     "services": {
@@ -12,11 +12,11 @@
             "container_name": "dbconnector",
             "deploy": {
                 "labels": {
-                    "type": "db-connector"
+                    "type": "dbconnector"
                 },
                 "placement": {
                     "constraints": [
-                        "node.labels.type != broker"
+                        "node.role == worker"
                     ]
                 }
             },
@@ -24,14 +24,13 @@
                 ".env"
             ],
             "hostname": "dbconnector",
-            "image": "ideam/vertx",
+            "image": "iudx/dbconnector",
             "networks": [
                 "iudx-net"
             ],
             "restart": "always",
             "volumes": [
-                "./iudx-dbconnector:/iudx-dbconnector/",
-                "./setup/dbconnector:/scripts/"
+                "../iudx-dbconnector:/iudx-dbconnector/"
             ]
         },
         "elk": {
@@ -45,8 +44,7 @@
                 },
                 "placement": {
                     "constraints": [
-                        "node.role != manager",
-                        "node.labels.type != broker"
+                        "node.role == worker"
                     ]
                 }
             },
@@ -54,7 +52,7 @@
                 ".env"
             ],
             "hostname": "elk",
-            "image": "ideam/elasticsearch",
+            "image": "nshou/elasticsearch-kibana",
             "networks": [
                 "iudx-net"
             ],
@@ -64,8 +62,7 @@
             ],
             "restart": "always",
             "volumes": [
-                "elk-data:/home/ideam/elasticsearch-6.2.4",
-                "./setup/elk:/scripts/"
+                "elk-data:/home/ideam/elasticsearch-6.2.4"
             ]
         },
         "postgres": {
@@ -79,7 +76,7 @@
                 },
                 "placement": {
                     "constraints": [
-                        "node.labels.type != broker"
+                        "node.role == worker"
                     ]
                 }
             },
@@ -87,15 +84,39 @@
                 ".env"
             ],
             "hostname": "postgres",
-            "image": "ideam/postgres",
+            "image": "iudx/postgres",
             "networks": [
                 "iudx-net"
             ],
             "restart": "always",
             "volumes": [
-                "pgsql-data:/var/lib/postgresql",
-                "./setup/pgsql:/scripts/"
+                "pgsql-data:/var/lib/postgresql"
             ]
+        },
+        "unbind-daemon": {
+            "cap_add": [
+                "ALL"
+            ],
+            "container_name": "daemon",
+            "deploy": {
+                "labels": {
+                    "type": "unbind-daemon"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "daemon",
+            "image": "iudx/unbind-daemon",
+            "networks": [
+                "iudx-net"
+            ],
+            "restart": "always"
         },
         "vertx": {
             "cap_add": [
@@ -108,7 +129,7 @@
                 },
                 "placement": {
                     "constraints": [
-                        "node.labels.type != broker"
+                        "node.role == manager"
                     ]
                 },
                 "replicas": 1
@@ -117,7 +138,7 @@
                 ".env"
             ],
             "hostname": "vertx",
-            "image": "ideam/vertx",
+            "image": "iudx/vertx",
             "networks": [
                 "iudx-net"
             ],
@@ -126,27 +147,7 @@
             ],
             "restart": "always",
             "volumes": [
-                "./iudx-api-server:/iudx-api-server/",
-                "./setup/vertx:/scripts/"
-            ]
-        },
-        "visualiser": {
-            "deploy": {
-                "placement": {
-                    "constraints": [
-                        "node.role == manager"
-                    ]
-                }
-            },
-            "image": "dockersamples/visualizer:stable",
-            "networks": [
-                "rabbit-net"
-            ],
-            "ports": [
-                "8080:8080"
-            ],
-            "volumes": [
-                "/var/run/docker.sock:/var/run/docker.sock"
+                "../iudx-api-server:/iudx-api-server/"
             ]
         }
     },

@@ -1,4 +1,9 @@
 ---
+- name: Generate variables
+  hosts: localhost
+  roles:
+    - generate-variables
+
 - name: Initialise all hosts
   hosts: all
   remote_user: root

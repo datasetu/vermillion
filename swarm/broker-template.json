@@ -8,8 +8,7 @@
         },
         "placement": {
             "constraints": [
-                "node.role != manager",
-                "node.labels.type != broker"
+                "node.role == worker"
             ]
         }
     },
@@ -17,7 +16,7 @@
         ".env"
     ],
     "hostname": "broker",
-    "image": "ideam/kore-broker",
+    "image": "iudx/rabbitmq",
     "networks": [
         "iudx-net"
     ],
@@ -28,7 +27,6 @@
     "volumes": [
         "broker-data:/var/lib/rabbitmq/",
         "./authenticator:/authenticator/",
-        "./conf/rabbitmq:/etc/rabbitmq/",
-        "./setup/broker:/scripts/"
+        "./conf/rabbitmq:/etc/rabbitmq/"
     ]
 }
