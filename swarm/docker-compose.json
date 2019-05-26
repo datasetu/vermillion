@@ -12,7 +12,8 @@
                 },
                 "placement": {
                     "constraints": [
-                        "node.role == worker"
+                        "node.role == worker",
+                        "node.labels.type == database"
                     ]
                 }
             },
@@ -35,7 +36,8 @@
                 },
                 "placement": {
                     "constraints": [
-                        "node.role == worker"
+                        "node.role == worker",
+			"node.labels.type != broker"
                     ]
                 }
             },
@@ -136,6 +138,17 @@
             "env_file": [
                 ".env"
             ],
+            "deploy": {
+                "labels": {
+                    "type": "unbind-daemon"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                },
+                "replicas": 1
+            },
             "hostname": "daemon",
             "image": "iudx/unbind-daemon",
             "networks": [
@@ -145,7 +158,7 @@
         "vertx": {
             "deploy": {
                 "labels": {
-                    "type": "unbind-daemon"
+                    "type": "http-proxy"
                 },
                 "placement": {
                     "constraints": [

@@ -6,19 +6,20 @@
     },
     "services": {
         "dbconnector": {
-            "env_file": [
-                ".env"
-            ],
-	    "deploy": {
+            "deploy": {
                 "labels": {
                     "type": "dbconnector"
                 },
                 "placement": {
                     "constraints": [
-                        "node.role == worker"
+                        "node.role == worker",
+                        "node.labels.type == database"
                     ]
                 }
             },
+            "env_file": [
+                ".env"
+            ],
             "hostname": "dbconnector",
             "image": "iudx/dbconnector",
             "networks": [
@@ -39,7 +40,8 @@
                 },
                 "placement": {
                     "constraints": [
-                        "node.role == worker"
+                        "node.role == worker",
+			"node.labels.type != broker"
                     ]
                 }
             },
@@ -82,6 +84,16 @@
             "env_file": [
                 ".env"
             ],
+            "deploy": {
+                "labels": {
+                    "type": "unbind-daemon"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
             "hostname": "daemon",
             "image": "iudx/unbind-daemon",
             "networks": [
@@ -94,7 +106,7 @@
             ],
 	    "deploy": {
                 "labels": {
-                    "type": "unbind-daemon"
+                    "type": "http-proxy"
                 },
                 "placement": {
                     "constraints": [
