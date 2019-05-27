@@ -1,11 +1,9 @@
 ---
 - name: Install Docker dependencies
-  apt: name={{ item }} state=latest update_cache=yes
-  with_items:
-    - apt-transport-https
-    - ca-certificates
-    - curl
-    - software-properties-common
+  apt: 
+    name: ["apt-transport-https", "ca-certificates", "curl", "software-properties-common"]
+    state: latest
+    update_cache: yes
   tags: docker
 
 - name: Get Docker key
@@ -33,7 +31,7 @@
 - name: Apply executable permissions to the binary
   shell: chmod +x /usr/local/bin/docker-compose
 
-- name: Leave any previously joined swarm
+- name: Leave any previously joined swarm clusters
   shell: docker swarm leave --force
   ignore_errors: true
 
