@@ -5,58 +5,6 @@
         }
     },
     "services": {
-        "dbconnector": {
-            "deploy": {
-                "labels": {
-                    "type": "dbconnector"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == worker",
-                        "node.labels.type == database"
-                    ]
-                }
-            },
-            "env_file": [
-                ".env"
-            ],
-            "hostname": "dbconnector",
-            "image": "iudx/dbconnector",
-            "networks": [
-                "iudx-net"
-            ],
-            "volumes": [
-                "../iudx-dbconnector:/iudx-dbconnector/"
-            ]
-        },
-        "elk": {
-            "deploy": {
-                "labels": {
-                    "type": "database"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == worker",
-			"node.labels.type != broker"
-                    ]
-                }
-            },
-            "env_file": [
-                ".env"
-            ],
-            "hostname": "elk",
-            "image": "nshou/elasticsearch-kibana",
-            "networks": [
-                "iudx-net"
-            ],
-            "ports": [
-                "9200:9200",
-                "5601:5601"
-            ],
-            "volumes": [
-                "elk-data:/home/ideam/elasticsearch-6.2.4"
-            ]
-        },
         "postgres": {
             "deploy": {
                 "labels": {
@@ -134,36 +82,10 @@
                 "../conf/rabbitmq:/etc/rabbitmq/"
             ]
         },
-        "unbind-daemon": {
-            "env_file": [
-                ".env"
-            ],
-            "deploy": {
-                "labels": {
-                    "type": "unbind-daemon"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == manager"
-                    ]
-                },
-                "replicas": 1
-            },
-            "hostname": "daemon",
-            "image": "iudx/unbind-daemon",
-            "networks": [
-                "iudx-net"
-            ]
-        },
         "vertx": {
             "deploy": {
                 "labels": {
                     "type": "http-proxy"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == manager"
-                    ]
                 },
                 "replicas": 1
             },

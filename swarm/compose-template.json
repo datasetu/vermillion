@@ -36,11 +36,6 @@
                 "labels": {
                     "type": "http-proxy"
                 },
-                "placement": {
-                    "constraints": [
-                        "node.role == manager"
-                    ]
-                },
 		"replicas": 1
             },
             "hostname": "vertx",
