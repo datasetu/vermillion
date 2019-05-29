@@ -23,9 +23,6 @@
             "image": "iudx/postgres",
             "networks": [
                 "iudx-net"
-            ],
-            "volumes": [
-                "pgsql-data:/var/lib/postgresql"
             ]
         },
         "vertx": {
@@ -52,10 +49,5 @@
 
         }
     },
-    "version": "3",
-    "volumes": {
-        "broker-data": null,
-        "elk-data": null,
-        "pgsql-data": null
-    }
+    "version": "3"
 }
