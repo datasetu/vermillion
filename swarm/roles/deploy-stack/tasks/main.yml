@@ -1,3 +1,7 @@
+- name: Remove the iudx stack if it already exists
+  shell: docker stack rm iudx-resource-server
+  ignore_errors: true
+
 - name: Deploy stack
   shell:     
     cmd: docker stack deploy -c docker-compose.json iudx-resource-server

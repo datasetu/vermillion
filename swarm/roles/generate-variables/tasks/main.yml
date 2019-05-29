@@ -9,12 +9,12 @@
 
 - name: Write admin_pwd to .env file
   copy: 
-    content: "ADMIN_PWD={{ hostvars['localhost']['admin_pwd']['stdout'] }} "
+    content: "ADMIN_PWD={{ hostvars['localhost']['admin_pwd']['stdout'] }}"
     dest: ./.env
 
 - name: Write postgres_pwd to .env file
   lineinfile: 
-    line: "POSTGRES_PWD={{ hostvars['localhost']['postgres_pwd']['stdout'] }} "
+    line: "POSTGRES_PWD={{ hostvars['localhost']['postgres_pwd']['stdout'] }}"
     path: ./.env
 
 - name: Indicate that it is a swarm deployment
