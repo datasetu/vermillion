@@ -89,14 +89,27 @@ struct kore_buf *query = NULL;
 struct kore_pgsql sql;
 
 char *postgres_pwd;
-char broker_ip		[100];
-char pgsql_ip		[100];
 
 size_t i;
+
+void 
+init_postgres_conn()
+{
+
+	char conn_str[129];
+        snprintf(conn_str, 129,"host = postgres user = postgres password = %s", postgres_pwd);
+
+	kore_pgsql_cleanup(&sql);
+	kore_pgsql_init(&sql);
+
+        kore_pgsql_register("db",conn_str);
+}
 
 int
 init (int state)
 {
+	//Mask server name
+	http_server_version("");
 	
 	if (query == NULL)
 		query = kore_buf_alloc(512);
@@ -106,39 +119,8 @@ init (int state)
 		fprintf(stderr,"postgres password not set\n");
 		return KORE_RESULT_ERROR;
 	}
-	//unsetenv("POSTGRES_PWD");
 
-	// XXX this user must only have read permissions on DB
-
-	char conn_str[129];
-        snprintf(conn_str, 129,"host = postgres user = postgres password = %s", postgres_pwd);
-
-        kore_pgsql_register("db",conn_str);
-
-///// chroot and drop priv /////
-
-	struct passwd *p;
-	if ((p = getpwnam(UNPRIVILEGED_USER)) == NULL) {
-		perror("getpwnam failed ");
-		return KORE_RESULT_ERROR;
-	}
-
-	if (chroot("./jail") < 0) {
-		perror("chroot failed ");
-		return KORE_RESULT_ERROR;
-	}
-
-	if (setgid(p->pw_gid) < 0) {
-		perror("setgid failed ");
-		return KORE_RESULT_ERROR;
-	}
-
-	if (setuid(p->pw_uid) < 0) {
-		perror("setuid failed ");
-		return KORE_RESULT_ERROR;
-	}
-
-/////////////////////////////////
+	init_postgres_conn();
 
 	return KORE_RESULT_OK;
 }
@@ -241,11 +223,13 @@ login_success (const char *id, const char *apikey)
 	if (! kore_pgsql_setup(&sql,"db",KORE_PGSQL_SYNC))
 	{
 		kore_pgsql_logerror(&sql);
+		init_postgres_conn();
 		goto done;	
 	}
 	if (! kore_pgsql_query(&sql,(const char *)query->data))
 	{
 		kore_pgsql_logerror(&sql);
+		init_postgres_conn();
 		goto done;	
 	}
 
@@ -408,6 +392,7 @@ auth_resource(struct http_request *req)
 	if (! kore_pgsql_setup(&sql,"db",KORE_PGSQL_SYNC))
 	{
 		kore_pgsql_logerror(&sql);
+		init_postgres_conn();
 		DENY();
 	}
 	if (! kore_pgsql_query(&sql,(const char *)query->data))
