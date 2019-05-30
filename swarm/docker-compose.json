@@ -45,7 +45,8 @@
                 "iudx-net"
             ],
             "ports": [
-                "15673:15672"
+                "15673:15672",
+                "5673:5672"
             ],
             "volumes": [
                 "../authenticator:/authenticator/",
@@ -72,7 +73,8 @@
                 "iudx-net"
             ],
             "ports": [
-                "15674:15672"
+                "15674:15672",
+                "5674:5672"
             ],
             "volumes": [
                 "../authenticator:/authenticator/",
