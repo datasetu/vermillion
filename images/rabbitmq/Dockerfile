@@ -21,6 +21,7 @@ RUN apk update									    &&	\
     rabbitmq-plugins --offline enable rabbitmq_management			    &&	\
     rabbitmq-plugins --offline enable rabbitmq_auth_backend_http		    &&	\ 
     rabbitmq-plugins --offline enable rabbitmq_shovel				    &&	\
+    rabbitmq-plugins --offline enable rabbitmq_shovel_management		    &&	\
     rabbitmq-plugins --offline enable rabbitmq_auth_backend_cache
 
 CMD ./docker-entrypoint.sh
