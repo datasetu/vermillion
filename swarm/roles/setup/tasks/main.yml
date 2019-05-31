@@ -45,7 +45,7 @@
     path: /root/iudx-resource-server/
   register: repo
 
-- name: Delete the reository if it already exists
+- name: Delete the repository if it already exists
   file:
     state: absent
     path: /root/iudx-resource-server
@@ -73,6 +73,12 @@
   copy:
     src: ./.env
     dest: /root/iudx-resource-server/swarm/
+
+#TODO: Only for debugging purposes
+- name: Copy directory contents to remote hosts
+  copy:
+    src: ../iudx-api-server/
+    dest: /root/iudx-resource-server/iudx-api-server/
 
 - name: Cleanup existing docker stuff
   shell: docker system prune -a -f
