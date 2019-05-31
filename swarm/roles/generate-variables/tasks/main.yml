@@ -21,3 +21,9 @@
   lineinfile: 
     line: "BROKERS_IN_SWARM={{ groups['workers'] | length -1 }}"
     path: ./.env
+
+- name: Compress current repo into an archive
+  archive:
+    path: ../../iudx-resource-server/
+    dest: ./iudx.zip
+    format: zip

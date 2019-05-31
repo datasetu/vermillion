@@ -103,7 +103,7 @@ init_postgres_conn()
 	kore_pgsql_init(&sql);
 
         kore_pgsql_register("db",conn_str);
-	kore_pgsql_setup(&sql,"db",KORE_PGSQL_SYNC)
+	kore_pgsql_setup(&sql,"db",KORE_PGSQL_SYNC);
 }
 
 int

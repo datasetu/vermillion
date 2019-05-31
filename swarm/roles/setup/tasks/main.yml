@@ -48,37 +48,48 @@
 - name: Delete the repository if it already exists
   file:
     state: absent
-    path: /root/iudx-resource-server
+    path: /root/iudx-resource-server/
   when: repo.stat.exists
 
-- name: Clone the repository
-  shell: git clone https://github.com/rbccps-iisc/iudx-resource-server/
+#- name: Clone the repository
+#  shell: git clone https://github.com/rbccps-iisc/iudx-resource-server/
+#
+#- name: Initialise submodules
+#  shell: 
+#    cmd: git submodule init
+#    chdir: /root/iudx-resource-server
+#
+#- name: Update submodules
+#  shell: 
+#    cmd: git submodule update
+#    chdir: /root/iudx-resource-server
+#
+#- name: Copy docker-compose.json file
+#  copy:
+#    src: ./docker-compose.json
+#    dest: /root/iudx-resource-server/swarm/
+#
+#- name: Copy .env file
+#  copy:
+#    src: ./.env
+#    dest: /root/iudx-resource-server/swarm/
 
-- name: Initialise submodules
-  shell: 
-    cmd: git submodule init
-    chdir: /root/iudx-resource-server
+- name: Create iudx-resource-server folder
+  file:
+    path: /root/iudx-resource-server/
+    state: directory
 
-- name: Update submodules
-  shell: 
-    cmd: git submodule update
-    chdir: /root/iudx-resource-server
-
-- name: Copy docker-compose.json file
-  copy:
-    src: ./docker-compose.json
-    dest: /root/iudx-resource-server/swarm/
-
-- name: Copy .env file
-  copy:
-    src: ./.env
-    dest: /root/iudx-resource-server/swarm/
+- name: Unarchive repo on remote hosts
+  unarchive:
+    src: ./iudx.zip
+    dest: /root/iudx-resource-server
+    creates: /root/iudx-resource-server/deploy
 
 #TODO: Only for debugging purposes
 #- name: Copy directory contents to remote hosts
-#  copy:
-#    src: ../iudx-api-server/
-#    dest: /root/iudx-resource-server/iudx-api-server/
+#  synchronize:
+#    src: ../../iudx-resource-server/
+#    dest: /root/iudx-resource-server/
 
 - name: Cleanup existing docker stuff
   shell: docker system prune -a -f
