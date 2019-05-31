@@ -75,10 +75,10 @@
     dest: /root/iudx-resource-server/swarm/
 
 #TODO: Only for debugging purposes
-- name: Copy directory contents to remote hosts
-  copy:
-    src: ../iudx-api-server/
-    dest: /root/iudx-resource-server/iudx-api-server/
+#- name: Copy directory contents to remote hosts
+#  copy:
+#    src: ../iudx-api-server/
+#    dest: /root/iudx-resource-server/iudx-api-server/
 
 - name: Cleanup existing docker stuff
   shell: docker system prune -a -f
