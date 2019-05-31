@@ -24,6 +24,14 @@
 
 - name: Compress current repo into an archive
   archive:
-    path: ../../iudx-resource-server/
+    path:
+    - ../iudx-api-server/
+    - ../iudx-dbconnector
+    - ../swarm/
+    - ../authenticator/
+    - ../conf/
     dest: ./iudx.zip
     format: zip
+
+- debug:
+    msg: Current dir is {{ playbook_dir }}
