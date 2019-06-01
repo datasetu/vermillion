@@ -32,6 +32,4 @@
     - ../conf/
     dest: ./iudx.zip
     format: zip
-
-- debug:
-    msg: Current dir is {{ playbook_dir }}
+    exclude_path: 
