@@ -19,7 +19,7 @@
 
 - name: Indicate that it is a swarm deployment
   lineinfile: 
-    line: "BROKERS_IN_SWARM={{ groups['workers'] | length -1 }}"
+    line: "BROKERS_IN_SWARM={{ groups['workers'] | length }}"
     path: ./.env
 
 - name: Compress current repo into an archive

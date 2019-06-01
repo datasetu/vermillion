@@ -95,6 +95,7 @@ size_t i;
 void 
 init_postgres_conn()
 {
+	postgres_pwd = getenv("POSTGRES_PWD");
 
 	char conn_str[129];
         snprintf(conn_str, 129,"host = postgres user = postgres password = %s", postgres_pwd);
@@ -104,11 +105,17 @@ init_postgres_conn()
 
         kore_pgsql_register("db",conn_str);
 
-	while(	(kore_pgsql_setup(&sql,"db",KORE_PGSQL_SYNC) == KORE_RESULT_ERROR)
-					    &&
-		    (sql.state == KORE_PGSQL_STATE_INIT)
-	    )
+	debug_printf("db registered\n");
+
+	while(kore_pgsql_setup(&sql,"db",KORE_PGSQL_SYNC) == KORE_RESULT_ERROR)
 	{
+	    debug_printf("Retrying...\n");
+
+	    kore_pgsql_cleanup(&sql);
+	    kore_pgsql_init(&sql);
+
+	    kore_pgsql_register("db",conn_str);
+	    
 	    kore_pgsql_logerror(&sql);
 	}
 
