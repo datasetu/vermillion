@@ -1,0 +1,12 @@
+[submodule "iudx-api-server"]
+	path = iudx-api-server
+	url = https://github.com/rbccps-iisc/iudx-api-server
+[submodule "iudx-authenticator"]
+	path = iudx-authenticator
+	url = https://github.com/rbccps-iisc/iudx-authenticator
+[submodule "iudx-dbconnector"]
+	path = iudx-dbconnector
+	url = https://github.com/rbccps-iisc/iudx-dbconnector
+[submodule "test-suite"]
+	path = test-suite
+	url = https://github.com/rbccps-iisc/iudx-test-suite
