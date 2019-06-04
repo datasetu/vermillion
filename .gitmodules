@@ -7,3 +7,6 @@
 [submodule "iudx-dbconnector"]
 	path = iudx-dbconnector
 	url = https://github.com/rbccps-iisc/iudx-dbconnector
+[submodule "iudx-authenticator"]
+	path = iudx-authenticator
+	url = https://github.com/rbccps-iisc/iudx-authenticator

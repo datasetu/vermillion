@@ -27,9 +27,25 @@ services:
       - ../iudx-api-server:/iudx-api-server/
     env_file:
       - .env
-    depends_on:
-      - rabbit
-      - postgres
+    environment:
+      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
+
+  authenticator:
+    image: iudx/authenticator
+    container_name: authenticator
+    hostname: authenticator
+    restart: always
+    hostname: authenticator
+    networks:
+      - iudx-net
+    cap_add:
+      - ALL
+    volumes:
+      - ../iudx-authenticator:/iudx-authenticator/
+    env_file:
+      - .env
+    environment:
+      - WAIT_HOSTS=postgres:5432
 
   rabbit:
     image: iudx/rabbitmq
@@ -49,8 +65,6 @@ services:
       - ../conf/rabbitmq/:/etc/rabbitmq/
     env_file:
       - .env
-    depends_on:
-      - postgres
   
   postgres:
     image: iudx/postgres
@@ -95,9 +109,8 @@ services:
       - ../iudx-dbconnector:/iudx-dbconnector/
     env_file:
       - .env
-    depends_on:
-      - elk
-      - rabbit
+    environment:
+      - WAIT_HOSTS=postgres:5432,rabbit:5672, elk:9200
 
   unbind-daemon:
     image: iudx/unbind-daemon
@@ -111,6 +124,5 @@ services:
       - ALL
     env_file:
       - .env
-    depends_on:
-      - postgres
-      - rabbit
+    environment:
+      - WAIT_HOSTS=postgres:5432,rabbit:5672
