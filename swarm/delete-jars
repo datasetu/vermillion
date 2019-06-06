@@ -1,8 +1,0 @@
-#!/bin/bash
-
-sudo rm -rf ../iudx-api-server/iudx-api-server-0.0.1-SNAPSHOT-fat.jar			    \
-	    ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar		    \
-	    ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT.jar		    \
-	    ../iudx-dbconnector/iudx-dbconnector-0.0.1-SNAPSHOT-jar-with-dependencies.jar   \
-	    ../iudx-dbconnector/target/iudx-dbconnector-0.0.1-SNAPSHOT-jar-with-dependencies.jar
-

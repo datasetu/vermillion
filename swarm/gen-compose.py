@@ -50,7 +50,7 @@ if __name__ == "__main__":
     workers = int(args.workers)
     proxies = int(args.proxies)
 
-    rabbit_list = ["rabbit" + str(i) for i in range(1,workers+1)]
+    rabbit_list = ["rabbit" + str(i) + ":5672" for i in range(1,workers+1)]
 
     node_list = [Node(node).populate_node_name() for node in range(0, int(workers))]
 
@@ -64,10 +64,11 @@ if __name__ == "__main__":
         
         counter = counter + 1
 
+    wait_hosts = "WAIT_HOSTS=postgres:5432,authenticator:80," +",".join(rabbit_list)
+
+    base_dict["services"]["vertx"]["environment"] = ["WAIT_HOSTS_TIMEOUT=60", wait_hosts]
     base_dict["services"]["vertx"]["deploy"]["replicas"] = int(proxies)
-    #base_dict["services"]["vertx"]["depends_on"] = rabbit_list + ["postgres"]
-    #base_dict["services"]["dbconnector"]["depends_on"] = rabbit_list + ["elk"]
-    #base_dict["services"]["unbind-daemon"]["depends_on"] = rabbit_list + ["postgres"]
+    base_dict["services"]["authenticator"]["deploy"]["replicas"] = int(workers)
 
     f = open("docker-compose.json", "w")
     f.write(json.dumps(base_dict))

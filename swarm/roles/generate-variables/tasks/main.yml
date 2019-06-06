@@ -22,13 +22,17 @@
     line: "BROKERS_IN_SWARM={{ groups['workers'] | length }}"
     path: ./.env
 
+- name: Enable quick install mode
+  lineinfile: 
+    line: "QUICK_INSTALL=true"
+    path: ./.env
+
 - name: Compress current repo into an archive
   archive:
     path:
     - ../iudx-api-server/
-    - ../iudx-dbconnector
+    - ../iudx-authenticator
     - ../swarm/
-    - ../authenticator/
     - ../conf/
     dest: ./iudx.zip
     format: zip

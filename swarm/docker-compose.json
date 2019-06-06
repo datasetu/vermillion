@@ -1,1 +1,193 @@
-{"networks": {"iudx-net": {"driver": "overlay"}}, "services": {"postgres": {"env_file": [".env"], "deploy": {"labels": {"type": "auth-db"}, "placement": {"constraints": ["node.role == manager"]}}, "hostname": "postgres", "image": "iudx/postgres", "networks": ["iudx-net"]}, "vertx": {"env_file": [".env"], "deploy": {"labels": {"type": "http-proxy"}, "replicas": 1}, "hostname": "vertx", "image": "iudx/vertx", "networks": ["iudx-net"], "ports": ["443:8443"], "volumes": ["../iudx-api-server:/iudx-api-server/"]}, "rabbit1": {"deploy": {"labels": {"type": "broker"}, "placement": {"constraints": ["node.role == worker"]}}, "env_file": [".env"], "hostname": "rabbit1", "image": "iudx/rabbitmq", "networks": ["iudx-net"], "ports": ["127.0.0.1:15673:15672"], "volumes": ["../authenticator:/authenticator/", "../conf/rabbitmq:/etc/rabbitmq/"]}, "rabbit2": {"deploy": {"labels": {"type": "broker"}, "placement": {"constraints": ["node.role == worker"]}}, "env_file": [".env"], "hostname": "rabbit2", "image": "iudx/rabbitmq", "networks": ["iudx-net"], "ports": ["127.0.0.1:15674:15672"], "volumes": ["../authenticator:/authenticator/", "../conf/rabbitmq:/etc/rabbitmq/"]}}, "version": "3"}
+{
+    "networks": {
+        "iudx-net": {
+            "driver": "overlay"
+        }
+    },
+    "services": {
+        "authenticator": {
+            "deploy": {
+                "labels": {
+                    "type": "authenticator"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role==worker"
+                    ]
+                },
+                "replicas": 4
+            },
+            "env_file": [
+                ".env"
+            ],
+            "environment": [
+                "WAIT_HOSTS=postgres:5432"
+            ],
+            "hostname": "authenticator",
+            "image": "iudx/authenticator",
+            "networks": [
+                "iudx-net"
+            ],
+            "restart": "always",
+            "volumes": [
+                "../iudx-authenticator:/iudx-authenticator/"
+            ]
+        },
+        "postgres": {
+            "deploy": {
+                "labels": {
+                    "type": "auth-db"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "postgres",
+            "image": "iudx/postgres",
+            "networks": [
+                "iudx-net"
+            ]
+        },
+        "rabbit1": {
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "rabbit1",
+            "image": "iudx/rabbitmq",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "127.0.0.1:15673:15672"
+            ],
+            "volumes": [
+                "../conf/rabbitmq:/etc/rabbitmq/"
+            ]
+        },
+        "rabbit2": {
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "rabbit2",
+            "image": "iudx/rabbitmq",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "127.0.0.1:15674:15672"
+            ],
+            "volumes": [
+                "../conf/rabbitmq:/etc/rabbitmq/"
+            ]
+        },
+        "rabbit3": {
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "rabbit3",
+            "image": "iudx/rabbitmq",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "127.0.0.1:15675:15672"
+            ],
+            "volumes": [
+                "../conf/rabbitmq:/etc/rabbitmq/"
+            ]
+        },
+        "rabbit4": {
+            "deploy": {
+                "labels": {
+                    "type": "broker"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == worker"
+                    ]
+                }
+            },
+            "env_file": [
+                ".env"
+            ],
+            "hostname": "rabbit4",
+            "image": "iudx/rabbitmq",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "127.0.0.1:15676:15672"
+            ],
+            "volumes": [
+                "../conf/rabbitmq:/etc/rabbitmq/"
+            ]
+        },
+        "vertx": {
+            "deploy": {
+                "labels": {
+                    "type": "http-proxy"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role==manager"
+                    ]
+                },
+                "replicas": 2
+            },
+            "env_file": [
+                ".env"
+            ],
+            "environment": [
+                "WAIT_HOSTS_TIMEOUT=60",
+                "WAIT_HOSTS=postgres:5432,authenticator:80,rabbit1:5672,rabbit2:5672,rabbit3:5672,rabbit4:5672"
+            ],
+            "hostname": "vertx",
+            "image": "iudx/vertx",
+            "networks": [
+                "iudx-net"
+            ],
+            "ports": [
+                "443:8443"
+            ],
+            "volumes": [
+                "../iudx-api-server:/iudx-api-server/"
+            ]
+        }
+    },
+    "version": "3"
+}

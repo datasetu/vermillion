@@ -12,7 +12,7 @@
     "env_file": [
         ".env"
     ],
-    "hostname": "broker",
+    "hostname": "rabbit1",
     "image": "iudx/rabbitmq",
     "networks": [
         "iudx-net"
@@ -21,7 +21,6 @@
         "15672:15672"
     ],
     "volumes": [
-        "../authenticator:/authenticator/",
         "../conf/rabbitmq:/etc/rabbitmq/"
     ]
 }

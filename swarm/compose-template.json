@@ -5,11 +5,36 @@
         }
     },
     "services": {
-        "postgres": {
+        "authenticator": {
+            "deploy": {
+                "labels": {
+                    "type": "authenticator"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role==worker"
+                    ]
+                },
+                "replicas": 1
+            },
             "env_file": [
                 ".env"
             ],
-	    "deploy": {
+            "environment": [
+                "WAIT_HOSTS=postgres:5432"
+            ],
+            "hostname": "authenticator",
+            "image": "iudx/authenticator",
+            "networks": [
+                "iudx-net"
+            ],
+            "restart": "always",
+            "volumes": [
+                "../iudx-authenticator:/iudx-authenticator/"
+            ]
+        },
+        "postgres": {
+            "deploy": {
                 "labels": {
                     "type": "auth-db"
                 },
@@ -19,6 +44,9 @@
                     ]
                 }
             },
+            "env_file": [
+                ".env"
+            ],
             "hostname": "postgres",
             "image": "iudx/postgres",
             "networks": [
@@ -26,15 +54,23 @@
             ]
         },
         "vertx": {
-            "env_file": [
-                ".env"
-            ],
-	    "deploy": {
+            "deploy": {
                 "labels": {
                     "type": "http-proxy"
                 },
-		"replicas": 1
+                "placement": {
+                    "constraints": [
+                        "node.role==manager"
+                    ]
+                },
+                "replicas": 1
             },
+            "env_file": [
+                ".env"
+            ],
+            "environment": [
+                "WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80"
+            ],
             "hostname": "vertx",
             "image": "iudx/vertx",
             "networks": [
@@ -46,7 +82,6 @@
             "volumes": [
                 "../iudx-api-server:/iudx-api-server/"
             ]
-
         }
     },
     "version": "3"
