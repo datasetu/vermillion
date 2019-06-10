@@ -1,0 +1,46 @@
+---
+- name: Generate admin password
+  shell: cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo
+  register: admin_pwd
+
+- name: Generate postgres password
+  shell: cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo
+  register: postgres_pwd
+
+- name: Write admin_pwd to .env file
+  copy: 
+    content: "ADMIN_PWD={{ hostvars['localhost']['admin_pwd']['stdout'] }}"
+    dest: ./.env
+
+- name: Write postgres_pwd to .env file
+  lineinfile: 
+    line: "POSTGRES_PWD={{ hostvars['localhost']['postgres_pwd']['stdout'] }}"
+    path: ./.env
+
+- name: Indicate that it is a swarm deployment
+  lineinfile: 
+    line: "BROKERS_IN_SWARM={{ groups['workers'] | length }}"
+    path: ./.env
+
+- name: Set erlang cookie for all rabbitmq nodes to use
+  vars:
+    pwd_alias: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters') }}"
+  lineinfile: 
+    line: "ERLANG_COOKIE={{ pwd_alias }}"
+    path: ./.env
+
+- name: Enable quick install mode
+  lineinfile: 
+    line: "QUICK_INSTALL=true"
+    path: ./.env
+
+- name: Compress current repo into an archive
+  archive:
+    path:
+    - ../iudx-api-server/
+    - ../iudx-authenticator
+    - ../cluster/
+    - ../conf/
+    dest: ./iudx.zip
+    format: zip
+    exclude_path: 

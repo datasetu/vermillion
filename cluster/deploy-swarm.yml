@@ -1,0 +1,35 @@
+---
+- name: Generate variables
+  hosts: localhost
+  roles:
+    - generate-variables
+
+- name: Initialise all hosts
+  hosts: all
+  remote_user: root
+  roles:
+    - setup
+
+- name: Swarm init
+  hosts: swarm-manager
+  remote_user: root
+  roles:
+    - swarm-init
+
+- name: Add managers
+  hosts: managers
+  remote_user: root
+  roles:
+    - add-manager
+
+- name: Add workers
+  hosts: workers
+  remote_user: root
+  roles:
+    - add-worker
+
+- name: Deploy stack
+  hosts: swarm-manager
+  remote_user: root
+  roles:
+    - deploy-stack

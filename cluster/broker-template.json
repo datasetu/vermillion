@@ -1,0 +1,26 @@
+{
+    "deploy": {
+        "labels": {
+            "type": "broker"
+        },
+        "placement": {
+            "constraints": [
+                "node.role == worker"
+            ]
+        }
+    },
+    "env_file": [
+        ".env"
+    ],
+    "hostname": "rabbit1",
+    "image": "iudx/rabbitmq-cluster",
+    "networks": [
+        "iudx-net"
+    ],
+    "ports": [
+        "15672:15672"
+    ],
+    "volumes": [
+        "../conf/rabbitmq:/etc/rabbitmq/"
+    ]
+}

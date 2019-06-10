@@ -1,0 +1,22 @@
+{
+        "unbind-daemon": {
+            "env_file": [
+                ".env"
+            ],
+            "deploy": {
+                "labels": {
+                    "type": "unbind-daemon"
+                },
+                "placement": {
+                    "constraints": [
+                        "node.role == manager"
+                    ]
+                }
+            },
+            "hostname": "daemon",
+            "image": "iudx/unbind-daemon",
+            "networks": [
+                "iudx-net"
+            ]
+        }
+}

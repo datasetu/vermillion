@@ -1,0 +1,97 @@
+---
+- name: Install Docker dependencies
+  apt: 
+    name: ["apt-transport-https", "zip", "unzip", "ca-certificates", "curl", "software-properties-common"]
+    state: latest
+    update_cache: yes
+  tags: docker
+
+- name: Get Docker key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+  tags: docker
+
+- name: Add Docker packages to repository
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename|lower }} stable
+  tags: docker
+
+- name: Install Docker-CE
+  apt: name="docker-ce" state=latest update_cache=yes
+  tags: docker
+
+- name: Install python3 python3-pip python3-setuptools
+  apt:
+    name: ["python3", "python3-pip", "python3-setuptools"]
+
+- name: Install docker-compose
+  shell: curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+
+- name: Apply executable permissions to the binary
+  shell: chmod +x /usr/local/bin/docker-compose
+
+- name: Leave any previously joined swarm clusters
+  shell: docker swarm leave --force
+  ignore_errors: true
+
+- cron:
+    name: Join swarm after system restart
+    special_time: reboot
+    job: "docker ps"
+
+- name: Check if the git repository exists
+  stat:
+    path: /root/iudx-resource-server/
+  register: repo
+
+- name: Delete the repository if it already exists
+  file:
+    state: absent
+    path: /root/iudx-resource-server/
+  when: repo.stat.exists
+
+#- name: Clone the repository
+#  shell: git clone https://github.com/rbccps-iisc/iudx-resource-server/
+#
+#- name: Initialise submodules
+#  shell: 
+#    cmd: git submodule init
+#    chdir: /root/iudx-resource-server
+#
+#- name: Update submodules
+#  shell: 
+#    cmd: git submodule update
+#    chdir: /root/iudx-resource-server
+#
+#- name: Copy docker-compose.json file
+#  copy:
+#    src: ./docker-compose.json
+#    dest: /root/iudx-resource-server/swarm/
+#
+#- name: Copy .env file
+#  copy:
+#    src: ./.env
+#    dest: /root/iudx-resource-server/swarm/
+
+- name: Create iudx-resource-server folder
+  file:
+    path: /root/iudx-resource-server/
+    state: directory
+
+- name: Unarchive repo on remote hosts
+  unarchive:
+    src: ./iudx.zip
+    dest: /root/iudx-resource-server
+    creates: /root/iudx-resource-server/deploy
+
+#TODO: Only for debugging purposes
+#- name: Copy directory contents to remote hosts
+#  synchronize:
+#    src: ../../iudx-resource-server/
+#    dest: /root/iudx-resource-server/
+
+- name: Cleanup existing docker stuff
+  shell: docker system prune -a -f
+  ignore_errors: true
+
