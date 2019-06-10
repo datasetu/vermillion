@@ -61,7 +61,6 @@ services:
       - ALL
     volumes:
       - broker-data:/var/lib/rabbitmq/
-      - ../authenticator:/authenticator/
       - ../conf/rabbitmq/:/etc/rabbitmq/
     env_file:
       - .env
