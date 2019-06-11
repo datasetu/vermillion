@@ -19,7 +19,7 @@
 
 - name: Indicate that it is a swarm deployment
   lineinfile: 
-    line: "BROKERS_IN_SWARM={{ groups['workers'] | length }}"
+    line: "BROKERS_IN_CLUSTER={{ groups['workers'] | length }}"
     path: ./.env
 
 - name: Set erlang cookie for all rabbitmq nodes to use
@@ -43,4 +43,3 @@
     - ../conf/
     dest: ./iudx.zip
     format: zip
-    exclude_path: 

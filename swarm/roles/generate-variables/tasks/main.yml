@@ -36,4 +36,3 @@
     - ../conf/
     dest: ./iudx.zip
     format: zip
-    exclude_path: 
