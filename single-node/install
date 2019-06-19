@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -e
 YELLOW='\033[1;33m'
 
 directory=`dirname $0`

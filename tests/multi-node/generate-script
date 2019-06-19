@@ -1,0 +1,43 @@
+#!/usr/bin/python
+
+import argparse
+import requests
+import json
+from requests.adapters import HTTPAdapter
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+logger = logging.getLogger(__name__)
+
+owner_url = "https://localhost/admin/register-owner"
+entity_url = "https://localhost/owner/register-entity"
+
+parser = argparse.ArgumentParser(description="Specifications to generate tsung file")
+
+parser.add_argument(
+    "-p",
+    "--producers",
+    action="store",
+    dest="producers",
+    type=int,
+    help="No. of to use to publish datapoints",
+    )
+
+args = parser.parse_args()
+producers= int(args.producers)
+
+name_list   =   list(open("list","r").read()[:-1].split("\n"))
+apikey	    =	open("../../single-node/.env","r").readline()[:-1].split("=")[1]
+
+devices_to_register = 1
+
+owner_keys = {}
+entity_keys = {}
+
+for i in range(0,26):
+    headers = {"id": "admin", "apikey": apikey, "owner": owner_name, "is-autonomous": "true"}
+    r = requests.post(url=owner_url, headers=headers, verify=False)
+    owner_keys[name_list[i]] = r.json()["apikey"]
+
+print(json.dumps(owner_keys))
+

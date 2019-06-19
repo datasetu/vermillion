@@ -15,7 +15,7 @@
                         "node.role==worker"
                     ]
                 },
-                "replicas": 4
+                "replicas": 3
             },
             "env_file": [
                 ".env"
@@ -68,7 +68,7 @@
                 ".env"
             ],
             "hostname": "rabbit1",
-            "image": "iudx/rabbitmq",
+            "image": "iudx/rabbitmq-hipe",
             "networks": [
                 "iudx-net"
             ],
@@ -76,7 +76,7 @@
                 "127.0.0.1:15673:15672"
             ],
             "volumes": [
-                "../conf/rabbitmq:/etc/rabbitmq/"
+                "../conf/rabbitmq-hipe:/etc/rabbitmq/"
             ]
         },
         "rabbit2": {
@@ -94,7 +94,7 @@
                 ".env"
             ],
             "hostname": "rabbit2",
-            "image": "iudx/rabbitmq",
+            "image": "iudx/rabbitmq-hipe",
             "networks": [
                 "iudx-net"
             ],
@@ -102,7 +102,7 @@
                 "127.0.0.1:15674:15672"
             ],
             "volumes": [
-                "../conf/rabbitmq:/etc/rabbitmq/"
+                "../conf/rabbitmq-hipe:/etc/rabbitmq/"
             ]
         },
         "rabbit3": {
@@ -120,7 +120,7 @@
                 ".env"
             ],
             "hostname": "rabbit3",
-            "image": "iudx/rabbitmq",
+            "image": "iudx/rabbitmq-hipe",
             "networks": [
                 "iudx-net"
             ],
@@ -128,33 +128,7 @@
                 "127.0.0.1:15675:15672"
             ],
             "volumes": [
-                "../conf/rabbitmq:/etc/rabbitmq/"
-            ]
-        },
-        "rabbit4": {
-            "deploy": {
-                "labels": {
-                    "type": "broker"
-                },
-                "placement": {
-                    "constraints": [
-                        "node.role == worker"
-                    ]
-                }
-            },
-            "env_file": [
-                ".env"
-            ],
-            "hostname": "rabbit4",
-            "image": "iudx/rabbitmq",
-            "networks": [
-                "iudx-net"
-            ],
-            "ports": [
-                "127.0.0.1:15676:15672"
-            ],
-            "volumes": [
-                "../conf/rabbitmq:/etc/rabbitmq/"
+                "../conf/rabbitmq-hipe:/etc/rabbitmq/"
             ]
         },
         "vertx": {
@@ -173,8 +147,8 @@
                 ".env"
             ],
             "environment": [
-                "WAIT_HOSTS_TIMEOUT=60",
-                "WAIT_HOSTS=postgres:5432,authenticator:80,rabbit1:5672,rabbit2:5672,rabbit3:5672,rabbit4:5672"
+                "WAIT_HOSTS_TIMEOUT=120",
+                "WAIT_HOSTS=postgres:5432,authenticator:80,rabbit1:5672,rabbit2:5672,rabbit3:5672"
             ],
             "hostname": "vertx",
             "image": "iudx/vertx",

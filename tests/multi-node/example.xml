@@ -1,0 +1,54 @@
+<?xml version="1.0"?> 
+<!DOCTYPE tsung SYSTEM "/usr/share/tsung/tsung-1.0.dtd">
+<tsung loglevel="warning" version="1.0">
+
+  <!-- Client side setup -->
+  <clients>
+    <client host="localhost" maxusers="30000" cpu="4"/>
+    <client host="controller2" maxusers="30000" cpu="4"/>
+</clients>
+
+
+  <!-- Server side setup -->
+
+  <servers>
+    <server host="node-1" port="443" type="ssl"/>
+    <server host="node-2" port="443" type="ssl"/>
+    <server host="node-3" port="443" type="ssl"/>
+    <server host="node-4" port="443" type="ssl"/>
+  </servers>
+
+  <load>
+          <arrivalphase phase="1" duration="10" unit="minute">
+  <users arrivalrate="100" unit="second" maxnumber="3000"></users>
+</arrivalphase>
+</load>
+
+ <sessions>
+  <session name="http-example" probability="100" type="ts_http">
+<for from="1" to="10000" incr="1" var="counter">
+<request>
+        <http url="/entity/publish" method="POST" contents="{&quot;test&quot;:&quot;test&quot;}">
+                <http_header name="id" value="admin/dev"/>
+                <http_header name="apikey" value="qq6SkmgOBIS2zgsHjzvuz1cIdCFIuWjs"/>
+                <http_header name="to" value="admin/dev"/>
+                <http_header name="subject" value="#"/>
+                <http_header name="message-type" value="protected"/>
+                <http_header name="content-type" value="application/json"/>
+        </http>
+</request>
+<request>
+        <http url="/entity/publish" method="POST" contents="{&quot;test&quot;:&quot;test&quot;}">
+                <http_header name="id" value="beaver/dev"/>
+                <http_header name="apikey" value="ZyCvKiWJtb3IAfuEIhRt7aN20LV34WX4"/>
+                <http_header name="to" value="beaver/dev"/>
+                <http_header name="subject" value="#"/>
+                <http_header name="message-type" value="protected"/>
+                <http_header name="content-type" value="application/json"/>
+        </http>
+</request>
+</for>
+
+  </session>
+ </sessions>
+</tsung>

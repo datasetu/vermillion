@@ -28,7 +28,8 @@ services:
     env_file:
       - .env
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
+     - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
+     - WAIT_HOSTS_TIMEOUT=120
 
   authenticator:
     image: iudx/authenticator
@@ -48,7 +49,7 @@ services:
       - WAIT_HOSTS=postgres:5432
 
   rabbit:
-    image: iudx/rabbitmq
+    image: iudx/rabbitmq-hipe
     container_name: rabbit
     restart: always
     hostname: rabbit
@@ -61,7 +62,7 @@ services:
       - ALL
     volumes:
       - broker-data:/var/lib/rabbitmq/
-      - ../conf/rabbitmq/:/etc/rabbitmq/
+      - ../conf/rabbitmq-hipe/:/etc/rabbitmq/
     env_file:
       - .env
   
