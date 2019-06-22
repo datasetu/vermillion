@@ -7,13 +7,19 @@ from requests.adapters import HTTPAdapter
 import urllib3
 import logging
 import multiprocessing as mp
+import partition as p
+import random
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
-owner_url = "https://localhost/admin/register-owner"
-entity_url = "https://localhost/owner/register-entity"
+base_url	=   "https://"
+node_list	=   []
+owner_endpoint	=   "/admin/register-owner"
+entity_endpoint	=   "/owner/register-entity"
+
+output	    =	mp.Queue()
 
 reading = \
 """
@@ -48,7 +54,7 @@ session = \
 </session>
 """
 
-parser = argparse.ArgumentParser(description="Specifications to generate tsung file")
+parser = argparse.ArgumentParser(description="Specifications to generate the tsung config file")
 
 parser.add_argument(
     "-p",
@@ -59,20 +65,34 @@ parser.add_argument(
     help="No. of to use to publish datapoints",
     )
 
+parser.add_argument(
+    "-n",
+    "--nodes",
+    action="store",
+    dest="nodes",
+    type=int,
+    help="No. of nodes to use for parallel registrations",
+    )
+
 args = parser.parse_args()
 producers= int(args.producers)
+nodes= int(args.nodes)
+
+if nodes == 1:
+    node_list = ["localhost"]
+else:
+    node_list =	["node-"+str(i) for i in range(1,nodes+1)]
 
 name_list   =   list(open("list","r").read()[:-1].split("\n"))
 apikey	    =	open("../../single-node/.env","r").readline()[:-1].split("=")[1]
-
-devices_to_register = 1
 
 owner_keys = {}
 device_keys = {}
 
 for owner_name in name_list:
-    print(owner_name)
+    print("Registering owner: {0}".format(owner_name))
     headers = {"id": "admin", "apikey": apikey, "owner": owner_name, "is-autonomous": "true"}
+    owner_url = base_url + random.choice(node_list) + owner_endpoint
     r = requests.post(url=owner_url, headers=headers, verify=False)
     owner_keys[owner_name] = r.json()["apikey"]
 
@@ -80,15 +100,34 @@ f = open("owner_keys", "w")
 f.write(json.dumps(owner_keys))
 f.close()
 
-for i in range(0,producers):
-    
-    owner = name_list[i%26]
-    dev_name = "dev"+str(i)
-    print(owner,dev_name)
-    headers = {"id": owner, "apikey": owner_keys[owner], "entity": dev_name, "is-autonomous": "true"}
-    r = requests.post(url=entity_url, headers=headers, data="{}", verify=False)
-    print(r.text)
-    device_keys[owner+"/"+dev_name] = r.json()["apikey"]
+def register(bounds):
+
+    global device_keys
+
+    start   =	bounds[0]
+    end	    =	bounds[1]
+
+    for i in range(start,end):
+        owner = name_list[i%26]
+        dev_name = "dev"+str(i)
+	print("Registering device: {0}".format(owner+"/"+dev_name))
+        headers = {"id": owner, "apikey": owner_keys[owner], "entity": dev_name, "is-autonomous": "true"}
+	entity_url = base_url + random.choice(node_list) + entity_endpoint
+        r = requests.post(url=entity_url, headers=headers, data="{}", verify=False)
+        device_keys[owner+"/"+dev_name] = r.json()["apikey"]
+
+    output.put(device_keys)
+
+workers	    =   int(mp.cpu_count())*2
+range_list  =   p.ranges(producers, workers)
+pool	    =   mp.Pool(workers)
+processes   =   pool.map(register, range_list)
+
+results	    =	[output.get() for p in processes]
+
+for element in results:
+    for device, apikey in element.items():
+	device_keys[device] = apikey
 
 f = open("device_keys", "w")
 f.write(json.dumps(device_keys))
@@ -98,11 +137,7 @@ session_str = ""
 
 probability = 100.0/float(producers)
 
-
 for device,apikey in device_keys.items():
-
-    print("device="+device)
-    print("apikey="+apikey)
 
     current_reading =	reading.format	(   name=device
 					)
