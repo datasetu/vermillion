@@ -1,0 +1,22 @@
+<?xml version="1.0"?> 
+<!DOCTYPE tsung SYSTEM "/usr/share/tsung/tsung-1.0.dtd">
+<tsung loglevel="warning" version="1.0">
+
+  <!-- Client side setup -->
+  <clients>
+    <client host="localhost" maxusers="30000" cpu="4"/>
+</clients>
+
+
+  <!-- Server side setup -->
+
+  <servers>
+    <server host="localhost" port="443" type="ssl"/>
+  </servers>
+
+  <load>
+          <arrivalphase phase="1" duration="10" unit="minute">
+  <users arrivalrate="10" unit="second" maxnumber="3000"></users>
+</arrivalphase>
+</load>
+

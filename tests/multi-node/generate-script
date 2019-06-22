@@ -4,6 +4,9 @@ import argparse
 import requests
 import json
 from requests.adapters import HTTPAdapter
+import urllib3
+import logging
+import multiprocessing as mp
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -11,6 +14,39 @@ logger = logging.getLogger(__name__)
 
 owner_url = "https://localhost/admin/register-owner"
 entity_url = "https://localhost/owner/register-entity"
+
+reading = \
+"""
+{{
+  &quot;FloodSensor&quot;: {{
+    &quot;DANGER&quot;: &quot;1.0&quot;,
+    &quot;CUR_LEVEL&quot;: &quot;0.05&quot;,
+    &quot;STATUS&quot;: &quot;Normal&quot;,
+    &quot;LASTUPDATEDATETIME&quot;: &quot;2019-06-21T11:02:16.635+05:30&quot;,
+    &quot;SITE_STATUS&quot;: &quot;Active&quot;,
+    &quot;ALERT&quot;: &quot;0.5&quot;,
+    &quot;STATION_ID&quot;: &quot;FWR023&quot;,
+    &quot;NAME&quot;: &quot;{name}&quot;
+  }}
+}}
+"""
+session = \
+"""
+<session name="{name}" probability="{prob}" type="ts_http">
+<for from="1" to="10000" incr="1" var="counter">
+    <request>
+	<http url="/entity/publish" method="POST" contents="{reading}">
+	    <http_header name="id" value="{entity}"/>
+            <http_header name="apikey" value="{apikey}"/>
+            <http_header name="to" value="{entity}"/>
+            <http_header name="subject" value="test"/>
+            <http_header name="message-type" value="protected"/>
+            <http_header name="content-type" value="application/json"/>
+        </http>
+    </request>
+</for>
+</session>
+"""
 
 parser = argparse.ArgumentParser(description="Specifications to generate tsung file")
 
@@ -32,12 +68,62 @@ apikey	    =	open("../../single-node/.env","r").readline()[:-1].split("=")[1]
 devices_to_register = 1
 
 owner_keys = {}
-entity_keys = {}
+device_keys = {}
 
-for i in range(0,26):
+for owner_name in name_list:
+    print(owner_name)
     headers = {"id": "admin", "apikey": apikey, "owner": owner_name, "is-autonomous": "true"}
     r = requests.post(url=owner_url, headers=headers, verify=False)
-    owner_keys[name_list[i]] = r.json()["apikey"]
+    owner_keys[owner_name] = r.json()["apikey"]
 
-print(json.dumps(owner_keys))
+f = open("owner_keys", "w")
+f.write(json.dumps(owner_keys))
+f.close()
+
+for i in range(0,producers):
+    
+    owner = name_list[i%26]
+    dev_name = "dev"+str(i)
+    print(owner,dev_name)
+    headers = {"id": owner, "apikey": owner_keys[owner], "entity": dev_name, "is-autonomous": "true"}
+    r = requests.post(url=entity_url, headers=headers, data="{}", verify=False)
+    print(r.text)
+    device_keys[owner+"/"+dev_name] = r.json()["apikey"]
+
+f = open("device_keys", "w")
+f.write(json.dumps(device_keys))
+f.close()
+
+session_str = ""
+
+probability = 100.0/float(producers)
+
+
+for device,apikey in device_keys.items():
+
+    print("device="+device)
+    print("apikey="+apikey)
+
+    current_reading =	reading.format	(   name=device
+					)
+    current_session =	session.format	(   name=device, 
+					    prob=probability, 
+					    reading=current_reading,
+					    entity=device, 
+					    apikey= apikey
+					)
+
+    session_str = session_str + current_session + "\n"
+
+template    =	open("template.xml","r").read()
+
+template    =	template	+		\
+		"<sessions>"	+   "\n"    +	\
+		session_str	+   "\n"    +	\
+		"</sessions>"	+   "\n"    +	\
+		"</tsung>"
+
+f = open("out.xml", "w")
+f.write(template)
+f.close()
 
