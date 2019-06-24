@@ -1,0 +1,78 @@
+#!/usr/bin/python
+
+import pika
+import argparse
+import multiprocessing as mp
+import json
+import random
+
+def subscribe(credentials):  
+
+    username	=   credentials[0]
+    apikey	=   credentials[1]
+    node	=   credentials[2]
+    port	=   credentials[3]
+
+    print("Started subscriber for {0} at host={1} and port={2}".format(username, node, port))
+
+    credentials	=   pika.PlainCredentials(username, apikey)
+    parameters	=   pika.ConnectionParameters(host=node,
+		    port=port, credentials=credentials)
+    connection	=   pika.BlockingConnection(parameters)
+    channel	=   connection.channel()
+
+    for (method_frame, properties, body) in channel.consume(username, inactivity_timeout=3600):
+
+        if not method_frame:
+           continue 
+
+        channel.basic_ack(method_frame.delivery_tag)
+
+	print("Got message {0} for user {1} at {2}".format(body, username, node))
+
+if __name__ == "__main__":
+
+    parser  =	argparse.ArgumentParser(description="Script to start simultaneous subscribers")
+    
+    parser.add_argument(
+        "-s",
+        "--subscribers",
+        action="store",
+        dest="subscribers",
+        type=int,
+        help="No. of subscribers to start simultaneously",
+        )
+
+    parser.add_argument(
+        "-n",
+        "--nodes",
+        action="store",
+        dest="nodes",
+        type=int,
+        help="No. of nodes to connect to",
+        )
+
+    args		=   parser.parse_args()
+    subscribers		=   int(args.subscribers)
+    device_keys		=   json.loads(open("device_keys","r").read())
+    device_name_list	=   [str(device) for device in device_keys]
+    nodes		=   int(args.nodes)
+    subscribe_list	=   []
+
+    if nodes == 1:
+	node_list = ["localhost"]
+    else:
+	node_list =	["node-"+str(i) for i in range(1,nodes+1)]
+
+    for i in range(0, subscribers):
+	dev_name	=   str(random.choice(device_name_list))
+	bucket_number	=   (int(ord(dev_name[0]))-96)	%   nodes;
+	broker_bucket	=   nodes if bucket_number == 0 else bucket_number
+	broker_url 	=   random.choice(node_list)
+	port		=   5672	+   broker_bucket
+	subscribe_list.append([dev_name, str(device_keys[dev_name]), broker_url, port])
+
+    print(str(subscribe_list))
+
+    pool		=   mp.Pool(subscribers)
+    processes		=   pool.map(subscribe, subscribe_list)

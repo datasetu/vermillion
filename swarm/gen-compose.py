@@ -18,7 +18,7 @@ class Node:
 
         node_name = "rabbit" + str(self.incr_value + 1)
         self.template["hostname"] = node_name
-        port_list = ["127.0.0.1:"+str(15672 + int(self.incr_value)+1)+":15672"]
+        port_list = [str(15672 + int(self.incr_value)+1)+":15672", str(5672 + int(self.incr_value)+1)+":5672"]
         self.template["ports"] = port_list
 
         return self.template
