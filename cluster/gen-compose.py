@@ -20,9 +20,10 @@ class Node:
 	self.template["hostname"] = node_name
 
 	if node_name != "rabbit1":
-	    self.template["environment"] = ["WAIT_HOSTS_TIMEOUT=60","WAIT_HOSTS=rabbit1:5672"]
+	    self.template["environment"] = ["WAIT_HOSTS_TIMEOUT=300","WAIT_HOSTS=rabbit1:5672"]
 
-        port_list = ["127.0.0.1:"+str(15672 + int(self.incr_value)+1)+":15672"]
+        port_list = [str(15672 + int(self.incr_value)+1)+":15672", str(5672 + int(self.incr_value)+1)+":5672"]
+
         self.template["ports"] = port_list
 
         return self.template
@@ -70,7 +71,7 @@ if __name__ == "__main__":
 
     vertx_wait_hosts = "WAIT_HOSTS=postgres:5432,authenticator:80," +",".join(rabbit_list)
 
-    base_dict["services"]["vertx"]["environment"] = ["WAIT_HOSTS_TIMEOUT=60", vertx_wait_hosts]
+    base_dict["services"]["vertx"]["environment"] = ["WAIT_HOSTS_TIMEOUT=300", vertx_wait_hosts]
     base_dict["services"]["vertx"]["deploy"]["replicas"] = int(proxies)
     base_dict["services"]["authenticator"]["deploy"]["replicas"] = int(workers)
 

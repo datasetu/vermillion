@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     wait_hosts = "WAIT_HOSTS=postgres:5432,authenticator:80," +",".join(rabbit_list)
 
-    base_dict["services"]["vertx"]["environment"] = ["WAIT_HOSTS_TIMEOUT=120", wait_hosts]
+    base_dict["services"]["vertx"]["environment"] = ["WAIT_HOSTS_TIMEOUT=300", wait_hosts]
     base_dict["services"]["vertx"]["deploy"]["replicas"] = int(proxies)
     base_dict["services"]["authenticator"]["deploy"]["replicas"] = int(workers)
 

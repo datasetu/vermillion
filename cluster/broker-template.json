@@ -21,6 +21,6 @@
         "15672:15672"
     ],
     "volumes": [
-        "../conf/rabbitmq:/etc/rabbitmq/"
+        "../conf/rabbitmq-hipe:/etc/rabbitmq/"
     ]
 }
