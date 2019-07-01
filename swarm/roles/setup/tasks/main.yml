@@ -51,29 +51,6 @@
     path: /root/iudx-resource-server/
   when: repo.stat.exists
 
-#- name: Clone the repository
-#  shell: git clone https://github.com/rbccps-iisc/iudx-resource-server/
-#
-#- name: Initialise submodules
-#  shell: 
-#    cmd: git submodule init
-#    chdir: /root/iudx-resource-server
-#
-#- name: Update submodules
-#  shell: 
-#    cmd: git submodule update
-#    chdir: /root/iudx-resource-server
-#
-#- name: Copy docker-compose.json file
-#  copy:
-#    src: ./docker-compose.json
-#    dest: /root/iudx-resource-server/swarm/
-#
-#- name: Copy .env file
-#  copy:
-#    src: ./.env
-#    dest: /root/iudx-resource-server/swarm/
-
 - name: Create iudx-resource-server folder
   file:
     path: /root/iudx-resource-server/
@@ -85,13 +62,19 @@
     dest: /root/iudx-resource-server
     creates: /root/iudx-resource-server/deploy
 
-#TODO: Only for debugging purposes
-#- name: Copy directory contents to remote hosts
-#  synchronize:
-#    src: ../../iudx-resource-server/
-#    dest: /root/iudx-resource-server/
-
 - name: Cleanup existing docker stuff
   shell: docker system prune -a -f
   ignore_errors: true
 
+- name: Add options to /etc/sysctl.conf
+  shell: cat /root/iudx-resource-server/conf/sysctl/sysctl.conf >> /etc/sysctl.conf
+
+- name: Set sysctl File Limits
+  copy:
+    src: ../conf/sysctl/50-fs.conf
+    dest: /etc/sysctl.d
+
+- name: Set Shell File Limits
+  copy:
+    src: ../conf/sysctl/91-nofiles.conf
+    dest: /etc/security/limits.d
