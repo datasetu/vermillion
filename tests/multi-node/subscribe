@@ -6,6 +6,12 @@ import multiprocessing as mp
 import json
 import random
 
+def on_message(channel, method_frame, header_frame, body):
+    print(method_frame.delivery_tag)
+    print(body)
+    print()
+    channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+
 def subscribe(credentials):  
 
     username	=   credentials[0]
@@ -21,14 +27,23 @@ def subscribe(credentials):
     connection	=   pika.BlockingConnection(parameters)
     channel	=   connection.channel()
 
-    for (method_frame, properties, body) in channel.consume(username, inactivity_timeout=3600):
+    channel.basic_consume(username, on_message)
+    
+    try:
+	channel.start_consuming()
+    except KeyboardInterrupt:
+	channel.stop_consuming()
+    
+    connection.close()
 
-        if not method_frame:
-           continue 
-
-        channel.basic_ack(method_frame.delivery_tag)
-
-	print("Got message {0} for user {1} at {2}".format(body, username, node))
+#    for (method_frame, properties, body) in channel.consume(username, inactivity_timeout=3600):
+#
+#        if not method_frame:
+#           continue 
+#
+#        channel.basic_ack(method_frame.delivery_tag)
+#
+#	print("Got message {0} for user {1} at {2}".format(body, username, node))
 
 if __name__ == "__main__":
 
@@ -60,16 +75,23 @@ if __name__ == "__main__":
     subscribe_list	=   []
 
     if nodes == 1:
-	node_list = ["localhost"]
+	node_list = ["node-1"]
     else:
 	node_list =	["node-"+str(i) for i in range(1,nodes+1)]
 
     for i in range(0, subscribers):
+
 	dev_name	=   str(random.choice(device_name_list))
-	bucket_number	=   (int(ord(dev_name[0]))-96)	%   nodes;
-	broker_bucket	=   nodes if bucket_number == 0 else bucket_number
-	broker_url 	=   random.choice(node_list)
-	port		=   5672	+   broker_bucket
+
+	if nodes !=1:
+	    bucket_number   =   (int(ord(dev_name[0]))-96)	%   nodes;
+	    broker_bucket   =   nodes if bucket_number == 0 else bucket_number
+	    broker_url	    =   random.choice(node_list)
+	    port	    =   5672	+   broker_bucket
+	else:
+	    broker_url	    =	"rabbit"
+	    port	    =	5672
+
 	subscribe_list.append([dev_name, str(device_keys[dev_name]), broker_url, port])
 
     print(str(subscribe_list))

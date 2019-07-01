@@ -83,7 +83,7 @@ producers= int(args.producers)
 nodes= int(args.nodes)
 
 if nodes == 1:
-    node_list = ["localhost"]
+    node_list = ["node-1"]
 else:
     node_list =	["node-"+str(i) for i in range(1,nodes+1)]
 
