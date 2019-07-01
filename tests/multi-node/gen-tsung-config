@@ -18,6 +18,7 @@ base_url	=   "https://"
 node_list	=   []
 owner_endpoint	=   "/admin/register-owner"
 entity_endpoint	=   "/owner/register-entity"
+bind_endpoint	=   "/entity/bind"
 
 name_list   =   list(open("list","r").read()[:-1].split("\n"))
 apikey	    =	open("../../cluster/.env","r").readline()[:-1].split("=")[1]
@@ -114,8 +115,17 @@ def register(bounds):
 	print("Registering device: {0}".format(owner+"/"+dev_name))
         headers = {"id": owner, "apikey": owner_keys[owner], "entity": dev_name, "is-autonomous": "true"}
 	entity_url = base_url + random.choice(node_list) + entity_endpoint
-        r = requests.post(url=entity_url, headers=headers, data="{}", verify=False)
-        device_keys[owner+"/"+dev_name] = r.json()["apikey"]
+
+	#Register the device
+	full_dev_name	=   owner+"/"+dev_name    
+        r		=   requests.post(url=entity_url, headers=headers, data="{}", verify=False)
+	apikey		=   r.json()["apikey"]
+        device_keys[full_dev_name]  =	apikey 
+
+	#Bind protected exchange to regular queue 
+	url	=   base_url + random.choice(node_list) + bind_endpoint 
+	headers	=   {"id": full_dev_name, "apikey": apikey, "to": full_dev_name, "topic": "#", "message-type": "protected"}
+	r	=   requests.post(url=url, headers=headers, verify=False)
 
     output.put(device_keys)
 
