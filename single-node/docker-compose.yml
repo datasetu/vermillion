@@ -55,6 +55,7 @@ services:
     hostname: rabbit
     ports:
       - "5671:5671"
+      - "5672:5672"
       - "15672:15672"
     networks:
       - iudx-net
