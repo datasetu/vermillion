@@ -7,7 +7,7 @@ networks:
 volumes:
   pgsql-data:
   broker-data:
-  elk-data:
+  mongo-data:
 
 services:
 
@@ -15,10 +15,10 @@ services:
     image: iudx/vertx
     container_name: vertx
     hostname: vertx
-    restart: always
+    restart: on-failure
     hostname: vertx
     ports:
-      - "443:8443"
+      - "8443:8443"
     networks:
       - iudx-net
     cap_add:
@@ -35,7 +35,7 @@ services:
     image: iudx/authenticator
     container_name: authenticator
     hostname: authenticator
-    restart: always
+    restart: on-failure
     hostname: authenticator
     networks:
       - iudx-net
@@ -49,9 +49,9 @@ services:
       - WAIT_HOSTS=postgres:5432
 
   rabbit:
-    image: iudx/rabbitmq-hipe
+    image: iudx/rabbitmq
     container_name: rabbit
-    restart: always
+    restart: on-failure
     hostname: rabbit
     ports:
       - "5671:5671"
@@ -63,7 +63,7 @@ services:
       - ALL
     volumes:
       - broker-data:/var/lib/rabbitmq/
-      - ../conf/rabbitmq-hipe/:/etc/rabbitmq/
+      - ../conf/rabbitmq/:/etc/rabbitmq/
     env_file:
       - .env
   
@@ -71,7 +71,7 @@ services:
     image: iudx/postgres
     container_name: postgres
     hostname: postgres
-    restart: always
+    restart: on-failure
     networks:
       - iudx-net
     cap_add:
@@ -81,43 +81,42 @@ services:
     env_file:
       - .env
 
-  elk:
-    image: nshou/elasticsearch-kibana
-    container_name: elk
-    hostname: elk
+  mongo:
+    image: mongo
+    container_name: mongo
+    hostname: mongo
     ports:
-      - "9200:9200"
-      - "5601:5601"
-    restart: always
+      - "127.0.0.1:27017:27017"
+    restart: on-failure
     networks:
       - iudx-net
     cap_add:
       - ALL
     volumes:
-      - elk-data:/home/ideam/elasticsearch-6.2.4
+      - mongo-data:/data/db
+    env_file:
+      - .env
 
   dbconnector:
-    image: iudx/dbconnector
+    image: iudx/mongo-connector
     container_name: dbconnector
     hostname: dbconnector
-    restart: always
+    restart: on-failure
     hostname: dbconnector
     networks:
       - iudx-net
-    cap_add:
-      - ALL
     volumes:
       - ../iudx-dbconnector:/iudx-dbconnector/
     env_file:
       - .env
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672, elk:9200
+      - WAIT_HOSTS=postgres:5432,rabbit:5672,mongo:27017
 
   unbind-daemon:
     image: iudx/unbind-daemon
     container_name: daemon
     hostname: daemon
-    restart: always
+    restart: on-failure
     hostname: daemon
     networks:
       - iudx-net

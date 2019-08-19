@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $1 == "vertx" -o $1 == "dbconnector" -o $1 == "authenticator" ]
+if [ $1 == "vertx" -o $1 == "mongo" -o $1 == "dbconnector" -o $1 == "authenticator" -o $1 == "charts" ]
     then
     docker exec -it $1 /bin/bash
 else    

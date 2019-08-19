@@ -9,6 +9,7 @@ cd $directory
 
 admin_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 postgres_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+mongo_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 
 if [ -e ".env" ]
 then
@@ -19,8 +20,12 @@ echo "ADMIN_PWD="$admin_passwd > .env
 echo "POSTGRES_PWD="$postgres_passwd >> .env
 echo "QUICK_INSTALL=true" >> .env
 echo "SINGLE_NODE=true" >> .env
+echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
+echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
+
+#echo "mongodb://root'$mongo_passwd'@mongo/" | docker secret create charts-mongodb-uri -
 
 docker-compose down -v
 docker-compose up -d
 
-echo -e "\n${YELLOW}Please wait for 1-3 mins for RabbitMQ to HiPE compile${NC}"
+#echo -e "\n${YELLOW}Please wait for 1-3 mins for RabbitMQ to HiPE compile${NC}"

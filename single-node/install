@@ -9,6 +9,7 @@ cd $directory
 
 admin_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 postgres_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+mongo_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 
 if [ -e ".env" ]
 then
@@ -18,6 +19,8 @@ fi
 echo "ADMIN_PWD="$admin_passwd > .env
 echo "POSTGRES_PWD="$postgres_passwd >> .env
 echo "SINGLE_NODE=true" >> .env
+echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
+echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
 
 docker-compose down -v
 docker-compose up -d
