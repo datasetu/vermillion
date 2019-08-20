@@ -47,6 +47,7 @@ services:
       - .env
     environment:
       - WAIT_HOSTS=postgres:5432
+      - WAIT_HOSTS_TIMEOUT=120
 
   rabbit:
     image: iudx/rabbitmq
@@ -98,19 +99,19 @@ services:
       - .env
 
   dbconnector:
-    image: iudx/mongo-connector
-    container_name: dbconnector
-    hostname: dbconnector
+    image: iudx/db-connector
+    container_name: connector
+    hostname: connector
     restart: on-failure
-    hostname: dbconnector
     networks:
       - iudx-net
     volumes:
-      - ../iudx-dbconnector:/iudx-dbconnector/
+      - ../db-connector:/db-connector/
     env_file:
       - .env
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672,mongo:27017
+      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,mongo:27017
+      - WAIT_HOSTS_TIMEOUT=120
 
   unbind-daemon:
     image: iudx/unbind-daemon
@@ -126,3 +127,4 @@ services:
       - .env
     environment:
       - WAIT_HOSTS=postgres:5432,rabbit:5672
+      - WAIT_HOSTS_TIMEOUT=120

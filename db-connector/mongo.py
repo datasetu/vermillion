@@ -3,6 +3,7 @@ import pika
 import json
 import time
 import os
+import dateutil.parser
 
 class dbconnector:
 
@@ -12,7 +13,7 @@ class dbconnector:
 	self.broker_pwd		=   broker_pwd
 	self.mongo_username	=   mongo_username	
 	self.mongo_pwd		=   mongo_pwd
-	self.posts		=   None
+	self.db			=   None
 	self.channel		=   None
 
 	self.connect_to_mongo()
@@ -21,8 +22,7 @@ class dbconnector:
     def connect_to_mongo(self):
 	connecton_str	=   "mongodb://"+self.mongo_username+":"+self.mongo_pwd+"@mongo"
 	client		=   pymongo.MongoClient(connecton_str) 
-	db		=   client["archive"]
-	self.posts	=   db.posts
+	self.db		=   client["resource_server"]
 	print("Connected to mongo")
 
     def connect_to_rabbit(self):
@@ -58,17 +58,29 @@ class dbconnector:
 		    else:
 			self.channel.basic_ack(method_frame.delivery_tag)
 
+			routing_key =	method_frame.routing_key
+
+			if routing_key	==  "#":
+			    routing_key	=   "default"
+
+			routing_key =	routing_key.replace("-","_")
+
 			print("Body="+body)
 
 			print(properties)
 
-			if not is_json(body):
+			if not self.is_json(body):
 			    print("Message needs to be a JSON. Rejecting...")
 			    continue
 			else:
 			    body_dict   =   json.loads(body)
-			    db.archive.find(body_dict)
-			    print("Mongo insert="+str(self.posts.insert_one(body_dict)))
+
+			    if "__time" in body_dict:
+				time_str    =   body_dict["__time"]	
+				body_dict["__time"]   = dateutil.parser.parse(time_str)
+
+			    if self.db[routing_key].find(body_dict).count() == 0:
+				print("Mongo insert="+str(self.db[routing_key].insert_one(body_dict)))
 
 	    except Exception as e:
 	        print(e)
@@ -83,6 +95,6 @@ if __name__ ==	"__main__":
     broker_pwd	    =	os.getenv("ADMIN_PWD")
     mongo_username  =	"root"
     mongo_pwd	    =	os.getenv("MONGO_INITDB_ROOT_PASSWORD")
-    db		    =   dbconnector	(broker_username, broker_pwd, mongo_username, mongo_pwd)
+    db		    =   dbconnector(broker_username, broker_pwd, mongo_username, mongo_pwd)
 
     db.push_to_mongo()
