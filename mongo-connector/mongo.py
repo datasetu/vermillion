@@ -60,11 +60,14 @@ class dbconnector:
 
 			print("Body="+body)
 
+			print(properties)
+
 			if not is_json(body):
 			    print("Message needs to be a JSON. Rejecting...")
 			    continue
 			else:
 			    body_dict   =   json.loads(body)
+			    db.archive.find(body_dict)
 			    print("Mongo insert="+str(self.posts.insert_one(body_dict)))
 
 	    except Exception as e:
