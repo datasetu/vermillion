@@ -4,6 +4,3 @@
 [submodule "iudx-authenticator"]
 	path = iudx-authenticator
 	url = https://github.com/rbccps-iisc/iudx-authenticator
-[submodule "test-suite"]
-	path = test-suite
-	url = https://github.com/rbccps-iisc/iudx-test-suite

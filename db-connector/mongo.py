@@ -4,6 +4,7 @@ import json
 import time
 import os
 import dateutil.parser
+import re
 
 class dbconnector:
 
@@ -57,17 +58,11 @@ class dbconnector:
 
 		    else:
 			self.channel.basic_ack(method_frame.delivery_tag)
-
-			routing_key =	method_frame.routing_key
-
-			if routing_key	==  "#":
-			    routing_key	=   "default"
-
-			routing_key =	routing_key.replace("-","_")
+			exchange    =	method_frame.exchange
+			#TODO: Enforce this during registration
+			#re.sub('[^A-Za-z0-9_/]+', '', exchange)
 
 			print("Body="+body)
-
-			print(properties)
 
 			if not self.is_json(body):
 			    print("Message needs to be a JSON. Rejecting...")
@@ -79,8 +74,8 @@ class dbconnector:
 				time_str    =   body_dict["__time"]	
 				body_dict["__time"]   = dateutil.parser.parse(time_str)
 
-			    if self.db[routing_key].find(body_dict).count() == 0:
-				print("Mongo insert="+str(self.db[routing_key].insert_one(body_dict)))
+			    if self.db[exchange].find(body_dict).count() == 0:
+				print("Mongo insert="+str(self.db[exchange].insert_one(body_dict)))
 
 	    except Exception as e:
 	        print(e)
