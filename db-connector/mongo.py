@@ -14,7 +14,7 @@ class dbconnector:
 	self.broker_pwd		=   broker_pwd
 	self.mongo_username	=   mongo_username	
 	self.mongo_pwd		=   mongo_pwd
-	self.db			=   None
+	self.archive		=   None
 	self.channel		=   None
 
 	self.connect_to_mongo()
@@ -23,7 +23,8 @@ class dbconnector:
     def connect_to_mongo(self):
 	connecton_str	=   "mongodb://"+self.mongo_username+":"+self.mongo_pwd+"@mongo"
 	client		=   pymongo.MongoClient(connecton_str) 
-	self.db		=   client["resource_server"]
+	db		=   client["resource_server"]
+	self.archive	=   db.archive
 	print("Connected to mongo")
 
     def connect_to_rabbit(self):
@@ -58,10 +59,6 @@ class dbconnector:
 
 		    else:
 			self.channel.basic_ack(method_frame.delivery_tag)
-			exchange    =	method_frame.exchange
-			#TODO: Enforce this during registration
-			#re.sub('[^A-Za-z0-9_/]+', '', exchange)
-
 			print("Body="+body)
 
 			if not self.is_json(body):
@@ -74,8 +71,8 @@ class dbconnector:
 				time_str    =   body_dict["__time"]	
 				body_dict["__time"]   = dateutil.parser.parse(time_str)
 
-			    if self.db[exchange].find(body_dict).count() == 0:
-				print("Mongo insert="+str(self.db[exchange].insert_one(body_dict)))
+			    if self.archive.find(body_dict).count() == 0:
+				print("Mongo insert="+str(self.archive.insert_one(body_dict)))
 
 	    except Exception as e:
 	        print(e)
