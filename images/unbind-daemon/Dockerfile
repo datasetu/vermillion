@@ -1,6 +1,7 @@
 from	alpine:latest
 
-copy	daemon.py / 
+add	https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.1/wait /wait
+run	chmod +x /wait
 
 run	apk update			    &&  \
 	apk upgrade			    &&  \
@@ -9,4 +10,4 @@ run	apk update			    &&  \
 	pip install psycopg2 pika	    &&	\
 	apk del --purge build-base
 
-cmd	./daemon.py
+cmd	/wait && python /unbind-daemon/daemon.py

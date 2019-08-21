@@ -118,11 +118,10 @@ services:
     container_name: daemon
     hostname: daemon
     restart: on-failure
-    hostname: daemon
     networks:
       - iudx-net
-    cap_add:
-      - ALL
+    volumes:
+      - ../unbind-daemon:/unbind-daemon/
     env_file:
       - .env
     environment:

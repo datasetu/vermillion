@@ -19,7 +19,7 @@ def run():
 
     cur = conn.cursor()
     credentials = pika.PlainCredentials('admin', admin_passwd)
-    parameters = pika.ConnectionParameters('broker',5672, '/', credentials)
+    parameters = pika.ConnectionParameters('rabbit',5672, '/', credentials)
 
     while True:
 	try:
@@ -27,7 +27,8 @@ def run():
 	    connection = pika.BlockingConnection(parameters)
 	    print("Connected")
 	    break
-	except Exception:
+	except Exception as e:
+	    print(e)
             sys.stderr.write("Failed to connect to broker\n")
 
     channel = connection.channel()
