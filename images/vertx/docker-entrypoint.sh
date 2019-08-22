@@ -8,6 +8,8 @@ if [ "$QUICK_INSTALL" == "true" ];
     rm iudx-api-server-0.0.1-SNAPSHOT-fat.jar
     fi
     cp target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar .
+    
+    #TODO Set the limits automatically?
     java -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar -d64 -Xms512m -Xmx4g
 else
     cd iudx-api-server

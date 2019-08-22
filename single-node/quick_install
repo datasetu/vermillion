@@ -23,7 +23,10 @@ echo "SINGLE_NODE=true" >> .env
 echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
 echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
 
-#echo "mongodb://root'$mongo_passwd'@mongo/" | docker secret create charts-mongodb-uri -
+if [ ! -f ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar ] 
+then
+#wget from release
+fi
 
 docker-compose down -v
 docker-compose up -d
