@@ -1,0 +1,21 @@
+sudo: required
+
+dist: xenial
+
+before_install:
+  - ./tests/single-node/require.sh
+
+language: python
+
+python: 2.7
+
+install:
+  - ./single-node/quick_install
+
+before_script:
+  - sleep 15
+
+script:
+  - ./tests/single-node/test functional --random
+  - ./tests/single-node/test security
+  - ./tests/single-node/test concurrency
