@@ -23,10 +23,10 @@ echo "SINGLE_NODE=true" >> .env
 echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
 echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
 
-if [ ! -f ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar ] 
-then
-#wget from release here
-fi
+#if [ ! -f ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar ] 
+#then
+##wget from release here
+#fi
 
 docker-compose down -v
 docker-compose up -d
