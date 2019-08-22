@@ -8,3 +8,4 @@ cluster/docker-compose.json
 tests/multi-node/out.xml
 tests/multi-node/device_keys
 tests/multi-node/owner_keys
+iudx-api-server/iudx-api-server-0.0.1-SNAPSHOT-fat.jar
