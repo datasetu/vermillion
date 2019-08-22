@@ -10,10 +10,10 @@ language: python
 python: 2.7
 
 install:
-  - ./single-node/install
+  - ./single-node/quick_install
 
 before_script:
-  - sleep 300
+  - sleep 10
 
 script:
   - ./tests/single-node/test functional --random

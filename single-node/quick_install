@@ -3,6 +3,10 @@
 set -e 
 YELLOW='\033[1;33m'
 NC='\033[0m'
+GITHUB_API_TOKEN="80cdc31286b3aabd3b7e82ac010b7e45cde0efd2"
+owner="rbccps-iisc"
+repo="iudx-resource-server"
+name="jars.tar.gz"
 
 directory=`dirname $0`
 cd $directory
@@ -23,10 +27,36 @@ echo "SINGLE_NODE=true" >> .env
 echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
 echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
 
-#if [ ! -f ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar ] 
-#then
-##wget from release here
-#fi
+if [ ! -f ../iudx-api-server/target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar ] 
+then
+    GH_API="https://api.github.com"
+    GH_REPO="$GH_API/repos/$owner/$repo"
+    GH_TAGS="$GH_REPO/releases/latest"
+    AUTH="Authorization: token $GITHUB_API_TOKEN"
+    WGET_ARGS="--content-disposition --auth-no-challenge --no-cookie"
+    CURL_ARGS="-LJ#"
+    
+    # Validate token.
+    curl -o /dev/null -sH "$AUTH" $GH_REPO || { echo "Error: Invalid repo, token or network issue!";  exit 1; }
+    
+    # Read asset tags.
+    response=$(curl -sH "$AUTH" $GH_TAGS)
+    # Get ID of the asset based on given name.
+    eval $(echo "$response" | grep -C3 "name.:.\+$name" | grep -w id | tr : = | tr -cd '[[:alnum:]]=')
+    [ "$id" ] || { echo "Error: Failed to get asset id, response: $response" | awk 'length($0)<100' >&2; exit 1; }
+    GH_ASSET="$GH_REPO/releases/assets/$id"
+    
+    # Download asset file.
+    echo "Downloading jar files from the latest release..." >&2
+    curl $CURL_ARGS -H 'Accept: application/octet-stream' "$GH_ASSET?access_token=$GITHUB_API_TOKEN" > jars.tar.gz
+    tar -zxf jars.tar.gz
+    mkdir -p ../iudx-api-server/target/
+    mkdir -p ../iudx-authenticator/target/
+    mv jars/iudx-api-server-0.0.1-SNAPSHOT-fat.jar ../iudx-api-server/target/
+    mv jars/iudx-authenticator-0.0.1-SNAPSHOT-fat.jar ../iudx-authenticator/target/
+    rm -rf jars
+    rm jars.tar.gz
+fi
 
 docker-compose down -v
 docker-compose up -d
