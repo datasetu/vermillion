@@ -1,6 +1,0 @@
-[submodule "iudx-api-server"]
-	path = iudx-api-server
-	url = https://github.com/rbccps-iisc/iudx-api-server
-[submodule "iudx-authenticator"]
-	path = iudx-authenticator
-	url = https://github.com/rbccps-iisc/iudx-authenticator
