@@ -13,7 +13,7 @@ install:
   - ./single-node/quick_install
 
 before_script:
-  - sleep 10
+  - sleep 15
 
 script:
   - ./tests/single-node/test functional --random
