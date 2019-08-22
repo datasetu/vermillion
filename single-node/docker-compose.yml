@@ -125,5 +125,5 @@ services:
     env_file:
       - .env
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672
+      - WAIT_HOSTS=postgres:5432,authenticator:80,rabbit:5672
       - WAIT_HOSTS_TIMEOUT=120

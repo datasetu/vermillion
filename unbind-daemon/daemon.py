@@ -15,9 +15,18 @@ def run():
     admin_passwd 	= os.getenv("ADMIN_PWD")
     postgres_passwd 	= os.getenv("POSTGRES_PWD")
 
-    conn = psycopg2.connect(database="postgres", user = "postgres", password = postgres_passwd, host= "postgres", port = "5432")
+    while True:
+	try:
+	    print("Connecting to postgres...")
+	    conn = psycopg2.connect(database="postgres", user = "postgres", password = postgres_passwd, host= "postgres", port = "5432")
+	    cur = conn.cursor()
+	    print("Connected to postgres")
+	    break
+	except Exception as e:
+	    print(e)
+            print("Failed to connect to postgres")
 
-    cur = conn.cursor()
+
     credentials = pika.PlainCredentials('admin', admin_passwd)
     parameters = pika.ConnectionParameters('rabbit',5672, '/', credentials)
 
@@ -25,13 +34,12 @@ def run():
 	try:
 	    print("Connecting to broker ...")
 	    connection = pika.BlockingConnection(parameters)
-	    print("Connected")
+	    channel = connection.channel()
+	    print("Connected to broker")
 	    break
 	except Exception as e:
 	    print(e)
-            sys.stderr.write("Failed to connect to broker\n")
-
-    channel = connection.channel()
+            print("Failed to connect to broker")
 
     queue       = ""
     exchange    = ""
