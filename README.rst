@@ -2,7 +2,7 @@ IUDX resource server
 --------------------
 |travis| |codacy| |license|
 
-.. |travis| image:: https://travis-ci.org/rbccps-iisc/iudx-resource-server.svg?branch=master
+.. |travis| image:: https://travis-ci.com/rbccps-iisc/iudx-resource-server.svg?token=qoDCvWvt1jKW5rCqosmf&branch=master
     :target: https://travis-ci.org/rbccps-iisc/iudx-resource-server
     
 .. |license| image:: https://img.shields.io/badge/license-ISC-blue.svg
