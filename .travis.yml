@@ -3,7 +3,7 @@ sudo: required
 dist: xenial
 
 before_install:
-  - ./test-suite/require.sh
+  - ./tests/single-node/require.sh
 
 language: python
 
@@ -14,11 +14,8 @@ install:
 
 before_script:
   - sleep 15
-  - cd test-suite
-  - git pull origin master
-  - cd ..
 
 script:
-  - ./test-suite/test functional --random
-  - ./test-suite/test security
-  - ./test-suite/test concurrency
+  - ./tests/single-node/test functional --random
+  - ./tests/single-node/test security
+  - ./tests/single-node/test concurrency

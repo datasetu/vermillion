@@ -25,6 +25,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import com.rabbitmq.client.AuthenticationFailureException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -154,7 +155,7 @@ public class BrokerServiceImpl implements BrokerService
 		return pool.get(token);
 	}
 	
-	public Channel getChannel(String pool_id)
+	public Channel getChannel(String pool_id) throws AuthenticationFailureException
 	{
 		if	(	(!pool.containsKey(pool_id))
 							||
@@ -181,6 +182,10 @@ public class BrokerServiceImpl implements BrokerService
 				pool.put(pool_id, channel);
 				
 			} 
+			catch(AuthenticationFailureException ae)
+			{
+				throw new AuthenticationFailureException("ACCESS_REFUSED");
+			}
 			catch (Exception e) 
 			{
 				e.printStackTrace();
@@ -505,9 +510,14 @@ public class BrokerServiceImpl implements BrokerService
 			logger.debug("Published message ="+message);
 			resultHandler.handle(Future.succeededFuture());
 		}
+		catch(AuthenticationFailureException ae)
+		{
+			logger.debug("Authentication Exception");
+			resultHandler.handle(Future.failedFuture("ACCESS_REFUSED"));
+		}
 		catch(Exception e)
 		{
-			logger.debug("Failed to publish message ="+message+" Cause="+e.getMessage());
+			logger.debug("Failed to publish message ="+message+" Cause="+e);
 			resultHandler.handle(Future.failedFuture(e.getMessage()));
 		}
 		

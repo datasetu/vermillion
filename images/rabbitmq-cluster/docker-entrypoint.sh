@@ -10,6 +10,7 @@ chown rabbitmq "$cookie_file"
 
 hostname=`hostname`
 
+#TODO Use env variable
 if [ $hostname == "rabbit" -o $hostname == "rabbit1" ]
 then
     rabbitmq-server

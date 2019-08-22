@@ -3802,50 +3802,28 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			logger.debug("Exchange="+exchange);
 			logger.debug("Topic="+topic);
 			
-//			if(pool.get(id+apikey)==null)
-//			{
-//				checkLogin(id, apikey)
-//				.setHandler(login -> {
-//					
-//					if(!login.succeeded())
-//					{
-//						forbidden(resp);
-//						return;
-//					}
-//					
-//					pool.put(id+apikey, "1");
-//					
-//					brokerService.publish(id, apikey, exchange, topic, message, ar -> {
-//						
-//						if(!ar.succeeded())
-//						{
-//							error(resp, "Could not publish to broker");
-//							return;
-//						}
-//						else
-//						{
-//							accepted(resp);
-//							return;
-//						}
-//					});
-//				});
-//			}
-//			else
-//			{
-				brokerService.publish(id, apikey, exchange, topic, message, ar -> {
+			brokerService.publish(id, apikey, exchange, topic, message, ar -> {
 					
-					if(!ar.succeeded())
-					{
-						error(resp, "Could not publish to broker");
-						return;
-					}
-					else
-					{
-						accepted(resp);
-						return;
-					}
-				});
-			//}
+			if(!ar.succeeded())
+			{
+				logger.debug("AR Cause="+ar.cause());
+				if(ar.cause().toString().contains("ACCESS_REFUSED"))
+				{
+					forbidden(resp);
+					return;
+				}
+				else
+				{
+					error(resp, "Could not publish to broker");
+					return;
+				}
+			}
+			else
+			{
+				accepted(resp);
+				return;
+			}
+		});
 		});
 	}
 	
