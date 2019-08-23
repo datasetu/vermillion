@@ -7,10 +7,10 @@ if [ "$QUICK_INSTALL" == "true" ];
     then
     rm iudx-authenticator-0.0.1-SNAPSHOT-fat.jar
     fi
-    java -jar target/iudx-authenticator-0.0.1-SNAPSHOT-fat.jar
+    java $JAVA_OPTIONS -jar target/iudx-authenticator-0.0.1-SNAPSHOT-fat.jar
 else
     cd iudx-authenticator
-    mvn clean
-    mvn package -DskipTests
-    java -jar target/iudx-authenticator-0.0.1-SNAPSHOT-fat.jar
+    mvn -T 1C clean
+    mvn -T 1C package -DskipTests
+    java $JAVA_OPTIONS -jar target/iudx-authenticator-0.0.1-SNAPSHOT-fat.jar
 fi

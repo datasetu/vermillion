@@ -8,7 +8,7 @@ echo $ERLANG_COOKIE > $cookie_file
 chmod 600 "$cookie_file"
 chown rabbitmq "$cookie_file"
 
-hostname=`hostname`
+hostname=$(hostname)
 
 #TODO Use env variable
 if [ $hostname == "rabbit" -o $hostname == "rabbit1" ]

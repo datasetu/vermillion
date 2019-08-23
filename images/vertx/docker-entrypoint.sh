@@ -9,12 +9,11 @@ if [ "$QUICK_INSTALL" == "true" ];
     fi
     cp target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar .
     
-    #TODO Set the limits automatically?
-    java -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar -d64 -Xms512m -Xmx4g
+    java $JAVA_OPTIONS -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar
 else
     cd iudx-api-server
-    mvn clean
-    mvn package
+    mvn -T 1C clean
+    mvn -T 1C package
     cp target/iudx-api-server-0.0.1-SNAPSHOT-fat.jar .
-    java -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar -d64 -Xms512m -Xmx4g
+    java $JAVA_OPTIONS -jar iudx-api-server-0.0.1-SNAPSHOT-fat.jar
 fi

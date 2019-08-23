@@ -1,4 +1,4 @@
-from	alpine:latest
+from	alpine:3.10.2
 
 copy	schema.db /
 copy	pg_hba.conf /

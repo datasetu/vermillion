@@ -1,4 +1,4 @@
-FROM iudx/rabbitmq
+FROM iudx/rabbitmq:latest
 
 RUN apk add erlang-hipe								   
 

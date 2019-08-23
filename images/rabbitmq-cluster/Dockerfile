@@ -1,4 +1,4 @@
-FROM	iudx/rabbitmq-hipe	
+FROM	iudx/rabbitmq:latest
 
 COPY	./docker-entrypoint.sh /
 
