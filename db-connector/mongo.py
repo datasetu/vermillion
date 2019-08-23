@@ -8,7 +8,6 @@ import dateutil.parser
 class dbconnector():
 
     def __init__(self, broker_username, broker_pwd, mongo_username, mongo_pwd):
-	
 	self.broker_username	=   broker_username
 	self.broker_pwd		=   broker_pwd
 	self.mongo_username	=   mongo_username

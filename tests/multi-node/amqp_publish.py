@@ -32,7 +32,7 @@ def publish(credentials):
 
     for _ in range(0, 10000):
 	channel.basic_publish(exchange=username+".protected", routing_key="test", body="test payload")
-    
+
     channel.close()
     connection.close()
 

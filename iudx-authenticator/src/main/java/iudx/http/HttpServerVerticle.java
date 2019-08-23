@@ -586,6 +586,8 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		{
 			resp.setStatusCode(409).end(message);
 		}
+		
+		return;
 	}
 }
 				
