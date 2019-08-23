@@ -18,20 +18,18 @@ An IUDX compliant IoT resource server for smart cities
 Documentation: https://iudx.readthedocs.io
 
 
-Quickstart
-========== 
+Single-node Quickstart
+====================== 
 
 
 #. Clone the repository::
 
     git clone https://github.com/rbccps-iisc/iudx-resource-server
     cd iudx-resource-server
-    git submodule init
-    git submodule update
     
 #. Install the required dependencies (Host OS must be Ubuntu)::
 
-    ./test-suite/require.sh
+    ./tests/single-node/require.sh
 
 #. If the host OS is not Ubuntu then install the following dependencies manually
 
@@ -46,11 +44,11 @@ Quickstart
     
 #. Start the installation::
 
-    ./docker/install
+    ./single-node/quick_install
 
 #. Test the middleware using::
 
-    ./test-suite/test functional --random
+    ./tests/single-node functional -d 1 -a 1
 
 
 .. Restricting admin APIs
