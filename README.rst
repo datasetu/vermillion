@@ -11,7 +11,7 @@ IUDX resource server
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/8230f593934a4ee391f6967c24cf237f 
     :target: https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/iudx-resource-server&amp;utm_campaign=Badge_Grade
     
-**(Docs and badges are out of date. Will update after project completion)**
+**(Documentation is out of date. Will update soon)**
 
 An IUDX compliant IoT resource server for smart cities
 
