@@ -8,8 +8,8 @@ IUDX resource server
 .. |license| image:: https://img.shields.io/badge/license-ISC-blue.svg
     :target: https://github.com/rbccps-iisc/iudx-resource-server/blob/master/LICENSE
     
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/abd48fb6620f4b329ae5a0dd2fc705e0 
-    :target: https://app.codacy.com/project/pct960/iudx-resource-server/dashboard
+.. |codacy| image:: https://api.codacy.com/project/badge/Grade/8230f593934a4ee391f6967c24cf237f 
+    :target: https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/iudx-resource-server&amp;utm_campaign=Badge_Grade
     
 **(Docs and badges are out of date. Will update after project completion)**
 
