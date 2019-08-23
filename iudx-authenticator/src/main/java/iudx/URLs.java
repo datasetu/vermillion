@@ -3,10 +3,6 @@
  */
 package iudx;
 
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import iudx.database.DbServiceImpl;
-
 /**
  * @author Swaminathan Vasanth Rajaraman <swaminathanvasanth.r@gmail.com>
  *

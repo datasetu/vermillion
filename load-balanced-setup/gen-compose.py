@@ -58,7 +58,6 @@ if __name__ == "__main__":
     counter = 1
 
     for node in node_list:
-        
         base_dict["services"]["rabbit"+str(counter)] = node
         counter = counter + 1
 

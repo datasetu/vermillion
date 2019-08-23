@@ -33,9 +33,7 @@ class dbconnector():
 			    port=5672, credentials=credentials)
 	connection	=   pika.BlockingConnection(parameters)
 	self.channel	=   connection.channel()
-	
 	self.channel.confirm_delivery()
-
 	print("Connected to rabbitmq")
 
     def is_json(self, body):
