@@ -28,6 +28,5 @@ def ranges(n, k):
     
     for n in partition_list:
 	range_list.append([index, index + (n-1)])
-	index = index + n 
-	
+	index = index + n
     return range_list

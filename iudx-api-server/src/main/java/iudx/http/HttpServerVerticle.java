@@ -4503,9 +4503,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		if(!resp.closed())
 		{
 			resp.setStatusCode(409).end(message);
-		}
-		
-		return;
+		}		
 	}
 	
 }

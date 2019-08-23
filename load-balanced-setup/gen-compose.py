@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 import json
-import sys
 import argparse
 
 base_dict = {}
 
 base_dict["version"] = "3"
 
-class Node:
+class Node():
 
     def __init__(self, incr_value):
         self.incr_value = incr_value
@@ -61,7 +60,6 @@ if __name__ == "__main__":
     for node in node_list:
         
         base_dict["services"]["rabbit"+str(counter)] = node
-        
         counter = counter + 1
 
     wait_hosts = "WAIT_HOSTS=postgres:5432,authenticator:80," +",".join(rabbit_list)

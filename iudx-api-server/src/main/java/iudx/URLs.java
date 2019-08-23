@@ -3,9 +3,6 @@
  */
 package iudx;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import iudx.database.DbServiceImpl;

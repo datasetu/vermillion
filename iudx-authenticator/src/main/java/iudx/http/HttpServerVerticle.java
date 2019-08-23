@@ -109,7 +109,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 				if(event.method().toString().equalsIgnoreCase("GET")) 
 				{
-					auth_user(event);
+					authUser(event);
 					break;
 				} 
 				else 
@@ -123,7 +123,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 				if(event.method().toString().equalsIgnoreCase("GET")) 
 				{
-					auth_vhost(event);
+					authVhost(event);
 				}
 				else 
 				{
@@ -137,7 +137,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 				
 				if(event.method().toString().equalsIgnoreCase("GET"))
 				{
-					auth_topic(event);
+					authTopic(event);
 				}
 				else
 				{
@@ -152,7 +152,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 				
 				if(event.method().toString().equalsIgnoreCase("GET"))
 				{
-					auth_resource(event);
+					authResource(event);
 				}
 				else
 				{
@@ -162,10 +162,16 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 				}
 				
 				break;
+			
+			default:
+				
+				resp = event.response();
+				resp.setStatusCode(404).end();
+				return;
 		}
 	}
 	
-	public void auth_user(HttpServerRequest req)
+	public void authUser(HttpServerRequest req)
 	{
 		HttpServerResponse	resp	=	req.response();	 
 		String	username			=	req.getParam("username");
@@ -194,7 +200,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 				return;
 			}
 			
-			if(username.equals("admin"))
+			if("admin".equals(username))
 			{
 				ok(resp, "allow administrator management");
 				return;
@@ -205,7 +211,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		});
 	}
 	
-	public void auth_vhost(HttpServerRequest req)
+	public void authVhost(HttpServerRequest req)
 	{
 		HttpServerResponse resp = req.response();
 		
@@ -213,7 +219,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		return;
 	}
 	
-	public void auth_topic(HttpServerRequest req)
+	public void authTopic(HttpServerRequest req)
 	{
 		HttpServerResponse resp = req.response();
 		
@@ -221,7 +227,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		return;
 	}
 	
-	public void auth_resource(HttpServerRequest req)
+	public void authResource(HttpServerRequest req)
 	{
 		HttpServerResponse resp	=	req.response();
 		String username			=	req.getParam("username");
@@ -580,8 +586,6 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		{
 			resp.setStatusCode(409).end(message);
 		}
-		
-		return;
 	}
 }
 				

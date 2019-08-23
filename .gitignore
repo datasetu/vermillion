@@ -9,3 +9,10 @@ tests/multi-node/out.xml
 tests/multi-node/device_keys
 tests/multi-node/owner_keys
 iudx-api-server/iudx-api-server-0.0.1-SNAPSHOT-fat.jar
+iudx-api-server/bin/*
+iudx-authenticator/bin/*
+iudx-api-server/.settings/
+iudx-authenticator/.settings/
+iudx-api-server/.*
+iudx-authenticator/.*
+

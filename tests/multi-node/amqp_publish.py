@@ -2,7 +2,6 @@ import multiprocessing as mp
 import urllib3
 import time
 import logging
-from requests.adapters import HTTPAdapter
 import json
 import random
 import pika
@@ -14,7 +13,7 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 output = mp.Queue()
 
-def publish(credentials):  
+def publish(credentials):
 
     username	=   credentials[0]
     apikey	=   credentials[1]
@@ -31,7 +30,7 @@ def publish(credentials):
 
     channel.confirm_delivery()
 
-    for i in range(0, 10000):
+    for _ in range(0, 10000):
 	channel.basic_publish(exchange=username+".protected", routing_key="test", body="test payload")
     
     channel.close()
@@ -64,5 +63,4 @@ if __name__ ==  "__main__":
     pool	    =   mp.Pool(100)
     processes	    =   pool.map(publish, publish_list)
     time_taken	    =	time.time() - start
-    
     print("Throughput = " +str(1000000/time_taken))

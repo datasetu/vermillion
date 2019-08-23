@@ -4,15 +4,14 @@ import json
 import time
 import os
 import dateutil.parser
-import re
 
-class dbconnector:
+class dbconnector():
 
     def __init__(self, broker_username, broker_pwd, mongo_username, mongo_pwd):
 	
 	self.broker_username	=   broker_username
 	self.broker_pwd		=   broker_pwd
-	self.mongo_username	=   mongo_username	
+	self.mongo_username	=   mongo_username
 	self.mongo_pwd		=   mongo_pwd
 	self.archive		=   None
 	self.channel		=   None
@@ -22,7 +21,7 @@ class dbconnector:
 
     def connect_to_mongo(self):
 	connecton_str	=   "mongodb://"+self.mongo_username+":"+self.mongo_pwd+"@mongo"
-	client		=   pymongo.MongoClient(connecton_str) 
+	client		=   pymongo.MongoClient(connecton_str)
 	db		=   client["resource_server"]
 	self.archive	=   db.archive
 	print("Connected to mongo")
@@ -41,13 +40,12 @@ class dbconnector:
 
     def is_json(self, body):
 	try:
-	   body_json	=   json.loads(body)
+	   json.loads(body)
 	   return True
-	except Exception as e:
+	except Exception:
 	    return False
 
     def push_to_mongo(self):
-	
 	start	=   time.time()
 
 	while True:
@@ -68,7 +66,7 @@ class dbconnector:
 			    body_dict   =   json.loads(body)
 
 			    if "__time" in body_dict:
-				time_str    =   body_dict["__time"]	
+				time_str    =   body_dict["__time"]
 				body_dict["__time"]   = dateutil.parser.parse(time_str)
 
 			    if self.archive.find(body_dict).count() == 0:

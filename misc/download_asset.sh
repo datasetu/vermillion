@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Script to download asset file from tag release using GitHub API v3.
 # See: http://stackoverflow.com/a/35688093/55075    
-CWD="$(cd -P -- "$(dirname -- "$0")" && pwd -P)"
+#CWD="$(cd -P -- "$(dirname -- "$0")" && pwd -P)"
 
 # Check dependencies.
 set -e
 type curl grep sed tr >&2
-xargs=$(which gxargs || which xargs)
+#xargs=$(which gxargs || which xargs)
 
 # Validate settings.
 [ -f ~/.secrets ] && source ~/.secrets
@@ -20,7 +20,7 @@ GH_API="https://api.github.com"
 GH_REPO="$GH_API/repos/$owner/$repo"
 GH_TAGS="$GH_REPO/releases/tags/$tag"
 AUTH="Authorization: token $GITHUB_API_TOKEN"
-WGET_ARGS="--content-disposition --auth-no-challenge --no-cookie"
+#WGET_ARGS="--content-disposition --auth-no-challenge --no-cookie"
 CURL_ARGS="-LJO#"
 
 # Validate token.
