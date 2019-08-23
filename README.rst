@@ -11,11 +11,9 @@ IUDX resource server
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/8230f593934a4ee391f6967c24cf237f 
     :target: https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/iudx-resource-server&amp;utm_campaign=Badge_Grade
     
-**(Documentation is out of date. Will update soon)**
-
 An IUDX compliant IoT resource server for smart cities
 
-Documentation: https://iudx.readthedocs.io
+Documentation: https://iudx.readthedocs.io **(Out of date. Will update soon)**
 
 
 Single-node Quickstart
@@ -49,55 +47,3 @@ Single-node Quickstart
 #. Test the middleware using::
 
     ./tests/single-node functional -d 1 -a 1
-
-
-.. Restricting admin APIs
-.. ====================
-.. By default the admin related APIs are allowed from any host. To restrict access 
-.. of admin APIs through localhost only: unset the "ALLOW_ADMIN_APIS_FROM_OTHER_HOSTS"
-.. environment variable (in the docker/.env file). 
-
-Use-case diagrams
-=================
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/usecase-diagrams/uc.svg?sanitize=true
-
-Sequence diagrams
-=================
-
-- Registration 
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/sequence-diagrams/register.svg?sanitize=true
-
-- Share/Follow 
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/sequence-diagrams/follow-share-publish-subscribe.svg?sanitize=true
-
-API
-===
-
-All APIs are based on the following format: /<caller of the API>/<action>
-
-- /admin/register-owner
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/api/register-owner.svg?sanitize=true
-
-- /owner/register-entity
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/api/register-entity.svg?sanitize=true
-
-- /entity/publish 
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/api/publish.svg?sanitize=true
-
-- /entity/subscribe
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/api/subscribe.svg?sanitize=true
-
-- /owner/follow
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/api/follow.svg?sanitize=true
-
-- /owner/follow-status
-
-.. image:: https://raw.githubusercontent.com/rbccps-iisc/corinthian/master/DOCS/api/follow-status.svg?sanitize=true
