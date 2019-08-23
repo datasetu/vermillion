@@ -4349,7 +4349,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		
 		logger.debug("resource="+resource);
 		
-		boolean safe = (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9]+", "")).length())==0?true:false;
+		boolean safe = (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9_]+", "")).length())==0?true:false;
 		
 		logger.debug("Original resource name ="+resource);
 		logger.debug("Replaced resource name ="+resource.replaceAll("[^#-/a-zA-Z0-9]+", ""));
