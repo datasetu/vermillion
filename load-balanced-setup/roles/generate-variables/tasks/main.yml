@@ -32,7 +32,7 @@
     path:
     - ../iudx-api-server/
     - ../iudx-authenticator
-    - ../swarm/
+    - ../load-balanced-setup/
     - ../conf/
     dest: ./iudx.zip
     format: zip
