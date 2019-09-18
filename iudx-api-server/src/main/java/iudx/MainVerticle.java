@@ -11,7 +11,7 @@ import iudx.http.HttpServerVerticle;
 
 public class MainVerticle extends AbstractVerticle
 {	
-	public	final static Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+	public	final static Logger logger = LoggerFactory.getLogger(MainVerticle.class);
 	
 	@Override
 	public void start(Future<Void> startFuture)throws Exception
