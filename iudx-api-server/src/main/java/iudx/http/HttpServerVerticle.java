@@ -3807,16 +3807,16 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			if(!ar.succeeded())
 			{
 				logger.debug("AR Cause="+ar.cause());
-				if(ar.cause().toString().contains("ACCESS_REFUSED"))
-				{
-					forbidden(resp);
-					return;
-				}
-				else
-				{
+				//if(ar.cause().toString().contains("ACCESS_REFUSED"))
+				//{
+				//	forbidden(resp);
+				//	return;
+				//}
+				//else
+				//{
 					error(resp, "Could not publish to broker");
 					return;
-				}
+				//}
 			}
 			else
 			{

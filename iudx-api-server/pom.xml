@@ -16,7 +16,7 @@
 		<mustache.version>0.9.5</mustache.version>
 		<postgresql.version>42.2.5</postgresql.version>
 		<main.class>vertx.App</main.class>
-		<stack.version>3.5.4</stack.version>
+		<stack.version>3.8.1</stack.version>
 		<vertx.version>4.0.0-SNAPSHOT</vertx.version>
     	<main.verticle>iudx.MainVerticle</main.verticle>
     	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -29,20 +29,25 @@
     		<artifactId>amqp-client</artifactId>
     		<version>5.6.0</version>
 		</dependency>
+		 <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-rabbitmq-client</artifactId>
+            <version>3.8.1</version>
+        </dependency>
 		<dependency>
       		<groupId>io.vertx</groupId>
       		<artifactId>vertx-codegen</artifactId>
-     		<version>3.6.2</version>
+     		<version>3.8.1</version>
     	</dependency>
 		<dependency>
     		<groupId>io.vertx</groupId>
     		<artifactId>vertx-service-proxy</artifactId>
-   			 <version>3.6.2</version>
+   			 <version>3.8.1</version>
 		</dependency>	
 		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-web</artifactId>
-			<version>3.6.2</version>
+			<version>3.8.1</version>
 		</dependency>
 		<dependency>
     		<groupId>com.google.guava</groupId>
@@ -52,7 +57,7 @@
 		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-core</artifactId>
-			<version>${stack.version}</version>
+			<version>3.8.1</version>
 		</dependency>
 		<dependency>
 			<groupId>io.reactiverse</groupId>

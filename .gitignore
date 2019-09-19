@@ -15,4 +15,5 @@ iudx-api-server/.settings/
 iudx-authenticator/.settings/
 iudx-api-server/.*
 iudx-authenticator/.*
+iudx-api-server/src/main/generated/*
 
