@@ -11,7 +11,7 @@ import iudx.database.DbServiceImpl;
  * @author Swaminathan Vasanth Rajaraman <swaminathanvasanth.r@gmail.com>
  *
  */
-public class URLs 
+public class Utils 
 {	
 	private final static Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
 

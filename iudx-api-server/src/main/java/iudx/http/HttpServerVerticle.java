@@ -39,9 +39,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
-import io.vertx.rabbitmq.RabbitMQClient;
-import io.vertx.rabbitmq.RabbitMQOptions;
-import iudx.URLs;
+import iudx.Utils;
 import iudx.broker.BrokerService;
 import iudx.database.DbService;
 
@@ -146,7 +144,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		factory.setUsername(id);
 		factory.setPassword(apikey);
 		factory.setVirtualHost("/");
-		factory.setHost(URLs.getBrokerUrl(id));
+		factory.setHost(Utils.getBrokerUrl(id));
 		factory.setPort(5672);
 		factory.setAutomaticRecoveryEnabled(true);
 		factory.setNetworkRecoveryInterval(10000);

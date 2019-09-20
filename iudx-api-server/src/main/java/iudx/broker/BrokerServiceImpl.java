@@ -14,7 +14,7 @@ import java.util.Map;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import iudx.URLs;
+import iudx.Utils;
 import iudx.database.DbServiceImpl;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
@@ -50,9 +50,9 @@ public class BrokerServiceImpl implements BrokerService
 		
 		factory = new ConnectionFactory();
 		factory.setUsername("admin");
-		factory.setPassword(URLs.getBrokerPassword());
+		factory.setPassword(Utils.getBrokerPassword());
 		factory.setVirtualHost("/");
-		factory.setHost(URLs.getBrokerUrl("admin"));
+		factory.setHost(Utils.getBrokerUrl("admin"));
 		factory.setPort(5672);
 		factory.setAutomaticRecoveryEnabled(true);
 		factory.setNetworkRecoveryInterval(10000);
@@ -77,7 +77,7 @@ public class BrokerServiceImpl implements BrokerService
 	
 	public Channel getAdminChannel(String username)
 	{
-		String bucket_url = URLs.getBrokerUrl(username);
+		String bucket_url = Utils.getBrokerUrl(username);
 		String bucket_number = bucket_url.substring(6, bucket_url.length());
 		
 		logger.debug("bucket_url="+bucket_url);
@@ -92,9 +92,9 @@ public class BrokerServiceImpl implements BrokerService
 		{
 			factory = new ConnectionFactory();
 			factory.setUsername("admin");
-			factory.setPassword(URLs.getBrokerPassword());
+			factory.setPassword(Utils.getBrokerPassword());
 			factory.setVirtualHost("/");
-			factory.setHost(URLs.getBrokerUrl(username));
+			factory.setHost(Utils.getBrokerUrl(username));
 			factory.setPort(5672);
 
 			try 
@@ -127,7 +127,7 @@ public class BrokerServiceImpl implements BrokerService
 		{
 			factory = new ConnectionFactory();
 			factory.setUsername("admin");
-			factory.setPassword(URLs.getBrokerPassword());
+			factory.setPassword(Utils.getBrokerPassword());
 			factory.setVirtualHost("/");
 			factory.setHost("rabbit"+String.valueOf(node));
 			factory.setPort(5672);
@@ -165,7 +165,7 @@ public class BrokerServiceImpl implements BrokerService
 			factory.setUsername(username);
 			factory.setPassword(password);
 			factory.setVirtualHost("/");
-			factory.setHost(URLs.getBrokerUrl(username));
+			factory.setHost(Utils.getBrokerUrl(username));
 			factory.setPort(5672);
 
 			try 
@@ -382,10 +382,10 @@ public class BrokerServiceImpl implements BrokerService
 	{
 		logger.debug("In bind");
 		
-		String source_bucket	=	URLs.getBrokerUrl(exchange);
-		String dest_bucket 		=	URLs.getBrokerUrl(queue);
+		String source_bucket	=	Utils.getBrokerUrl(exchange);
+		String dest_bucket 		=	Utils.getBrokerUrl(queue);
 		
-		if(source_bucket.equals(dest_bucket) || URLs.single_node || URLs.clustered )
+		if(source_bucket.equals(dest_bucket) || Utils.single_node || Utils.clustered )
 		{
 			try
 			{	
@@ -402,8 +402,8 @@ public class BrokerServiceImpl implements BrokerService
 		else
 		{
 			String shovel_name	=	source_bucket+":"+dest_bucket+":"+routingKey;
-			String source_uri 	=	"amqp://admin:"+URLs.getBrokerPassword()+"@"+source_bucket+":5672/%2f";
-			String dest_uri 	=	"amqp://admin:"+URLs.getBrokerPassword()+"@"+dest_bucket+":5672/%2f";
+			String source_uri 	=	"amqp://admin:"+Utils.getBrokerPassword()+"@"+source_bucket+":5672/%2f";
+			String dest_uri 	=	"amqp://admin:"+Utils.getBrokerPassword()+"@"+dest_bucket+":5672/%2f";
 			String url_string	=	"http://"+source_bucket+":15672"+"/api/parameters/shovel/%2f/"+shovel_name+"/";
 			
 			JsonObject body		=	new JsonObject();
@@ -419,7 +419,7 @@ public class BrokerServiceImpl implements BrokerService
 
 			body.put("value", value);
 			
-			String encoded = Base64.getEncoder().encodeToString(("admin"+":"+URLs.getBrokerPassword()).getBytes(StandardCharsets.UTF_8));
+			String encoded = Base64.getEncoder().encodeToString(("admin"+":"+Utils.getBrokerPassword()).getBytes(StandardCharsets.UTF_8));
 			
 			URL url;
 			HttpURLConnection con;
@@ -528,7 +528,7 @@ public class BrokerServiceImpl implements BrokerService
 		
 		//Shovel API goes here
 		
-		String pool_id	=	"admin"	+	":"	+	URLs.getBrokerPassword();
+		String pool_id	=	"admin"	+	":"	+	Utils.getBrokerPassword();
 		
 		try
 		{
