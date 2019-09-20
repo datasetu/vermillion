@@ -3,6 +3,7 @@ package iudx;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import iudx.broker.BrokerVerticle;
@@ -14,7 +15,7 @@ public class MainVerticle extends AbstractVerticle
 	public	final static Logger logger = LoggerFactory.getLogger(MainVerticle.class);
 	
 	@Override
-	public void start(Future<Void> startFuture)throws Exception
+	public void start(Promise<Void> promise)throws Exception
 	{	
 		deployHelper(DbVerticle.class.getName())
 		.setHandler(db -> {
@@ -22,7 +23,7 @@ public class MainVerticle extends AbstractVerticle
 			if(!db.succeeded())
 			{
 				logger.debug(db.cause());
-				startFuture.fail(db.cause().toString());
+				promise.fail(db.cause().toString());
 			}
 			
 			deployHelper(BrokerVerticle.class.getName())
@@ -31,7 +32,7 @@ public class MainVerticle extends AbstractVerticle
 			if(!broker.succeeded()) 
 			{
 				logger.debug(broker.cause());
-				startFuture.fail(broker.cause().toString());
+				promise.fail(broker.cause().toString());
 			}
 			
 			deployHelper(HttpServerVerticle.class.getName())
@@ -40,10 +41,10 @@ public class MainVerticle extends AbstractVerticle
 			if(!http.succeeded())
 			{
 				logger.debug(http.cause());
-				startFuture.fail(http.cause().toString());
+				promise.fail(http.cause().toString());
 			}
 			
-			startFuture.complete();
+			promise.complete();
 		});
 		});
 		});
@@ -51,7 +52,7 @@ public class MainVerticle extends AbstractVerticle
 }
 	private Future<Void> deployHelper(String name)
 	{
-		   final Future<Void> future = Future.future();
+		   Promise<Void> promise = Promise.promise();
 		   
 		   if("iudx.http.HttpServerVerticle".equals(name))
 		   {
@@ -62,15 +63,15 @@ public class MainVerticle extends AbstractVerticle
 			   if(res.succeeded()) 
 			   {
 				   logger.info("Deployed Verticle " + name);
-				   future.complete();
+				   promise.complete();
 			   }
 			   else
 			   {
 				   logger.fatal("Failed to deploy verticle " + res.cause());
-				   future.fail(res.cause());
+				   promise.fail(res.cause());
 			   }
 					   						  
-					   					  									});
+			});
 		   }
 		   else
 		   {
@@ -79,16 +80,16 @@ public class MainVerticle extends AbstractVerticle
 			      if(res.failed())
 			      {
 			         logger.fatal("Failed to deploy verticle " + name + " Cause = "+res.cause());
-			         future.fail(res.cause());
+			         promise.fail(res.cause());
 			      } 
 			      else 
 			      {
 			    	 logger.info("Deployed Verticle " + name);
-			         future.complete();
+			         promise.complete();
 			      }
 			   });
 		   }
 		   
-		   return future;
+		   return promise.future();
 }
 }	

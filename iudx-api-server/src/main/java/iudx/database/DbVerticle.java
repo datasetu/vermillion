@@ -3,7 +3,7 @@ package iudx.database;
 import io.reactiverse.pgclient.PgPool;
 import io.reactiverse.pgclient.PgPoolOptions;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.serviceproxy.ServiceBinder;
 import iudx.URLs;
 
@@ -12,7 +12,7 @@ public class DbVerticle extends AbstractVerticle
 	public PgPool client;
 
 	@Override
-	public void start(Future<Void> startFuture) throws Exception
+	public void start(Promise<Void> promise) throws Exception
 	{
 		PgPoolOptions options = new PgPoolOptions();
         options.setDatabase(URLs.psql_database_name);
@@ -31,11 +31,11 @@ public class DbVerticle extends AbstractVerticle
         		
         		binder.setAddress("db.queue").register(DbService.class, ready.result());
         		
-        		startFuture.complete();
+        		promise.complete();
         	}
         	else
         	{
-        		startFuture.fail(ready.cause());
+        		promise.fail(ready.cause());
         	}
         });
 	}	

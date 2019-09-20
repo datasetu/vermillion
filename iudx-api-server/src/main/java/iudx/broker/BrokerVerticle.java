@@ -1,13 +1,17 @@
 package iudx.broker;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.serviceproxy.ServiceBinder;
 
 public class BrokerVerticle extends AbstractVerticle
 {
+	private final static Logger logger = LoggerFactory.getLogger(BrokerVerticle.class);
+	
 	@Override
-	public void start(Future<Void> startFuture)
+	public void start(Promise<Void> promise)throws Exception
 	{	
 		BrokerService.create(vertx, ready -> {
 			
@@ -17,11 +21,14 @@ public class BrokerVerticle extends AbstractVerticle
 				
 				binder.setAddress("broker.queue").register(BrokerService.class, ready.result());
 				
-				startFuture.complete();
+				promise.complete();
+				
+				logger.debug("Created broker service");
 			}
 			else
 			{
-				startFuture.fail(ready.cause());
+				logger.debug("Could not create broker service. Cause ="+ready.cause());
+				promise.fail(ready.cause());
 			}
 			
 		});

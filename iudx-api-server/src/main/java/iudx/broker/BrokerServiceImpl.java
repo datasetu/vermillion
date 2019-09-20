@@ -21,8 +21,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.rabbitmq.RabbitMQClient;
-import io.vertx.rabbitmq.RabbitMQOptions;
 
 import com.rabbitmq.client.AuthenticationFailureException;
 import com.rabbitmq.client.Channel;
@@ -38,7 +36,6 @@ public class BrokerServiceImpl implements BrokerService
 	public	Channel 				channel;
 	public	ConnectionFactory		factory;
 	public	Map<String, Object> 	args;
-	public  RabbitMQClient          client;
 	
 	private final static Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
 	
@@ -50,7 +47,6 @@ public class BrokerServiceImpl implements BrokerService
 		
 		args.put("x-max-length-bytes", 10485760); // 10Mib
 		args.put("x-message-ttl", 86400000); // 1 day
-
 		
 		factory = new ConnectionFactory();
 		factory.setUsername("admin");
@@ -69,6 +65,7 @@ public class BrokerServiceImpl implements BrokerService
 			logger.debug("Rabbitmq channel created");
 				
 			pool.put("admin", channel);
+			result.handle(Future.succeededFuture(this));
 		} 
 		catch (Exception e) 
 		{
@@ -76,33 +73,6 @@ public class BrokerServiceImpl implements BrokerService
 			result.handle(Future.failedFuture(e.getCause()));
 		}
 		
-		RabbitMQOptions config = new RabbitMQOptions();
-        
-        config.setUser("admin");
-        config.setPassword(URLs.getBrokerPassword());
-        config.setHost(URLs.getBrokerUrl("admin"));
-        config.setPort(5672);
-        config.setVirtualHost("/");
-        config.setConnectionTimeout(6000); // in milliseconds
-        config.setRequestedHeartbeat(60); // in seconds
-        config.setHandshakeTimeout(6000); // in milliseconds
-        config.setRequestedChannelMax(5);
-        config.setNetworkRecoveryInterval(500); // in milliseconds
-        config.setAutomaticRecoveryEnabled(true);
-
-        client = RabbitMQClient.create(vertx, config);
-        client.start(res -> {
-
-        if(!res.succeeded())
-        {
-                logger.debug(res.cause());
-                result.handle(Future.failedFuture(res.cause()));
-        }
-
-        result.handle(Future.succeededFuture(this));
-
-        });
-
 	}
 	
 	public Channel getAdminChannel(String username)

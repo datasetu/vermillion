@@ -66,8 +66,8 @@ public class URLs
 	public static int getPsqlDatabasePort() {
 		return psql_database_port;
 	}
-	public static String getBrokerUrl(String username) {
-		
+	public static String getBrokerUrl(String username) 
+	{
 		String broker_url = "";
 		
 		if(single_node)
@@ -78,7 +78,6 @@ public class URLs
 		}
 		else if(federated)
 		{
-			
 			/** Using a simple hash function m % n to distribute load between rabbitmq nodes.
 			 *  There are 26 characters and "n" broker nodes in the swarm. If we assign a=1, 
 			 *  b=2, c=3 and so on, this operation becomes straightforward. Thus to achieve this,

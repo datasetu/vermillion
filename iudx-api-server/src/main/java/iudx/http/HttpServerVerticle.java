@@ -19,13 +19,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import org.apache.commons.lang3.RandomStringUtils;
 import com.google.common.hash.Hashing;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
@@ -35,7 +39,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
-
+import io.vertx.rabbitmq.RabbitMQClient;
+import io.vertx.rabbitmq.RabbitMQOptions;
+import iudx.URLs;
 import iudx.broker.BrokerService;
 import iudx.database.DbService;
 
@@ -53,16 +59,13 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 {
 	public	final static Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
 	
-	
-	public	String 		schema;
-	public	String 		message;
-	
-	//Service proxies
-	public	DbService 			dbService;
-	public	BrokerService		brokerService;
-	
-	//Pool to check login info
-	public	Map<String, String>	pool;
+	public	String 						schema;
+	public	String 						message;
+	public	DbService 					dbService;
+	public	BrokerService				brokerService;
+	public	Map<String, Channel>		pool;
+//	public  RabbitMQClient     			client;
+//	public	RabbitMQOptions 			config;
 	
 	//Characters to be used by APIKey generator while generating apikey 
 	private static final String PASSWORDCHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-";
@@ -90,13 +93,13 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 	 */
 	
 	@Override
-	public void start(Future<Void> startFuture) throws Exception 
+	public void start(Promise<Void> startPromise) throws Exception 
 	{	
 		logger.debug("In start");
 		
 		int port 			= 	8443;
 		
-		pool				=	new HashMap<String, String>();
+		pool				=	new ConcurrentHashMap<String, Channel>();
 		
 		dbService			=	DbService.createProxy(vertx, "db.queue");
 		brokerService		=	BrokerService.createProxy(vertx, "broker.queue");
@@ -112,31 +115,50 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		.requestHandler(HttpServerVerticle.this)
 		.listen(port, ar -> {
 				
-			if(ar.succeeded())
-			{
-				logger.debug("Server started");
-				startFuture.complete();
-			}
-			else
-			{
-				logger.debug("Could not start server. Cause="+ar.cause());
-				startFuture.fail(ar.cause());
-			}
+		if(!ar.succeeded())
+		{
+			logger.debug("Could not start server. Cause="+ar.cause());
+			startPromise.fail(ar.cause());
+		}
+			logger.debug("Server started");
+			startPromise.complete();
+			
 		});
-
+		
 		vertx.exceptionHandler(err -> {
 			err.printStackTrace();
 		});
 		
-		brokerService.createQueue("DATABASE", ar -> {
+		brokerService.createQueue("DATABASE", databaseQueue -> {
 			
-			if(!ar.succeeded())
+			if(!databaseQueue.succeeded())
 			{
-				logger.error("Could not create queue. Cause="+ar.cause());
+				logger.error("Could not create queue. Cause="+databaseQueue.cause());
 			}
 		});
 		
 	}
+	
+	public void getChannel(String id, String apikey)throws Exception
+	{	
+		ConnectionFactory	factory = new ConnectionFactory();
+		
+		factory.setUsername(id);
+		factory.setPassword(apikey);
+		factory.setVirtualHost("/");
+		factory.setHost(URLs.getBrokerUrl(id));
+		factory.setPort(5672);
+		factory.setAutomaticRecoveryEnabled(true);
+		factory.setNetworkRecoveryInterval(10000);
+
+		Connection	connection	=	factory.newConnection();
+		Channel		channel		=	connection.createChannel();
+				
+		logger.debug("Rabbitmq channel created");
+				
+		pool.put(id+":"+apikey, channel);	
+	}
+
 	
 	/**
 	 * This method is used to handle the client requests and map it to the
@@ -190,21 +212,6 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 				if(event.method().toString().equalsIgnoreCase("POST"))
 				{
 					publish(event);
-				}
-				else
-				{
-					resp = event.response();
-					resp.setStatusCode(404).end();
-					return;
-				}
-				
-				break;
-				
-			case "/entity/publish-async":
-				
-				if(event.method().toString().equalsIgnoreCase("POST"))
-				{
-					publishAsync(event);
 				}
 				else
 				{
@@ -1896,7 +1903,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 					return;
 				}
 				
-				publishToNotification	(from_id, permission, 
+				publishToNotification(from_id, permission, 
 										to, entityExists.result())
 				.setHandler(publish -> {
 										
@@ -2170,7 +2177,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 	
 	public Future<Void> bindToPublishExchange(String from, String to, String topic)
 	{
-		Future<Void> future	=	Future.future();
+		Promise<Void> promise	=	Promise.promise();
 		
 		String exchange		=	from	+	".publish";
 		String queue		=	to		+	".command";
@@ -2180,19 +2187,19 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 			if(bind.succeeded())
 			{
-				future.complete();
+				promise.complete();
 			}
 			else
 			{
-				future.fail(bind.cause());
+				promise.fail(bind.cause());
 			}
 		});
-		return future;
+		return promise.future();
 	}
 	
 	public Future<Void> publishToNotification(String from_id, String permission, String to, boolean autonomous)
 	{
-		Future<Void> future	=	Future.future();
+		Promise<Void> promise	=	Promise.promise();
 		
 		String exchange			=	autonomous?to+".notification":to.split("/")[0]+".notification";
 		String topic			=	"Request for follow";
@@ -2204,15 +2211,15 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 			if(publish.succeeded())
 			{
-				future.complete();
+				promise.complete();
 			}
 			else
 			{
-				future.fail(publish.cause());
+				promise.fail(publish.cause());
 			}
 		});
 		
-		return future;
+		return promise.future();
 	}
 	
 	public Future<String> insertIntoFollow	(	String id, String exchange, String topic, 
@@ -2222,7 +2229,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 	{
 		logger.debug("In insert into follow");
 		
-		Future<String> future = Future.future();
+		Promise<String> promise = Promise.promise();
 		
 		String follow_query	=	"INSERT INTO follow VALUES (DEFAULT,	'"	+
 								id											+	"','"	+
@@ -2257,21 +2264,21 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			logger.debug("Row="+row);
 			logger.debug("Follow ID="+follow_id);
 						
-			future.complete(follow_id);
+			promise.complete(follow_id);
 		}
 		else
 		{
-			future.fail(getFollowID.cause());
+			promise.fail(getFollowID.cause());
 		}
 	});
 		}
 		else
 		{
-			future.fail(followQuery.cause());
+			promise.fail(followQuery.cause());
 		}
 	});
 		
-		return future;
+		return promise.future();
 	}
 	
 	public Future<Void> insertIntoAcl	(	String from_id, String exchange, String permission, 
@@ -2280,7 +2287,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 	{
 		logger.debug("In insert into acl");
 		
-		Future<Void> future	=	Future.future();
+		Promise<Void> promise	=	Promise.promise();
 		
 		String acl_query	=	"INSERT INTO acl VALUES	(	'"	+
 								from_id							+	"','"	+	
@@ -2294,14 +2301,14 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 			if(query.succeeded())
 			{
-				future.complete();
+				promise.complete();
 			}
 			else
 			{
-				future.fail(query.cause());
+				promise.fail(query.cause());
 			}
 		});
-		return future;
+		return promise.future();
 	}
 	
 	public void unfollow(HttpServerRequest req)
@@ -3802,117 +3809,25 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			logger.debug("Exchange="+exchange);
 			logger.debug("Topic="+topic);
 			
-			brokerService.publish(id, apikey, exchange, topic, message, ar -> {
-					
-			if(!ar.succeeded())
-			{
-				logger.debug("AR Cause="+ar.cause());
-				//if(ar.cause().toString().contains("ACCESS_REFUSED"))
-				//{
-				//	forbidden(resp);
-				//	return;
-				//}
-				//else
-				//{
-					error(resp, "Could not publish to broker");
-					return;
-				//}
-			}
-			else
-			{
-				accepted(resp);
-				return;
-			}
-		});
-		});
-	}
-	
-	public void publishAsync(HttpServerRequest req) 
-	{
-		HttpServerResponse resp	=	req.response();
-		String	id				=	req.getHeader("id");
-		String	apikey			=	req.getHeader("apikey");
-		String	to				=	req.getHeader("to");
-		String 	subject			=	req.getHeader("subject");
-		String 	message_type	=	req.getHeader("message-type");
-		
-		logger.debug("id="+id);
-		logger.debug("apikey="+apikey);
-		logger.debug("to="+to);
-		logger.debug("subject="+subject);
-		logger.debug("message-type="+message_type);
-		
-		if	(	(id				==	null)
-								||
-				(apikey			==	null)
-								||
-				(to				==	null)
-								||
-				(subject		==	null)
-								||
-				(message_type	==	null)
-			)
-		{
-			badRequest(resp,"Inputs missing in headers");
-			return;
-		}
-		
-		//TODO: Add proper validation
-		req.bodyHandler(body -> 
-		{
-			message = body.toString();
+			String poolId	=	id	+	":"	+	apikey;
 			
-			logger.debug("body="+message);
-			
-			String temp_exchange	=	"";
-			String temp_topic		=	"";
-			
-			if(id.equals(to))
+			try
 			{
-				if	(	(!"public".equals(message_type))
-										&&
-						(!"private".equals(message_type))
-										&&
-						(!"protected".equals(message_type))
-										&&
-						(!"diagnostics".equals(message_type))
+				if	(	(!pool.containsKey(poolId))
+									||
+						(!pool.get(poolId).isOpen())
 					)
 				{
-					badRequest(resp,"'message-type' is invalid");
-					return;
+					getChannel(id, apikey);
 				}
 				
-				temp_exchange	=	id	+	"."	+	message_type;
-				temp_topic		=	subject;
+				pool.get(poolId).basicPublish(exchange, topic, null, message.getBytes());
 			}
-			else
+			catch(Exception e)
 			{
-				if	(!"command".equals(message_type))
-				{
-					badRequest(resp,"'message-type' can only be command");
-					return;
-				}
-				
-				temp_topic		=	to				+	"."	+	
-									message_type	+	"."	+	
-									subject					;
-				
-				temp_exchange	=	id	+	".publish";
-			}
-			
-			if(!isValidEntity(to))
-			{
-				badRequest(resp, "'to' is not a valid entity");
+				error(resp, "Could not publish to broker");
 				return;
 			}
-			
-			final String exchange	=	temp_exchange;
-			final String topic		=	temp_topic;
-			
-			logger.debug("Exchange="+exchange);
-			logger.debug("Topic="+topic);
-			
-			brokerService.publish(id, apikey, exchange, topic, message, ar -> {});
 			
 			accepted(resp);
 			return;
@@ -4006,57 +3921,34 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		final String message_type	=	message_type_header;
 		final int message_count		=	Integer.parseInt(num_messages);
 		
-		if(pool.get(id+apikey)==null)
+		
+		checkLogin(id, apikey)
+		.setHandler(login -> {
+			
+		if(!login.succeeded())
 		{
-			checkLogin(id, apikey)
-			.setHandler(login -> {
+			forbidden(resp);
+			return;
+		}
+			
+		brokerService.subscribe(id, apikey, message_type, message_count, result -> {
 				
-				if(!login.succeeded())
-				{
-					forbidden(resp);
-					return;
-				}
+		if(!result.succeeded())
+		{
+			error(resp, "Could not get messages");
+			return;
+		}
 				
-				pool.put(id+apikey, "1");
-				
-				brokerService.subscribe(id, apikey, message_type, message_count, result -> {
-					
-					if(!result.succeeded())
-					{
-						error(resp, "Could not get messages");
-						return;
-					}
-					
-					if(!resp.closed())
-					{	
-						resp
-						.putHeader("content-type", "application/json")
-						.setStatusCode(200)
-						.end(result.result().encodePrettily());
-					}
-				});
+		if(!resp.closed())
+		{	
+			resp
+			.putHeader("content-type", "application/json")
+			.setStatusCode(200)
+			.end(result.result().encodePrettily());
+		}
 			});
-		}
-		else
-		{
-			brokerService.subscribe(id, apikey, message_type, message_count, result -> {
-			
-			if(!result.succeeded())
-			{
-				error(resp, "Could not get messages");
-				return;
-			}
-			
-			if(!resp.closed())
-			{	
-				resp
-				.putHeader("content-type", "application/json")
-				.setStatusCode(200)
-				.end(result.result().encodePrettily());
-				
-			}
 		});
-		}
+		
 		
 		return;
 	}
@@ -4075,7 +3967,8 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 	{
 		logger.debug("In entity does not exist");
 		
-		Future<Boolean> future	=	Future.future();		
+		Promise<Boolean> promise	=	Promise.promise();		
+		
 		String query		=	"SELECT * FROM users WHERE id	=	'"	+ 
 								entity_id 								+	
 								"'" 									;
@@ -4097,22 +3990,22 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 				
 				boolean autonomous		=	"true".equals(processed_row[5])?true:false;
 				
-				future.complete(autonomous);
+				promise.complete(autonomous);
 			}
 			else
 			{
-				future.fail("Entity does not exist");
+				promise.fail("Entity does not exist");
 			}		
 		}
 	});
-		return future;
+		return promise.future();
 	}
 	
 	public Future<Void> entityDoesNotExist(String registration_entity_id) 
 	{
 		logger.debug("in entity does not exist");
 		
-		Future<Void> future		=	Future.future();		
+		Promise<Void> promise	=	Promise.promise();		
 		String query			=	"SELECT * FROM users WHERE id = '"
 									+ registration_entity_id +	"'";
 		
@@ -4125,21 +4018,21 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		
 			if(rowCount==1)
 			{
-				future.fail("Entity exists");	
+				promise.fail("Entity exists");	
 			}
 			else
 			{
-				future.complete();
+				promise.complete();
 			}
 				
 		}
 		else
 		{
 			logger.debug(reply.cause());
-			future.fail("Could not get entity details");
+			promise.fail("Could not get entity details");
 		}
 	});
-		return future;
+		return promise.future();
 	}
 	
 	public boolean isOwner(String owner, String entity)
@@ -4168,7 +4061,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 	{
 		logger.debug("In generate credentials");
 		
-		Future<String> future	= Future.future();
+		Promise<String> promise	=	Promise.promise();
 		
 		String apikey			=	genRandString(32);
 		String salt 			=	genRandString(32);
@@ -4198,24 +4091,24 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		if(reply.succeeded())
 		{
 			logger.debug("Generate credentials query succeeded");
-			future.complete(apikey);
+			promise.complete(apikey);
 		}
 		else
 		{
 			logger.debug("Failed to run query. Cause="+reply.cause());
-			future.fail(reply.cause().toString());
+			promise.fail(reply.cause().toString());
 		}
 		
 	});
 		
-		return future;
+		return promise.future();
 	}
 	
 	public Future<String> updateCredentials(String id)
 	{
 		logger.debug("In update credentials");
 		
-		Future<String> future	=	Future.future();
+		Promise<String> promise	=	Promise.promise();
 
 		String apikey			=	genRandString(32);
 		String salt 			=	genRandString(32);
@@ -4241,16 +4134,16 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		if(reply.succeeded())
 		{
 			logger.debug("Update credentials query succeeded");
-			future.complete(apikey);
+			promise.complete(apikey);
 		}
 		else
 		{
 			logger.debug("Failed to run query. Cause="+reply.cause());
-			future.fail(reply.cause().toString());
+			promise.fail(reply.cause().toString());
 		}
 	});
 		
-		return future;
+		return promise.future();
 }
 	
 	public String genRandString(int len)
@@ -4273,16 +4166,16 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		logger.debug("ID="+id);
 		logger.debug("Apikey="+apikey);
 		
-		Future<Boolean> check = Future.future();
+		Promise<Boolean> promise	=	Promise.promise();
 
 		if("".equals(id) || "".equals(apikey))
 		{
-			check.fail("Invalid credentials");
+			promise.fail("Invalid credentials");
 		}
 		
 		if(! (isValidOwner(id) ^ isValidEntity(id)))
 		{
-			check.fail("Invalid credentials");
+			promise.fail("Invalid credentials");
 		}
 		
 		String query		=	"SELECT * FROM users WHERE id	=	'"	+
@@ -4298,7 +4191,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 			if(rowCount==0)
 			{
-				check.fail("Not found");
+				promise.fail("Not found");
 			}
 			
 			else if(rowCount==1)
@@ -4326,21 +4219,21 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 										
 				if(actual_hash.equals(expected_hash))
 				{
-					check.complete(autonomous);
+					promise.complete(autonomous);
 				}
 				else
 				{
-					check.fail("Invalid credentials");
+					promise.fail("Invalid credentials");
 				}
 			}
 			else
 			{
-				check.fail("Something is terribly wrong");
+				promise.fail("Something is terribly wrong");
 			}
 		}
 	});
 		
-	return check;
+	return promise.future();
 	}
 
 	public boolean isStringSafe(String resource)
