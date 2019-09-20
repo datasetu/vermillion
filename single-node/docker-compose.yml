@@ -50,7 +50,7 @@ services:
       - WAIT_HOSTS_TIMEOUT=120
 
   rabbit:
-    image: iudx/rabbitmq
+    image: rabbitmq:3.7.18
     container_name: rabbit
     restart: on-failure
     hostname: rabbit
