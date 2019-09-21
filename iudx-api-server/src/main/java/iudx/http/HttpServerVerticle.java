@@ -137,24 +137,32 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		
 	}
 	
-	public void getChannel(String id, String apikey)throws Exception
+	public Channel getChannel(String id, String apikey)throws Exception
 	{	
-		ConnectionFactory	factory = new ConnectionFactory();
-		
-		factory.setUsername(id);
-		factory.setPassword(apikey);
-		factory.setVirtualHost("/");
-		factory.setHost(Utils.getBrokerUrl(id));
-		factory.setPort(5672);
-		factory.setAutomaticRecoveryEnabled(true);
-		factory.setNetworkRecoveryInterval(10000);
+		if	(	!pool.containsKey(id + ":" + apikey)
+								||
+				!pool.get(id + ":" + apikey).isOpen()
+			)
+		{
+			ConnectionFactory	factory = new ConnectionFactory();
+			
+			factory.setUsername(id);
+			factory.setPassword(apikey);
+			factory.setVirtualHost("/");
+			factory.setHost(Utils.getBrokerUrl(id));
+			factory.setPort(5672);
+			factory.setAutomaticRecoveryEnabled(true);
+			factory.setNetworkRecoveryInterval(10000);
 
-		Connection	connection	=	factory.newConnection();
-		Channel		channel		=	connection.createChannel();
-				
-		logger.debug("Rabbitmq channel created");
-				
-		pool.put(id+":"+apikey, channel);	
+			Connection	connection	=	factory.newConnection();
+			Channel		channel		=	connection.createChannel();
+					
+			logger.debug("Rabbitmq channel created");
+					
+			pool.put(id+":"+apikey, channel);	
+		}
+		
+		return pool.get(id+":"+apikey);
 	}
 
 	
@@ -3807,19 +3815,22 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			logger.debug("Exchange="+exchange);
 			logger.debug("Topic="+topic);
 			
-			String poolId	=	id	+	":"	+	apikey;
+			if(!pool.containsKey(id + ":" + apikey))
+			{
+				checkLogin(id, apikey)
+				.setHandler(login -> {
+					
+					if(!login.succeeded())
+					{
+						forbidden(resp);
+						return;
+					}
+				});
+			}
 			
 			try
 			{
-				if	(	(!pool.containsKey(poolId))
-									||
-						(!pool.get(poolId).isOpen())
-					)
-				{
-					getChannel(id, apikey);
-				}
-				
-				pool.get(poolId).basicPublish(exchange, topic, null, message.getBytes());
+				getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
 			}
 			catch(Exception e)
 			{
