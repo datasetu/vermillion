@@ -3817,29 +3817,47 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 			
 			if(!pool.containsKey(id + ":" + apikey))
 			{
+				logger.debug("Pool does not contain key");
 				checkLogin(id, apikey)
 				.setHandler(login -> {
 					
-					if(!login.succeeded())
-					{
-						forbidden(resp);
-						return;
-					}
+				if(!login.succeeded())
+				{
+					forbidden(resp);
+					return;
+				}
+
+				try
+				{
+					getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
+				}
+				catch(Exception e)
+				{
+					error(resp, "Could not publish to broker");
+					return;
+				}
+				
+				accepted(resp);
+				return;
 				});
 			}
-			
-			try
+			else
 			{
-				getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
-			}
-			catch(Exception e)
-			{
-				error(resp, "Could not publish to broker");
+				try
+				{
+					getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
+				}
+				catch(Exception e)
+				{
+					error(resp, "Could not publish to broker");
+					return;
+				}
+				
+				accepted(resp);
 				return;
+
 			}
 			
-			accepted(resp);
-			return;
 		});
 	}
 
