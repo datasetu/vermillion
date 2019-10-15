@@ -56,10 +56,10 @@ public class MainVerticle extends AbstractVerticle
 		   
 		   if("iudx.http.HttpServerVerticle".equals(name))
 		   {
-			   vertx.deployVerticle(name, new DeploymentOptions()
-					   					  .setWorker(true)
-					   					  .setInstances(Runtime.getRuntime()
-					   					  .availableProcessors()), res -> {
+			   vertx.deployVerticle(name,	new DeploymentOptions()
+							.setWorker(true)
+					   		.setInstances(Runtime.getRuntime()
+					   		.availableProcessors()*2), res -> {
 			   if(res.succeeded()) 
 			   {
 				   logger.info("Deployed Verticle " + name);

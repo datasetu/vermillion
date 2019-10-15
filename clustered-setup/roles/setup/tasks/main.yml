@@ -42,32 +42,32 @@
 
 - name: Check if the git repository exists
   stat:
-    path: /root/iudx-resource-server/
+    path: ~/iudx-resource-server/
   register: repo
 
 - name: Delete the repository if it already exists
   file:
     state: absent
-    path: /root/iudx-resource-server/
+    path: ~/iudx-resource-server/
   when: repo.stat.exists
 
 - name: Create iudx-resource-server folder
   file:
-    path: /root/iudx-resource-server/
+    path: ~/iudx-resource-server/
     state: directory
 
 - name: Unarchive repo on remote hosts
   unarchive:
     src: ./iudx.zip
-    dest: /root/iudx-resource-server
-    creates: /root/iudx-resource-server/deploy
+    dest: ~/iudx-resource-server
+    creates: ~/iudx-resource-server/deploy
 
 - name: Cleanup existing docker stuff
   shell: docker system prune -a -f
   ignore_errors: true
 
 - name: Add options to /etc/sysctl.conf
-  shell: cat /root/iudx-resource-server/conf/sysctl/sysctl.conf >> /etc/sysctl.conf
+  shell: cat ~/iudx-resource-server/conf/sysctl/sysctl.conf >> /etc/sysctl.conf
 
 - name: Set sysctl File Limits
   copy:

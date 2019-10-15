@@ -5,4 +5,4 @@
 - name: Deploy stack
   shell:     
     cmd: docker stack deploy -c docker-compose.json iudx-resource-server
-    chdir: /root/iudx-resource-server/load-balanced-setup/
+    chdir: ~/iudx-resource-server/load-balanced-setup/
