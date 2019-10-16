@@ -13,7 +13,7 @@
         ".env"
     ],
     "hostname": "rabbit1",
-    "image": "iudx/rabbitmq-hipe",
+    "image": "rabbitmq:3.7.18",
     "networks": [
         "iudx-net"
     ],
@@ -22,6 +22,6 @@
         "5672:5672"
     ],
     "volumes": [
-        "../conf/rabbitmq-hipe:/etc/rabbitmq/"
+        "../conf/rabbitmq:/etc/rabbitmq/"
     ]
 }

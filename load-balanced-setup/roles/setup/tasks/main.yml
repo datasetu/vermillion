@@ -67,14 +67,18 @@
   ignore_errors: true
 
 - name: Add options to /etc/sysctl.conf
-  shell: cat ~/iudx-resource-server/conf/sysctl/sysctl.conf >> /etc/sysctl.conf
+  shell: cat ../conf/sysctl/sysctl.conf | sudo tee -a /etc/sysctl.conf
 
 - name: Set sysctl File Limits
   copy:
     src: ../conf/sysctl/50-fs.conf
     dest: /etc/sysctl.d
+  become: yes
+  become_method: sudo
 
 - name: Set Shell File Limits
   copy:
     src: ../conf/sysctl/91-nofiles.conf
     dest: /etc/security/limits.d
+  become: yes
+  become_method: sudo

@@ -2,7 +2,7 @@
     "networks": {
         "iudx-net": {
             "driver": "overlay"
-        }
+            }
     },
     "services": {
         "authenticator": {
@@ -51,6 +51,9 @@
             "image": "iudx/postgres",
             "networks": [
                 "iudx-net"
+            ],
+            "ports": [
+                "5432:5432"
             ]
         },
         "vertx": {
