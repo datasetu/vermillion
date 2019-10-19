@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+
+import time
+import ray
+import json
+import math
+import argparse
+import random
+import string
+import logging
+import time
+import sys
+import pika
+import requests
+import urllib3
+import subprocess
+from requests.adapters import HTTPAdapter
+import multiprocessing as mp
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)s %(levelname)-6s %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+logging.getLogger('requests').setLevel(logging.CRITICAL)
+logging.getLogger('urllib3').setLevel(logging.CRITICAL)
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+base_url	    =   "https://"
+node_list	    =   []
+publish_endpoint    =   "/entity/publish"
+
+
+ray.init(address="45.77.176.64:6379")
+
+parser = argparse.ArgumentParser(description="Specifications to configure the test script")
+
+parser.add_argument(
+    "-n",
+    "--nodes",
+    action="store",
+    dest="nodes",
+    type=int,
+    help="No. of nodes to use for parallel registrations",
+    )
+
+args = parser.parse_args()
+nodes= int(args.nodes)
+
+if nodes == 1:
+    node_list = ["node-1"]
+else:
+    node_list = ["node-"+str(i) for i in range(1,nodes+1)]
+
+
+@ray.remote
+def publish(credentials):
+    
+    s   =   requests.Session()
+
+    username    =   credentials[0]
+    apikey      =   credentials[1]
+
+    headers = {
+        'id': username,
+        'apikey': apikey,
+        'to': username,
+        'subject': "test.data",
+        'message-type': "protected",
+        'content-type': 'application/json',
+        }
+
+    data    =   '{"FloodSensor": { "DANGER": "1.0", "CUR_LEVEL": "0.05", "STATUS": "Normal", "LASTUPDATEDATETIME": "2019-06-21T11:02:16.635+05:30", "SITE_STATUS": "Active", "ALERT": "0.5", "STATION_ID": "FWR023", "NAME": ' + username + '}}'
+
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+    time_list   =   []
+    
+    for i in range(10000):
+        random_node =   random.choice(node_list)
+        url = base_url + random_node + '/entity/publish'
+        #s.mount(url, HTTPAdapter(pool_connections=10))
+        start_time  =   time.time()
+        r = s.post(url=url, headers=headers, data=data, verify=False)
+        time_taken  =   time.time() - start_time
+        time_list.append(time_taken)
+
+    return sum(time_list)
+
+device_keys =   json.loads(open("device_keys","r").read())
+producers   =   len(device_keys)   
+start_time  =   time.time()
+time_list   =   ray.get([publish.remote(credentials) for credentials in device_keys.items()])
+time_taken  =   time.time() -   start_time
+print("Actual time taken = "+str(time_taken))
+print(time_list)
+avg_time    =   float(sum(time_list))/float(producers)
+throughput  =   (producers*10000)/avg_time
+
+print("Throughput="+str(throughput))
