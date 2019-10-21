@@ -1,0 +1,40 @@
+version: "3"
+
+services:
+  rabbit1:
+    image: iudx/rabbitmq-cluster
+    hostname: rabbit1
+    environment:
+      - ERLANG_COOKIE=abcdefg
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - rabbit-net
+  
+  rabbit2:
+    image: iudx/rabbitmq-cluster
+    hostname: rabbit2
+    environment:
+      - ERLANG_COOKIE=abcdefg
+      - CLUSTER_WITH=rabbit1
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    networks:
+      - rabbit-net
+  
+  rabbit3:
+    image: iudx/rabbitmq-cluster
+    hostname: rabbit3
+    environment:
+      - ERLANG_COOKIE=abcdefg
+      - CLUSTER_WITH=rabbit1
+    ports:
+      - "5674:5672"
+    networks:
+      - rabbit-net
+
+networks:
+  rabbit-net:
+    driver: bridge
