@@ -34,6 +34,11 @@
     line: "QUICK_INSTALL=true"
     path: ./.env
 
+- name: Enable quick install mode
+  lineinfile: 
+    line: "CLUSTER_WITH=rabbit1"
+    path: ./.env
+
 - name: Compress current repo into an archive
   archive:
     path:
