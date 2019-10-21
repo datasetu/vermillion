@@ -44,7 +44,7 @@
     path:
     - ../iudx-api-server/
     - ../iudx-authenticator
-    - ../cluster/
+    - ../clustered-setup/
     - ../conf/
     dest: ./iudx.zip
     format: zip
