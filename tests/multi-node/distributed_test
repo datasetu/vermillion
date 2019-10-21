@@ -32,7 +32,7 @@ node_list	    =   []
 publish_endpoint    =   "/entity/publish"
 
 
-ray.init(address="45.77.176.64:6379")
+ray.init(address="localhost:52360", redis_password="6R3NKKC0ZkwXfgy8bsFKYoP10nSi8iUE")
 
 parser = argparse.ArgumentParser(description="Specifications to configure the test script")
 
