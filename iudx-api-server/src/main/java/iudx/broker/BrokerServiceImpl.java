@@ -45,8 +45,9 @@ public class BrokerServiceImpl implements BrokerService
 		pool			=	new HashMap<String, Channel>();
 		args			=	new HashMap<String, Object>();
 		
-		args.put("x-max-length-bytes", 10485760); // 10Mib
-		args.put("x-message-ttl", 86400000); // 1 day
+		//args.put("x-max-length-bytes", 10485760); // 10Mib
+		//args.put("x-message-ttl", 86400000); // 1 day
+		args.put("x-queue-mode", "lazy"); // Queues are lazy
 		
 		factory = new ConnectionFactory();
 		factory.setUsername("admin");
