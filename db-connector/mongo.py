@@ -23,6 +23,7 @@ class dbconnector():
 	client		=   pymongo.MongoClient(connecton_str)
 	db		=   client["resource_server"]
 	self.archive	=   db.archive
+        self.archive.ensure_index([("__geoJsonLocation", pymongo.GEOSPHERE)])
 	print("Connected to mongo")
 
     def connect_to_rabbit(self):
