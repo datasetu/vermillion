@@ -5,84 +5,78 @@ import time
 import os
 import dateutil.parser
 
-class dbconnector():
+broker_username =   "admin"
+broker_pwd	=   os.getenv("ADMIN_PWD")
+mongo_username  =   "root"
+mongo_pwd       =   os.getenv("MONGO_INITDB_ROOT_PASSWORD")
+archive         =   None
+channel         =   None
 
-    def __init__(self, broker_username, broker_pwd, mongo_username, mongo_pwd):
-	self.broker_username	=   broker_username
-	self.broker_pwd		=   broker_pwd
-	self.mongo_username	=   mongo_username
-	self.mongo_pwd		=   mongo_pwd
-	self.archive		=   None
-	self.channel		=   None
+def connect_to_mongo():
+    global archive
 
-	self.connect_to_mongo()
-	self.connect_to_rabbit()
+    connecton_str   =   "mongodb://"+mongo_username+":"+mongo_pwd+"@mongo"
+    client	    =   pymongo.MongoClient(connecton_str)
+    db		    =   client["resource_server"]
+    archive         =   db.archive
+    archive.ensure_index([("__geoJsonLocation", pymongo.GEOSPHERE)])
 
-    def connect_to_mongo(self):
-	connecton_str	=   "mongodb://"+self.mongo_username+":"+self.mongo_pwd+"@mongo"
-	client		=   pymongo.MongoClient(connecton_str)
-	db		=   client["resource_server"]
-	self.archive	=   db.archive
-        self.archive.ensure_index([("__geoJsonLocation", pymongo.GEOSPHERE)])
-	print("Connected to mongo")
+    print("Connected to mongo")
 
-    def connect_to_rabbit(self):
+def connect_to_rabbit():
+    global channel
 
-	credentials	=   pika.PlainCredentials(self.broker_username, self.broker_pwd)
-	parameters	=   pika.ConnectionParameters(host='rabbit',
+    credentials	=   pika.PlainCredentials(broker_username, broker_pwd)
+    parameters	=   pika.ConnectionParameters(host='rabbit',
 			    port=5672, credentials=credentials)
-	connection	=   pika.BlockingConnection(parameters)
-	self.channel	=   connection.channel()
-	self.channel.confirm_delivery()
-	print("Connected to rabbitmq")
+    connection	=   pika.BlockingConnection(parameters)
+    channel	=   connection.channel()
 
-    def is_json(self, body):
-	try:
-	   json.loads(body)
-	   return True
-	except Exception:
-	    return False
+    print("Connected to rabbitmq")
 
-    def push_to_mongo(self):
-	start	=   time.time()
+def is_json(body):
+    try:
+	json.loads(body)
+	return True
+    except Exception:
+	return False
 
-	while True:
-	    try:
-	        for (method_frame, properties, body) in self.channel.consume("DATABASE", inactivity_timeout=1):
+def callback(ch, method, properties, body):
 
-		    if not method_frame:
-		    	continue
+    global archive
 
-		    else:
-			self.channel.basic_ack(method_frame.delivery_tag)
-			print("Body="+body)
+    #if not is_json(body):
+	#print("Message needs to be JSON. Rejecting...")
+    
+    #else:
 
-			if not self.is_json(body):
-			    print("Message needs to be a JSON. Rejecting...")
-			    continue
-			else:
-			    body_dict   =   json.loads(body)
+    print(body)
+    
+    body_dict   =   json.loads(body)
 
-			    if "__time" in body_dict:
-				time_str    =   body_dict["__time"]
-				body_dict["__time"]   = dateutil.parser.parse(time_str)
+    if "__time" in body_dict:
+	time_str    =   body_dict["__time"]
+	body_dict["__time"]   = dateutil.parser.parse(time_str)
 
-			    if self.archive.find(body_dict).count() == 0:
-				print("Mongo insert="+str(self.archive.insert_one(body_dict)))
+    try:
+        print("Mongo insert="+str(archive.update(body_dict, body_dict, upsert=True)))
+    except Exception as e:
+        connect_to_mongo()
+        fetch_from_queue()
 
-	    except Exception as e:
-	        print(e)
-	        self.connect_to_mongo()
-	        self.connect_to_rabbit()
+def fetch_from_queue():
 
-	    time.sleep(10.0 - ((time.time() - start) % 10.0))
+    print("Fetching from the database queue...")
 
-if __name__ ==	"__main__":
+    global channel
 
-    broker_username =	"admin"
-    broker_pwd	    =	os.getenv("ADMIN_PWD")
-    mongo_username  =	"root"
-    mongo_pwd	    =	os.getenv("MONGO_INITDB_ROOT_PASSWORD")
-    db		    =   dbconnector(broker_username, broker_pwd, mongo_username, mongo_pwd)
+    try:
+        channel.basic_consume(queue="DATABASE", on_message_callback=callback, auto_ack=True)
+        channel.start_consuming()
+    except Exception as e:
+        connect_to_rabbit()
+        fetch_from_queue()
 
-    db.push_to_mongo()
+connect_to_rabbit()
+connect_to_mongo()
+fetch_from_queue()
