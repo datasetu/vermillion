@@ -4281,9 +4281,9 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		logger.debug("In is_valid_owner");
 		
 		//TODO simplify this
-		if	(	(!Character.isDigit(owner_name.charAt(0)))
-									&&
-			(	(owner_name.length() - (owner_name.replaceAll("[^a-z0-9]+", "")).length())==0)
+		if	(   (!Character.isDigit(owner_name.charAt(0)))
+					    &&
+			(   (owner_name.length() - (owner_name.replaceAll("[^a-z0-9]+", "")).length())==0)
 			)
 		{
 			logger.debug("Original owner name = "+owner_name);
@@ -4311,10 +4311,10 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		{
 			return false;
 		}
-		else if	(	(isValidOwner(entries[0]))
-								&&
-					(isStringSafe(entries[1]))
-				)
+		else if	(   (isValidOwner(entries[0]))
+					&&
+			    (isStringSafe(entries[1]))
+			)
 		{
 			return true;
 		}
@@ -4388,7 +4388,7 @@ public class HttpServerVerticle extends AbstractVerticle implements  Handler<Htt
 		return;
 	}
 	
-	public void accpeted(HttpServerResponse resp, String message)
+	public void accepted(HttpServerResponse resp, String message)
 	{
 		if(!resp.closed())
 		{
