@@ -2,9 +2,6 @@ sudo: required
 
 dist: xenial
 
-before_install:
-  - ./tests/single-node/require.sh
-
 language: python
 
 python: 2.7
