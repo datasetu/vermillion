@@ -12,7 +12,7 @@ volumes:
 services:
 
   vertx:
-    image: iudx/vertx
+    image: iudx/java:11
     container_name: vertx
     hostname: vertx
     restart: on-failure
@@ -21,28 +21,31 @@ services:
     networks:
       - iudx-net
     volumes:
-      - ../iudx-api-server:/iudx-api-server/
+      - ../api-server:/api-server/
     env_file:
       - .env
     environment:
      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
      - WAIT_HOSTS_TIMEOUT=120
+     - PROJECT_DIR=api-server
+     - JAR_NAME=api-server-fat.jar
 
   authenticator:
-    image: iudx/authenticator
+    image: iudx/java:11
     container_name: authenticator
     hostname: authenticator
     restart: on-failure
-    hostname: authenticator
     networks:
       - iudx-net
     volumes:
-      - ../iudx-authenticator:/iudx-authenticator/
+      - ../authenticator:/authenticator/
     env_file:
       - .env
     environment:
       - WAIT_HOSTS=postgres:5432
       - WAIT_HOSTS_TIMEOUT=120
+      - PROJECT_DIR=authenticator
+      - JAR_NAME=authenticator-fat.jar
 
   rabbit:
     image: rabbitmq:3.8.2
