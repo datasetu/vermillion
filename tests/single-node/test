@@ -262,7 +262,7 @@ def get_channel(token):
 
         credentials = pika.PlainCredentials(username, apikey)
         parameters = pika.ConnectionParameters(host='localhost',
-                port=5671, credentials=credentials, ssl=True)
+                port=5672, credentials=credentials)
         connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
 
@@ -1207,12 +1207,6 @@ def amqp_publish(
     body,
     ):
 
-    # credentials = pika.PlainCredentials(ID, apikey)
-    # parameters = pika.ConnectionParameters(host='localhost', port=5671,
-    #        credentials=credentials, ssl=True)
-    # connection = pika.BlockingConnection(parameters)
-    # channel = connection.channel()
-
     token = ID + ':' + apikey
 
     channel = get_channel(token)
@@ -1227,12 +1221,6 @@ def amqp_subscribe(
     num_messages,
     message_type='',
     ):
-
-    # credentials = pika.PlainCredentials(ID, apikey)
-    # parameters = pika.ConnectionParameters(host='localhost', port=5671,
-    #        credentials=credentials, ssl=True)
-    # connection = pika.BlockingConnection(parameters)
-    # channel = connection.channel()
 
     token = ID + ':' + apikey
 
