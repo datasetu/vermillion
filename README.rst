@@ -1,6 +1,6 @@
 .. raw:: html
 
-  <img src="logo.png" alt="vermillion_logo">
+  <p align="center"><img src="logo.png" alt="vermillion_logo"></p>
 
 |travis| |codacy| |license|
 
