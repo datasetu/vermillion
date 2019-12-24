@@ -1,5 +1,5 @@
-IUDX resource server
---------------------
+Vermillion
+----------
 |travis| |codacy| |license|
 
 .. |travis| image:: https://travis-ci.com/rbccps-iisc/iudx-resource-server.svg?token=qoDCvWvt1jKW5rCqosmf&branch=master
@@ -11,7 +11,7 @@ IUDX resource server
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/8230f593934a4ee391f6967c24cf237f 
     :target: https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/iudx-resource-server&amp;utm_campaign=Badge_Grade
     
-An IUDX compliant IoT resource server for smart cities
+A high-performance scalable IoT middleware for smart cities
 
 Documentation: https://iudx.readthedocs.io **(Out of date. Will update soon)**
 
