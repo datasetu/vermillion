@@ -1,5 +1,7 @@
-Vermillion
-----------
+.. raw:: html
+
+  <img src="logo.png" alt="vermillion_logo">
+
 |travis| |codacy| |license|
 
 .. |travis| image:: https://travis-ci.com/rbccps-iisc/iudx-resource-server.svg?token=qoDCvWvt1jKW5rCqosmf&branch=master
