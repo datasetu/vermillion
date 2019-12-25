@@ -99,7 +99,7 @@ clone_and_install_stack()
 
 install_stack()
 {
-    ./quick_install
+    cd single-node && ./quick_install
 }
 
 if [ $# -gt 0 ]
@@ -108,7 +108,7 @@ then
         --no-clone|-n)
             info "Installing Vermillion"
 	    check_dependencies
-	    clone_and_install_stack
+	    install_stack
 	    success "Vermillion has been successfully installed"
             exit 0
             ;;
