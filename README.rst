@@ -20,7 +20,7 @@ If the OS is Ubuntu or debian based
 
 * Simply run::
 
-  curl -LJ# https://vermillion-install.herokuapp.com/ | bash
+    curl -LJ# https://vermillion-install.herokuapp.com/ | bash
 
 
 For other operating systems
