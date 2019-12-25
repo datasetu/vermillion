@@ -108,7 +108,7 @@ then
         --no-clone|-n)
             info "Installing Vermillion"
 	    check_dependencies
-	    install_stack
+	    clone_and_install_stack
 	    success "Vermillion has been successfully installed"
             exit 0
             ;;
