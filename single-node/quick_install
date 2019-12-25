@@ -1,6 +1,5 @@
 #!/bin/bash
 
-set -e 
 OWNER="rbccps-iisc"
 REPO="vermillion"
 APISERVER_PATH="../api-server/target"
@@ -8,130 +7,37 @@ APISERVER_JAR="api-server-fat.jar"
 AUTH_PATH="../authenticator/target"
 AUTH_JAR="authenticator-fat.jar"
 
+admin_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+postgres_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+mongo_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 
-# Init option {{{
-Color_off='\033[0m'       # Text Reset
+if [ -e ".env" ]
+then
+    rm .env
+fi
 
-# Regular Colors
-Black='\033[0;30m'        # Black
-Red='\033[0;31m'          # Red
-Green='\033[0;32m'        # Green
-Yellow='\033[0;33m'       # Yellow
-Blue='\033[0;34m'         # Blue
-Purple='\033[0;35m'       # Purple
-Cyan='\033[0;36m'         # Cyan
-White='\033[0;37m'        # White
+echo "ADMIN_PWD="$admin_passwd > .env
+echo "POSTGRES_PWD="$postgres_passwd >> .env
+echo "RUN_ONLY=true" >> .env
+echo "SINGLE_NODE=true" >> .env
+echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
+echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
 
-need_cmd () {
-    if ! hash "$1" &>/dev/null; then
-        info "'$1' not found. Installing..."
-	case "$1" in
-	    docker )
-		sudo apt -y install docker.io ;;
-	    docker-compose )
-		sudo curl -L \
-		    "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" \
-		    -o /usr/local/bin/docker-compose
-		sudo chmod +x /usr/local/bin/docker-compose ;;
-	    git )
-		sudo apt -y install git ;;
-	    python )
-		sudo apt -y install python python-setuptools python-pip build-essential ;;
-	esac
-	success "'$1' has been installed"
-    else
-	success "'$1' is present"
-    fi
-}
+if  [ ! -f $APISERVER_PATH/$APISERVER_JAR ]	||  \
+    [ ! -f $AUTH_PATH/$AUTH_JAR ]
+then
+    echo "Downloading jar files from the latest release..." >&2
+    curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest \
+    | grep browser_download_url | cut -d '"' -f 4 | xargs curl -LJ# > jars.tar.gz
 
-check_python_deps()
-{
-    if ! python -c "import $1" &>/dev/null; then
-        info "'$1' not found. Installing..."
-	python -m pip install $1
-	success "'$1' has been installed"
-    else
-	success "'$1' is present"
-    fi
-}
+    tar -zxf jars.tar.gz
+    mkdir -p $APISERVER_PATH
+    mkdir -p $AUTH_PATH
+    mv jars/$APISERVER_JAR  $APISERVER_PATH
+    mv jars/$AUTH_JAR $AUTH_PATH
+    rm -rf jars
+    rm jars.tar.gz
+fi
 
-msg() {
-    printf '%b\n' "$1" >&2
-}
-
-success() {
-    msg "${Green}[✔]${Color_off} ${1}${2}"
-}
-
-info() {
-    msg "${Blue}[➭]${Color_off} ${1}${2}"
-}
-
-error() {
-    msg "${Red}[✘]${Color_off} ${1}${2}"
-    exit 1
-}
-
-warn () {
-    msg "${Yellow}[⚠]${Color_off} ${1}${2}"
-}
-
-echo_with_color () {
-    printf '%b\n' "$1$2$Color_off" >&2
-}
-
-directory=`dirname $0`
-cd $directory
-
-check_dependencies()
-{
-    need_cmd "git"
-    need_cmd "docker"
-    need_cmd "docker-compose"
-    need_cmd "python"
-    check_python_deps "urllib3"
-    check_python_deps "requests"
-    check_python_deps "pika"
-}
-
-install_stack()
-{
-
-    admin_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
-    postgres_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
-    mongo_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
-    
-    if [ -e ".env" ]
-    then
-        rm .env
-    fi
-    
-    echo "ADMIN_PWD="$admin_passwd > .env
-    echo "POSTGRES_PWD="$postgres_passwd >> .env
-    echo "RUN_ONLY=true" >> .env
-    echo "SINGLE_NODE=true" >> .env
-    echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
-    echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
-    
-    if  [ ! -f $APISERVER_PATH/$APISERVER_JAR ]	||  \
-        [ ! -f $AUTH_PATH/$AUTH_JAR ]
-    then
-        echo "Downloading jar files from the latest release..." >&2
-        curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest \
-        | grep browser_download_url | cut -d '"' -f 4 | xargs curl -LJ# > jars.tar.gz
-    
-        tar -zxf jars.tar.gz
-        mkdir -p $APISERVER_PATH
-        mkdir -p $AUTH_PATH
-        mv jars/$APISERVER_JAR  $APISERVER_PATH
-        mv jars/$AUTH_JAR $AUTH_PATH
-        rm -rf jars
-        rm jars.tar.gz
-    fi
-    
-    docker-compose down -v
-    docker-compose up -d
-}
-
-check_dependencies
-install_stack
+docker-compose down -v
+docker-compose up -d

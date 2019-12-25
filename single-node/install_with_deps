@@ -1,0 +1,121 @@
+#!/bin/bash
+
+set -e 
+OWNER="rbccps-iisc"
+REPO="vermillion"
+APISERVER_PATH="../api-server/target"
+APISERVER_JAR="api-server-fat.jar"
+AUTH_PATH="../authenticator/target"
+AUTH_JAR="authenticator-fat.jar"
+
+
+# Init option {{{
+Color_off='\033[0m'       # Text Reset
+
+# Regular Colors
+Black='\033[0;30m'        # Black
+Red='\033[0;31m'          # Red
+Green='\033[0;32m'        # Green
+Yellow='\033[0;33m'       # Yellow
+Blue='\033[0;34m'         # Blue
+Purple='\033[0;35m'       # Purple
+Cyan='\033[0;36m'         # Cyan
+White='\033[0;37m'        # White
+
+need_cmd () {
+    if ! hash "$1" &>/dev/null; then
+        info "'$1' not found. Installing..."
+	case "$1" in
+	    docker )
+		sudo apt -y install docker.io ;;
+	    docker-compose )
+		sudo curl -L \
+		    "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" \
+		    -o /usr/local/bin/docker-compose
+		sudo chmod +x /usr/local/bin/docker-compose ;;
+	    git )
+		sudo apt -y install git ;;
+	    python )
+		sudo apt -y install python python-setuptools python-pip build-essential ;;
+	esac
+	success "'$1' has been installed"
+    else
+	success "'$1' is present"
+    fi
+}
+
+check_python_deps()
+{
+    if ! python -c "import $1" &>/dev/null; then
+        info "'$1' not found. Installing..."
+	python -m pip install $1
+	success "'$1' has been installed"
+    else
+	success "'$1' is present"
+    fi
+}
+
+msg() {
+    printf '%b\n' "$1" >&2
+}
+
+success() {
+    msg "${Green}[✔]${Color_off} ${1}${2}"
+}
+
+info() {
+    msg "${Blue}[➭]${Color_off} ${1}${2}"
+}
+
+error() {
+    msg "${Red}[✘]${Color_off} ${1}${2}"
+    exit 1
+}
+
+warn () {
+    msg "${Yellow}[⚠]${Color_off} ${1}${2}"
+}
+
+echo_with_color () {
+    printf '%b\n' "$1$2$Color_off" >&2
+}
+
+check_dependencies()
+{
+    need_cmd "git"
+    need_cmd "docker"
+    need_cmd "docker-compose"
+    need_cmd "python"
+    check_python_deps "urllib3"
+    check_python_deps "requests"
+    check_python_deps "pika"
+}
+
+clone_and_install_stack()
+{
+    git clone https://github.com/rbccps-iisc/vermillion
+    cd vermillion/single-node && ./quick_install
+}
+
+install_stack()
+{
+    ./quick_install
+}
+
+if [ $# -gt 0 ]
+then
+    case $1 in
+        --no-clone|-n)
+            info "Installing Vermillion"
+	    check_dependencies
+	    install_stack
+	    success "Vermillion has been successfully installed"
+            exit 0
+            ;;
+    esac
+else
+    info "Installing Vermillion"
+    check_dependencies
+    clone_and_install_stack
+    success "Vermillion has been successfully installed"
+fi

@@ -4,10 +4,10 @@ dist: xenial
 
 language: python
 
-python: 2.7
+python: 2.7 
 
 install:
-  - ./single-node/quick_install
+  - ./single-node/install_with_deps -n
 
 before_script:
   - sleep 15

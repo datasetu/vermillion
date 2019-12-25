@@ -4,9 +4,6 @@ set -e
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-directory=`dirname $0`
-cd $directory
-
 admin_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 postgres_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
 mongo_passwd=`cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo`
@@ -25,4 +22,4 @@ echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
 docker-compose down -v
 docker-compose up -d
 
-echo -e "\n${YELLOW}Since this is a regular installation, please wait for 3-5 mins before using any of the services${NC}"
+echo -e "\n${YELLOW}Since this is a regular installation, please wait for 3-5 mins before using the middleware${NC}"
