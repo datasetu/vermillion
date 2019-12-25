@@ -16,7 +16,7 @@ Single-node Quickstart
 ====================== 
 
 If the OS is Ubuntu or debian based
------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Simply run::
 
@@ -24,7 +24,7 @@ If the OS is Ubuntu or debian based
 
 
 For other operating systems
----------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 #. Clone the repository::
 
