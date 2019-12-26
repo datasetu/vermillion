@@ -2,7 +2,7 @@
 
   <p align="center"><img src="logo.png" alt="vermillion_logo"></p>
 
-|github-workflow| |codacy| |license| |dependabot|
+|github-workflow| |codacy| |license| |dependabot| |docker-build-status| |docker-build-automation|
 
 .. |github-workflow|  image:: https://img.shields.io/github/workflow/status/rbccps-iisc/vermillion/CI
    :target: https://github.com/rbccps-iisc/vermillion/actions         
@@ -12,6 +12,10 @@
    :target: https://www.codacy.com/manual/pct960/vermillion?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/vermillion&amp;utm_campaign=Badge_Grade
 .. |dependabot| image:: https://img.shields.io/badge/dependabot-enabled-yellow
    :target: https://dependabot.com/
+.. |docker-build-status| image:: https://img.shields.io/docker/cloud/build/iudx/java
+   :target: https://hub.docker.com/repository/docker/iudx/java/builds
+.. |docker-build-automation| image:: https://img.shields.io/docker/cloud/automated/iudx/java
+   :target: https://hub.docker.com/repository/docker/iudx/java/builds
     
 A high-performance scalable IoT middleware for smart cities
 
