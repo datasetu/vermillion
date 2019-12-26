@@ -10,7 +10,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Install Vermillion
-      run: ./single-node/quick_install
+      run: ./single-node/install_with_deps -n
     - name: Wait for the middleware to be available
       run:  sleep 15
     - name: Run functional tests
