@@ -2,15 +2,16 @@
 
   <p align="center"><img src="logo.png" alt="vermillion_logo"></p>
 
-|travis| |codacy| |license|
+|github-workflow| |codacy| |license| |dependabot|
 
-.. |travis|  image:: https://travis-ci.org/rbccps-iisc/iudx-resource-server.svg?branch=master
-    :target: https://travis-ci.org/rbccps-iisc/iudx-resource-server         
+.. |github-workflow|  image:: https://img.shields.io/github/workflow/status/rbccps-iisc/vermillion/CI
+    :target: https://github.com/rbccps-iisc/vermillion/actions         
 .. |license| image:: https://img.shields.io/badge/license-ISC-blue.svg
     :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
-    
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/8230f593934a4ee391f6967c24cf237f 
     :target: https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/iudx-resource-server&amp;utm_campaign=Badge_Grade
+.. |dependabot| image:: https://img.shields.io/badge/dependabot-enabled-yellow
+    :target: https://dependabot.com/
     
 A high-performance scalable IoT middleware for smart cities
 
