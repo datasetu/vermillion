@@ -12,7 +12,7 @@ volumes:
 services:
 
   vertx:
-    image: iudx/java:11
+    image: iudx/java
     container_name: vertx
     hostname: vertx
     restart: on-failure
@@ -31,7 +31,7 @@ services:
      - JAR_NAME=api-server-fat.jar
 
   authenticator:
-    image: iudx/java:11
+    image: iudx/java
     container_name: authenticator
     hostname: authenticator
     restart: on-failure
