@@ -1,0 +1,21 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install Vermillion
+      run: ./single-node/quick_install
+    - name: Wait for the middleware to be available
+      run:  sleep 15
+    - name: Run functional tests
+      run:  ./tests/single-node/test functional --random
+    - name: Run Security tests
+      run:  ./tests/single-node/test security
+    - name: Run parallel load tests
+      run:  ./tests/single-node/test concurrency
