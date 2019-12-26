@@ -2,8 +2,10 @@
 
   <p align="center"><img src="logo.png" alt="vermillion_logo"></p>
 
-|codacy| |license|
+|travis| |codacy| |license|
 
+.. |travis|  image:: https://travis-ci.org/rbccps-iisc/iudx-resource-server.svg?branch=master
+    :target: https://travis-ci.org/rbccps-iisc/iudx-resource-server         
 .. |license| image:: https://img.shields.io/badge/license-ISC-blue.svg
     :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
     
