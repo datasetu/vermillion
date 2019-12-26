@@ -5,13 +5,13 @@
 |github-workflow| |codacy| |license| |dependabot|
 
 .. |github-workflow|  image:: https://img.shields.io/github/workflow/status/rbccps-iisc/vermillion/CI
-    :target: https://github.com/rbccps-iisc/vermillion/actions         
+   :target: https://github.com/rbccps-iisc/vermillion/actions         
 .. |license| image:: https://img.shields.io/badge/license-ISC-blue.svg
-    :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/8230f593934a4ee391f6967c24cf237f 
-    :target: https://www.codacy.com?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/iudx-resource-server&amp;utm_campaign=Badge_Grade
+   :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
+.. |codacy| image:: https://api.codacy.com/project/badge/Grade/d5c93fe3cec44982bcdcca7470a27b68    
+   :target: https://www.codacy.com/manual/pct960/vermillion?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/vermillion&amp;utm_campaign=Badge_Grade
 .. |dependabot| image:: https://img.shields.io/badge/dependabot-enabled-yellow
-    :target: https://dependabot.com/
+   :target: https://dependabot.com/
     
 A high-performance scalable IoT middleware for smart cities
 
