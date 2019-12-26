@@ -1,5 +1,8 @@
 #!/bin/bash
 
+dirname=`dirname $0`
+cd $dirname
+
 OWNER="rbccps-iisc"
 REPO="vermillion"
 APISERVER_PATH="../api-server/target"

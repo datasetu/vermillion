@@ -88,7 +88,7 @@ check_dependencies()
     need_cmd "python"
     check_python_deps "urllib3"
     check_python_deps "requests"
-    check_python_deps "pika"
+    check_python_deps "pika==0.13.0"
 }
 
 clone_and_install_stack()
