@@ -25,7 +25,9 @@ Single-node Quickstart
 If the OS is Ubuntu or debian based
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Simply run::
+* Simply run
+  
+  .. code-block:: shell
 
     curl -LJ# https://vermillion-install.herokuapp.com/ | bash
 
@@ -33,26 +35,32 @@ If the OS is Ubuntu or debian based
 For other operating systems
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. Clone the repository::
+#. Clone the repository
+   
+   .. code-block:: shell
 
     git clone https://github.com/rbccps-iisc/vermillion
     cd vermillion
     
 #. Install the following dependencies manually
 
-	- docker
-	- docker-compose
+   - docker
+   - docker-compose
 	
 #. Also install the following dependencies if the tests need to be run
    
-	- requests
-	- urllib3
-	- pika
+   - requests
+   - urllib3
+   - pika==0.13.0
     
-#. Start the installation::
+#. Start the installation
 
-    ./single-node/quick_install
+   .. code-block:: shell
 
-#. Test the middleware using::
+     ./single-node/quick_install
 
-    ./tests/single-node functional -d 1 -a 1
+#. Test the middleware using
+
+   .. code-block:: shell
+   
+     ./tests/single-node functional -d 1 -a 1
