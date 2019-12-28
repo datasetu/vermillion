@@ -8,13 +8,16 @@ cluster/docker-compose.json
 tests/multi-node/out.xml
 tests/multi-node/device_keys
 tests/multi-node/owner_keys
-iudx-api-server/iudx-api-server-0.0.1-SNAPSHOT-fat.jar
-iudx-api-server/bin/*
-iudx-authenticator/bin/*
-iudx-api-server/.settings/
-iudx-authenticator/.settings/
-iudx-api-server/.*
-iudx-authenticator/.*
-iudx-api-server/src/main/generated/iudx/broker/*
-iudx-api-server/src/main/generated/iudx/database/*
+api-server/api-server-fat.jar
+authenticator/authenticator-fat.jar
+api-server/bin/*
+authenticator/bin/*
+api-server/.settings/
+authenticator/.settings/
+api-server/.*
+authenticator/.*
+api-server/src/main/generated/vermillion/broker/*
+api-server/src/main/generated/vermillion/database/*
+authenticator/src/main/generated/vermillion/broker/*
+authenticator/src/main/generated/vermillion/database/*
 

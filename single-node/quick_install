@@ -10,9 +10,9 @@ APISERVER_JAR="api-server-fat.jar"
 AUTH_PATH="../authenticator/target"
 AUTH_JAR="authenticator-fat.jar"
 
-admin_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
-postgres_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
-mongo_passwd=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+admin_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/random | head -c 32 ; echo)"
+postgres_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/random | head -c 32 ; echo)"
+mongo_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/random | head -c 32 ; echo)"
 
 if [ -e ".env" ]
 then
