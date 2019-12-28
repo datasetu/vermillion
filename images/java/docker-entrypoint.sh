@@ -7,16 +7,16 @@ set -e
 
 if [ "$RUN_ONLY" == "true" ];
 then
-    cd "$PROJECT_DIR"
-    if [ -e "$JAR_NAME" ]
+    cd $PROJECT_DIR
+    if [ -e $JAR_NAME ]
     then
-	rm "$JAR_NAME"
+	rm $JAR_NAME
     fi
-    cp target/"$JAR_NAME" .
-    java "$JAVA_OPTS" -jar "$JAR_NAME"
+    cp target/$JAR_NAME .
+    java $JAVA_OPTS -jar $JAR_NAME
 else
-    cd "$PROJECT_DIR"
+    cd $PROJECT_DIR
     mvn -T 1C clean package
-    cp target/"$JAR_NAME" .
-    java "$JAVA_OPTS" -jar "$JAR_NAME"
+    cp target/$JAR_NAME .
+    java $JAVA_OPTS -jar $JAR_NAME
 fi
