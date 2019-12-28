@@ -6,9 +6,9 @@ pgdata=/var/lib/postgresql/
 if [ "$(ls -A $pgdata)" ]; then
     su postgres -c "postgres -D $pgdata"
 else
-    salt=`cat /dev/urandom | env LC_ALL=C tr -dc a-zA-Z0-9 | head -c 32; echo`
+    salt="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/random | head -c 32 ; echo)"
     string=$ADMIN_PWD$salt"admin"
-    hash=`echo -n $string | sha256sum | cut -d ' ' -f 1)`
+    hash="$(echo -n $string | sha256sum | cut -d ' ' -f 1)"
     su postgres -c 'initdb -D '$pgdata''
     mv /pg_hba.conf $pgdata
     mv /postgresql.conf $pgdata
