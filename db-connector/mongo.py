@@ -1,7 +1,6 @@
 import pymongo
 import pika
 import json
-import time
 import os
 import dateutil.parser
 
@@ -34,24 +33,12 @@ def connect_to_rabbit():
 
     print("Connected to rabbitmq")
 
-def is_json(body):
-    try:
-	json.loads(body)
-	return True
-    except Exception:
-	return False
-
 def callback(ch, method, properties, body):
 
     global archive
 
-    #if not is_json(body):
-	#print("Message needs to be JSON. Rejecting...")
-    
-    #else:
-
     print(body)
-    
+
     body_dict   =   json.loads(body)
 
     if "__time" in body_dict:
@@ -61,6 +48,7 @@ def callback(ch, method, properties, body):
     try:
         print("Mongo insert="+str(archive.update(body_dict, body_dict, upsert=True)))
     except Exception as e:
+        print(e)
         connect_to_mongo()
         fetch_from_queue()
 
@@ -74,6 +62,7 @@ def fetch_from_queue():
         channel.basic_consume(queue="DATABASE", on_message_callback=callback, auto_ack=True)
         channel.start_consuming()
     except Exception as e:
+        print(e)
         connect_to_rabbit()
         fetch_from_queue()
 
