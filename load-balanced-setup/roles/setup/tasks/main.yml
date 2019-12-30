@@ -42,25 +42,25 @@
 
 - name: Check if the git repository exists
   stat:
-    path: ~/iudx-resource-server/
+    path: ~/vermillion/
   register: repo
 
 - name: Delete the repository if it already exists
   file:
     state: absent
-    path: ~/iudx-resource-server/
+    path: ~/vermillion
   when: repo.stat.exists
 
-- name: Create iudx-resource-server folder
+- name: Create vermillion folder
   file:
-    path: ~/iudx-resource-server/
+    path: ~/vermillion/
     state: directory
 
 - name: Unarchive repo on remote hosts
   unarchive:
-    src: ./iudx.zip
-    dest: ~/iudx-resource-server
-    creates: ~/iudx-resource-server/deploy
+    src: ./vermillion.zip
+    dest: ~/vermillion
+    creates: ~/vermillion/deploy
 
 - name: Cleanup existing docker stuff
   shell: docker system prune -a -f

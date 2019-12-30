@@ -1,6 +1,6 @@
 {
     "networks": {
-        "iudx-net": {
+        "vermillion-net": {
             "driver": "overlay"
             }
     },
@@ -21,16 +21,18 @@
                 ".env"
             ],
             "environment": [
-                "WAIT_HOSTS=postgres:5432"
+                "WAIT_HOSTS=postgres:5432",
+		"PROJECT_DIR=authenticator",
+		"JAR_NAME=authenticator-fat.jar"
             ],
             "hostname": "authenticator",
             "image": "iudx/authenticator",
             "networks": [
-                "iudx-net"
+                "vermillion-net"
             ],
             "restart": "always",
             "volumes": [
-                "../iudx-authenticator:/iudx-authenticator/"
+                "../authenticator:/authenticator/"
             ]
         },
         "postgres": {
@@ -50,7 +52,7 @@
             "hostname": "postgres",
             "image": "iudx/postgres",
             "networks": [
-                "iudx-net"
+                "vermillion-net"
             ],
             "ports": [
                 "5432:5432"
@@ -73,18 +75,20 @@
             ],
             "environment": [
                 "WAIT_HOSTS_TIMEOUT=120",
-                "WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80"
+                "WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80",
+		"PROJECT_DIR=api-server",
+		"JAR_NAME=api-server-fat.jar"
             ],
             "hostname": "vertx",
-            "image": "iudx/vertx",
+            "image": "iudx/java",
             "networks": [
-                "iudx-net"
+                "vermillion-net"
             ],
             "ports": [
                 "443:8443"
             ],
             "volumes": [
-                "../iudx-api-server:/iudx-api-server/"
+                "../api-server:/api-server/"
             ]
         }
     },

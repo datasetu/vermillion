@@ -1,10 +1,10 @@
 ---
 - name: Generate admin password
-  shell: cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo
+  shell: env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo
   register: admin_pwd
 
 - name: Generate postgres password
-  shell: cat /dev/urandom | env LC_CTYPE=C tr -dc a-zA-Z0-9 | head -c 32; echo
+  shell: env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo
   register: postgres_pwd
 
 - name: Write admin_pwd to .env file
@@ -42,9 +42,9 @@
 - name: Compress current repo into an archive
   archive:
     path:
-    - ../iudx-api-server/
-    - ../iudx-authenticator
+    - ../api-server/
+    - ../authenticator
     - ../clustered-setup/
     - ../conf/
-    dest: ./iudx.zip
+    dest: ./vermillion.zip
     format: zip

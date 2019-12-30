@@ -13,9 +13,9 @@
         ".env"
     ],
     "hostname": "rabbit1",
-    "image": "rabbitmq:3.7.18",
+    "image": "rabbitmq:3.8.2",
     "networks": [
-        "iudx-net"
+        "vermillion-net"
     ],
     "ports": [
         "15672:15672",

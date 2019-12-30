@@ -15,7 +15,7 @@
     "hostname": "rabbit1",
     "image": "iudx/rabbitmq-cluster",
     "networks": [
-        "iudx-net"
+        "vermillion-net"
     ],
     "ports": [
         "15672:15672"
