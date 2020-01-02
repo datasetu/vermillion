@@ -4,7 +4,7 @@
 
 |github-workflow| |codacy| |license| |dependabot| |docker-build-status| |docker-build-automation| |gitter|
 
-.. |github-workflow|  image:: https://img.shields.io/github/workflow/status/rbccps-iisc/vermillion/CI
+.. |github-workflow|  image:: https://github.com/rbccps-iisc/vermillion/workflows/CI/badge.svg
    :target: https://github.com/rbccps-iisc/vermillion/actions         
 .. |license| image:: https://img.shields.io/github/license/rbccps-iisc/vermillion
    :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
