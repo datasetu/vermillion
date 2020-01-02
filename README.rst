@@ -64,3 +64,9 @@ For other operating systems
    .. code-block:: shell
    
      ./tests/single-node functional -d 1 -a 1
+
+Credits 
+=======
+
+- `Spacevim <https://spacevim.org/>`_ for the install script structure
+- `KindPNG <https://www.kindpng.com/>`_ for the logo
