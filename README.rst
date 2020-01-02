@@ -16,8 +16,8 @@
    :target: https://hub.docker.com/repository/docker/iudx/java/builds
 .. |docker-build-automation| image:: https://img.shields.io/docker/cloud/automated/iudx/java
    :target: https://hub.docker.com/repository/docker/iudx/java/builds
-.. |gitter| image:: https://img.shields.io/gitter/room/rbccps-iisc/vermillion   
-   :target: https://gitter.im/vermillion-chat/community#
+.. |gitter| image:: https://badges.gitter.im/vermillion-chat/community.svg
+   :target: https://gitter.im/vermillion-chat/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge   
     
 Vermillion is a high performance, scalable and secure IoT middleware platform developed using `Vertx <https://vertx.io>`_. It is a middleware stack which focuses primarily on the compute layer in a smart city IoT deployment. One of the chief goals of Vermillion is to enable seamless data exchange between data producers and consumers in a smart city.
 
