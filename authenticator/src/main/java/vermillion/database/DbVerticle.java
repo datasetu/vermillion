@@ -1,18 +1,19 @@
 package vermillion.database;
 
-import io.reactiverse.pgclient.PgPool;
 import io.reactiverse.pgclient.PgPoolOptions;
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.serviceproxy.ServiceBinder;
 import vermillion.URLs;
 
 public class DbVerticle extends AbstractVerticle 
 {
-	public PgPool client;
+	public	final static Logger logger = LoggerFactory.getLogger(DbVerticle.class);
 
 	@Override
-	public void start(Future<Void> startFuture) throws Exception
+	public void start(Promise<Void> promise) throws Exception
 	{
 		PgPoolOptions options = new PgPoolOptions();
         options.setDatabase(URLs.psql_database_name);
@@ -22,20 +23,22 @@ public class DbVerticle extends AbstractVerticle
         options.setPassword(URLs.psql_database_password);
         options.setCachePreparedStatements(true);
         options.setMaxSize(10000);
-		
-        DbService.create(vertx, options, ready -> {
+
+        logger.debug("creating proxy");
+
+        DbService.create(vertx,options, ready -> {
         	
         	if(ready.succeeded())
         	{
-        		ServiceBinder binder = new ServiceBinder(vertx);
+        		ServiceBinder binder = new ServiceBinder(vertx.getDelegate());
         		
         		binder.setAddress("db.queue").register(DbService.class, ready.result());
         		
-        		startFuture.complete();
+        		promise.complete();
         	}
         	else
         	{
-        		startFuture.fail(ready.cause());
+        		promise.fail(ready.cause());
         	}
         });
 	}	
