@@ -32,7 +32,7 @@
 		 <dependency>
             <groupId>io.vertx</groupId>
             <artifactId>vertx-rabbitmq-client</artifactId>
-            <version>3.8.4</version>
+            <version>3.8.5</version>
         </dependency>
 		<dependency>
       		<groupId>io.vertx</groupId>
