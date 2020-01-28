@@ -16,7 +16,7 @@ then
     java $JAVA_OPTS -jar $JAR_NAME
 else
     cd $PROJECT_DIR
-    mvn -T 1C clean package
+    mvn $MVN_OPTS clean package
     cp target/$JAR_NAME .
     java $JAVA_OPTS -jar $JAR_NAME
 fi
