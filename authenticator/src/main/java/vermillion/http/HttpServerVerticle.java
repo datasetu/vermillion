@@ -252,14 +252,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
 		//TODO simplify this
 		if ((!Character.isDigit(owner_name.charAt(0))) &&
-				((owner_name.length() - (owner_name.replaceAll("[^a-z0-9]+", "")).length()) == 0)
+				((owner_name.length() - (owner_name.replaceAll("[^a-z0-9-_]+", "")).length()) == 0)
 		) {
 			logger.debug("Original owner name = " + owner_name);
-			logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9]+", ""));
+			logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_]+", ""));
 			return true;
 		} else {
 			logger.debug("Original owner name = " + owner_name);
-			logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9]+", ""));
+			logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_]+", ""));
 			return false;
 		}
 	}
