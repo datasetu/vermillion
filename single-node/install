@@ -4,9 +4,9 @@ set -e
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-admin_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo)"
-postgres_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo)"
-mongo_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo)"
+admin_passwd="$(head /dev/urandom | sha256sum | cut -f1 -d' ')"
+postgres_passwd="$(head /dev/urandom | sha256sum | cut -f1 -d' ')"
+mongo_passwd="$(head /dev/urandom | sha256sum | cut -f1 -d' ')"
 
 if [ -e ".env" ]
 then
