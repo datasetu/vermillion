@@ -47,7 +47,7 @@
 		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-web</artifactId>
-			<version>3.8.1</version>
+			<version>3.8.5</version>
 		</dependency>
 		<dependency>
     		<groupId>com.google.guava</groupId>
@@ -57,7 +57,7 @@
 		<dependency>
 			<groupId>io.vertx</groupId>
 			<artifactId>vertx-core</artifactId>
-			<version>3.8.1</version>
+			<version>3.8.5</version>
 		</dependency>
 		<dependency>
 			<groupId>io.reactiverse</groupId>
@@ -74,7 +74,20 @@
 			<artifactId>jaxb-api</artifactId>
 			<version>2.3.1</version>
 		</dependency>
+        <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-rx-java2</artifactId>
+            <version>3.8.5</version>
+        </dependency>
 
+        <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2-gen -->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-rx-java2-gen</artifactId>
+            <version>3.8.5</version>
+            <scope>provided</scope>
+        </dependency>
 	</dependencies>
 	
 	<build>

@@ -1,4259 +1,2006 @@
 package vermillion.http;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import org.apache.commons.lang3.RandomStringUtils;
 import com.google.common.hash.Hashing;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-
-import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
-import io.vertx.core.Handler;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
+import io.reactivex.Observable;
+import io.reactivex.Single;
 import io.vertx.core.Promise;
-import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
-import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
+import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.http.HttpServerRequest;
+import io.vertx.reactivex.core.http.HttpServerResponse;
+import io.vertx.reactivex.ext.web.Router;
+import io.vertx.reactivex.ext.web.RoutingContext;
+import org.apache.commons.lang3.RandomStringUtils;
 import vermillion.Utils;
-import vermillion.broker.BrokerService;
-import vermillion.database.DbService;
+import vermillion.broker.reactivex.BrokerService;
+import vermillion.database.reactivex.DbService;
+import vermillion.throwables.BadRequestThrowable;
+import vermillion.throwables.ConflictThrowable;
+import vermillion.throwables.InternalErrorThrowable;
+import vermillion.throwables.UnauthorisedThrowable;
 
-/**
- * <h1>IUDX API Server</h1> An Open Source implementation of India Urban Data
- * Exchange (IUDX) platform APIs using Vert.x, an event driven and non-blocking
- * high performance reactive framework, for enabling seamless data exchange in
- * Smart Cities.
- * 
- * @author Robert Bosch Centre for Cyber-Physical Systems (iudx <at> rbccps <dot> org)
- * @version 1.0.0
- */
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class HttpServerVerticle extends AbstractVerticle
-{
-	public	final static Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
-	
-	public	String 			schema;
-	public	String			message;
-	public	DbService		dbService;
-	public	BrokerService		brokerService;
-	public	Map<String, Channel>	pool;
-	
-	//Characters to be used by APIKey generator while generating apikey 
-	private static final String PASSWORDCHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-";
-	
-	/**
-	 * This method is used to setup and start the Vert.x server. It uses the
-	 * available processors (n) to create (n*2) workers and also gets the available
-	 * URLs from the URL class.
-	 * 
-	 * @param args Unused.
-	 * @return Nothing.
-	 * @exception Exception On setup or start error.
-	 * @see Exception
-	 */
-	
-	/**
-	 * This method is used to setup certificates for enabling HTTPs in Vert.x
-	 * server. It uses the provided .jks (Java Key Store) certificate in the path
-	 * and the password to enable SSL/TLS over HTTP in the desired port.
-	 * 
-	 * @param Nothing.
-	 * @return Nothing.
-	 * @exception Exception On start error.
-	 * @see Exception
-	 */
-	
-	@Override
-	public void start(Promise<Void> startPromise) throws Exception 
-	{	
-		logger.debug("In start");
-		
-		int port 	    = 	8443;
-		pool		    =	new ConcurrentHashMap<String, Channel>();
-		dbService	    =	DbService.createProxy(vertx, "db.queue");
-		brokerService	    =	BrokerService.createProxy(vertx, "broker.queue");
-		HttpServer server   =	vertx.createHttpServer(new HttpServerOptions()
-								.setSsl(true)
-								.setKeyStoreOptions(new JksOptions()
-								.setPath("my-keystore.jks")
-								.setPassword("password")));
+public class HttpServerVerticle extends AbstractVerticle {
+  public final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+  // HTTP Codes
+  public final int OK = 200;
+  public final int CREATED = 201;
+  public final int ACCEPTED = 202;
+  public final int BAD_REQUEST = 400;
+  public final int FORBIDDEN = 403;
+  public final int CONFLICT = 409;
+  public final int INTERNAL_SERVER_ERROR = 500;
 
-		Router router = Router.router(vertx);
-		
-		router.post("/entity/publish").handler(this::publish);
-		router.get("/entity/subscribe").handler(this::subscribe);
-		router.get("/catalogue").handler(this::cat);
-		router.get("/owner/entites").handler(this::entities);
-		router.post("/owner/reset-apikey").handler(this::resetApikey);
-		router.post("/owner/set-autonomous").handler(this::setAutonomous);
-		router.get("/admin/owners").handler(this::getOwners);
-		
-		router.post("/admin/register-owner").handler(this::registerOwner);
-		router.post("/admin/deregister-owner").handler(this::deRegisterOwner);
-		
-		router.post("/admin/register-entity").handler(this::register);
-		router.post("/owner/register-entity").handler(this::register);
-		
-		router.post("/admin/deregister-entity").handler(this::deRegister);
-		router.post("/owner/deregister-entity").handler(this::deRegister);
+  public String schema;
+  public String message;
 
-		router.post("/owner/block").handler(this::block);
-		router.post("/entity/block").handler(this::block);
-		
-		router.post("/entity/unblock").handler(this::unblock);
-		router.post("/owner/unblock").handler(this::unblock);
-		
-		router.post("/entity/bind").handler(this::queueBind);
-		router.post("/owner/bind").handler(this::queueBind);
-		
-		router.post("/entity/unbind").handler(this::queueUnbind);
-		router.post("/owner/unbind").handler(this::queueUnbind);
-		
-		router.post("/entity/follow").handler(this::follow);
-		router.post("/owner/follow").handler(this::follow);
-		
-		router.post("/entity/unfollow").handler(this::unfollow);
-		router.post("/owner/unfollow").handler(this::unfollow);
-		
-		router.post("/entity/share").handler(this::share);
-		router.post("/owner/share").handler(this::share);
-		
-		router.get("/entity/follow-requests").handler(this::followRequests);
-		router.get("/owner/follow-requests").handler(this::followRequests);
-		
-		router.get("/entity/follow-status").handler(this::followStatus);
-		router.get("/owner/follow-status").handler(this::followStatus);
+  // Service Proxies
+  public DbService dbService;
+  public BrokerService brokerService;
 
-		router.post("/entity/reject-follow").handler(this::rejectFollow);
-		router.post("/owner/reject-follow").handler(this::rejectFollow);
-		
-		router.get("/entity/permissions").handler(this::permissions);
-		router.get("/owner/permissions").handler(this::permissions);
-		
-		server
-		.requestHandler(router)
-		.listen(port, ar -> {
-				
-		if(!ar.succeeded())
-		{
-		    logger.debug("Could not start server. Cause="+ar.cause());
-		    startPromise.fail(ar.cause());
-		}
-		    logger.debug("Server started");
-		    startPromise.complete();
-		});
-		
-		vertx.exceptionHandler(err -> {
-		    err.printStackTrace();
-		});
-		
-		brokerService.createQueue("DATABASE", databaseQueue -> {
-			
-		    if(!databaseQueue.succeeded())
-		    {
-			logger.error("Could not create queue. Cause="+databaseQueue.cause());
-		    }
-		});
+  // Connection pool to speed up publish rates
+  public Map<String, Channel> pool;
 
-	}
-	
-	public Channel getChannel(String id, String apikey)throws Exception
-	{
-	    String  token	=	id + ":" + apikey;
-			
-	    if(	!pool.containsKey(token)
-			||
-		!pool.get(token).isOpen()
-	    )
-	    {
-		ConnectionFactory   factory = new ConnectionFactory();
-			
-		factory.setUsername(id);
-		factory.setPassword(apikey);
-		factory.setVirtualHost("/");
-		factory.setHost(Utils.getBrokerUrl(id));
-		factory.setPort(5672);
-		factory.setAutomaticRecoveryEnabled(true);
-		factory.setNetworkRecoveryInterval(10000);
+  // Flag to indicate whether an entity is autonomous
+  public boolean autonomous;
 
-		Connection  connection	=   factory.newConnection();
-		Channel	channel		=   connection.createChannel();
-		    		
-		logger.debug("Rabbitmq channel created");
-		    		
-		pool.put(id+":"+apikey, channel);	
-	    }
-		
-	    return pool.get(id+":"+apikey);
-	}
-	
-	/**
-	 * This method is the implementation of owner Registration API, which handles
-	 * new owner registration requests by IUDX admin.
-	 * 
-	 * @param HttpServerRequest req - This is the handle for the incoming request
-	 *                          from client.
-	 * @return HttpServerResponse resp - This sends the appropriate response for the
-	 *         incoming request.
-	 */
-	
-	public void registerOwner(RoutingContext context) 
-	{
-	    logger.debug("In register owner");
-		
-	    HttpServerRequest   request	    =   context.request();
-	    HttpServerResponse  resp	    =   request.response();
-	    String		id	    =   request.getHeader("id");
-	    String		apikey	    =   request.getHeader("apikey");
-	    String		owner_name  =   request.getHeader("owner");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("owner="+owner_name);
-	
-	    if( (id	    ==  null)
-			    ||
-		(apikey	    ==  null)
-			    ||
-		(owner_name ==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-	
-	    if (!id.equalsIgnoreCase("admin")) 
-	    {
-		forbidden(resp);
-		return;
-	    }
-		
-	    if(!isValidOwner(owner_name))
-	    {
-		badRequest(resp,"Owner name is invalid");
-		return;
-	    }
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-			
-	    logger.debug("Login ok");
-			
-	    entityDoesNotExist(owner_name)
-	    .setHandler(entityDoesNotExist -> {
-					
-	    if(!entityDoesNotExist.succeeded())
-	    {
-		conflict(resp,"Owner already exists");
-		return;
-	    }
-		
-	    logger.debug("Owner does not exist");
-			
-	    //TODO schema is null
-	    generateCredentials(owner_name, "{}", "true")
-	    .setHandler(generate_credentials -> {
-		
-	    if(!generate_credentials.succeeded())
-	    {
-		error(resp,"Could not generate credentials");
-		return;
-	    }
-		
-	    logger.debug("Generated credetials for owner");
-			
-	    brokerService.createOwnerResources(owner_name, broker_create -> {
-		
-	    if(!broker_create.succeeded())
-	    {
-		error(resp,"Could not create exchanges and queues");
-		return;
-	    }
-		
-	    logger.debug("Created owner resources");
-			
-	    brokerService.createOwnerBindings(owner_name, broker_bind -> {
-		
-	    if(!broker_bind.succeeded())
-	    {
-		error(resp,"Could not create bindings");
-		return;
-	    }
-		
-	    logger.debug("Created owner bindings. All ok");
-		
-	    if(!resp.closed())
-	    {
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(201)
-		.end(new JsonObject()
-			.put("id", owner_name)
-			.put("apikey", generate_credentials.result())
-			.encodePrettily());
-		return;
-	    }
-			    });		
-			});						
-		    });
-		});
-	    });
-	}
-	
-	/**
-	 * This method is the implementation of owner De-Registration API, which handles
-	 * owner de-registration requests by IUDX admin.
-	 * 
-	 * @param HttpServerRequest req - This is the handle for the incoming request
-	 *                          from client.
-	 * @return HttpServerResponse resp - This sends the appropriate response for the
-	 *         incoming request.
-	 */
-	
-	//TODO: deregister owner has to be async
-	//TODO: Handle all errors correctly
-	//TODO: Add script to remove zombie entries in postgres as well as broker (in case async deregister fails)
-	
-	public void deRegisterOwner(RoutingContext context) 
-	{
-	    logger.debug("In deregister_owner");
-		
-	    HttpServerRequest	request		=   context.request();
-	    HttpServerResponse	resp		=   request.response();
-	    String 		id 		=   request.getHeader("id");
-	    String 		apikey 		=   request.getHeader("apikey");
-	    String 		owner_name	=   request.getHeader("owner");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("owner="+owner_name);
-		
-	    if(	(id	    ==	null)
-			    ||
-		(apikey	    ==	null)
-			    ||
-		(owner_name ==	null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if (!"admin".equalsIgnoreCase(id)) 
-	    {
-		forbidden(resp);
-		return;
-	    }
-		
-	    if(!isValidOwner(owner_name))
-	    {
-		badRequest(resp,"Owner name is invalid");
-		return;
-	    }
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-			
-	    logger.debug("Login ok");
-		
-	    entityExists(owner_name).setHandler(ownerExists -> {
-		
-	    if(!ownerExists.succeeded())
-	    {
-		forbidden(resp,"No such owner");
-		return;
-	    }
-		
-	    logger.debug("Owner exists");
-			
-	    brokerService.deleteOwnerResources(owner_name, delete_owner_resources -> {
-		
-	    if(!delete_owner_resources.succeeded())
-	    {
-		error(resp,"Could not delete owner resources");
-		return;
-	    }
-		
-	    logger.debug("Deleted owner resources from broker");
-			
-	    String acl_query	=   "DELETE FROM acl WHERE"	+
-				    " from_id LIKE '"		+	
-				    owner_name			+	
-				    "/%'"			+
-				    " OR exchange LIKE '"	+
-				    owner_name			+
-				    "/%'";
-								
-	    dbService.runQuery(acl_query, aclDelete -> {
-									
-	    if(!aclDelete.succeeded())
-	    {
-		error(resp,"Could not delete from acl table");
-		return;
-	    }
-		
-	    logger.debug("Deleted owner entries from acl table");
-			
-	    String entity_query	=   "SELECT * FROM users WHERE"	+
-				    " id LIKE '"		+	
-				    owner_name			+
-				    "/%'";
-										
-	    dbService.runQuery(entity_query, ids -> {
-		
-	    if(!ids.succeeded())
-	    {
-		error(resp,"Could not get entities belonging to owner");
-		return;
-	    }
-		
-	    List<String>    resultList	=   ids.result();
-	    String	    id_list	=   "";
-			
-	    for(String row:resultList)
-	    {
-		String processed_row[]	=   row
-					    .substring(row.indexOf("[")+1, row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-				
-		logger.debug("Processed row="+Arrays.asList(processed_row));
-				
-		id_list	=   id_list + processed_row[0] + ",";
-	    }
-			
-	    id_list =   id_list.substring(0,id_list.length()-1);
-			
-	    logger.debug("id_list="+id_list);
-												
-	    brokerService.deleteEntityResources(id_list, deleteEntities -> {
-		
-	    if(!deleteEntities.succeeded())
-	    {
-		error(resp, "Could not delete owner entities");
-		return;
-	    }
-		
-	    logger.debug("Deleted entity resources from broker");
-			
-	    String user_query	=   "DELETE FROM users WHERE"	+
-				    " id LIKE '"		+	
-				    owner_name			+	
-				    "/%'"			+
-				    " OR id LIKE '"		+
-				    owner_name			+
-				    "'";
-														
-	    dbService.runQuery(user_query, deleteUsers -> {
-		
-	    if(!deleteUsers.succeeded())
-	    {
-		error(resp,"Could not delete from users' table");
-		return;
-	    }
-		
-	    logger.debug("Deleted entities from users table. All ok");
-		
-	    ok(resp);
-	    return;
-				    });
-				});
-			    });
-			});
-		    });
-		});	
-	    });
-	}
-	
-	/**
-	 * This method is the implementation of entity Registration API, which handles
-	 * the new device or application registration requests by owners.
-	 * 
-	 * @param HttpServerRequest req - This is the handle for the incoming request
-	 *                          from client.
-	 * @return HttpServerResponse resp - This sends the appropriate response for the
-	 *         incoming request.
-	 */
+  @Override
+  public void start(Promise<Void> startPromise) {
+    logger.debug("In start");
 
-	//TODO: Try Future Compose?
-	
-	public void register(RoutingContext context) 
-	{
-	    logger.debug("In register entity");
-				
-	    HttpServerRequest	request		    =	context.request();
-	    HttpServerResponse	resp		    =	request.response();
-	    String 		id 		    =	request.getHeader("id");
-	    String 		apikey		    =	request.getHeader("apikey");
-	    String 		entity		    =	request.getHeader("entity");
-	    String		is_autonomous	    =	request.getHeader("is-autonomous");
-	    String		full_entity_name    =	id + "/" + entity;
-		
-	    String autonomous_flag;
-		
-	    if(is_autonomous == null)
-	    {
-		autonomous_flag = "f";
-	    }
-	    else if("true".equals(is_autonomous))
-	    {
-		autonomous_flag = "t";
-	    }
-	    else if("false".equals(is_autonomous))
-	    {
-		autonomous_flag = "f";
-	    }
-	    else
-	    {
-		badRequest(resp,"Invalid is-autonomous header");
-		return;
-	    }
-		
-	    logger.debug("id="+id+"\napikey="+apikey+"\nentity="+entity+"\nis-autonomous="+autonomous_flag);
-		
-	    //TODO: Check if body is null
-	    request.bodyHandler(body -> {
-			
-	    schema = body.toString();
-	    logger.debug("schema="+schema);
-			
-	    try
-	    {
-		new JsonObject(schema);
-	    }
-	    catch (Exception e)
-	    {
-		forbidden(resp,"Body must be a valid JSON");
-		return;
-	    }
-	    	
-		
-	    if(	(id	== null)
-			||
-		(apikey == null)
-			||
-		(entity	== null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    //TODO: Add appropriate field checks. E.g. valid owner, valid entity etc.
-	    // Check if ID is owner
-	    if (!isValidOwner(id)) 
-	    {
-	    	logger.debug("owner is invalid");
-	    	forbidden(resp,"Invalid owner");
-	    	return;
-	    } 
-		
-	    if(!isStringSafe(entity))
-	    {
-		logger.debug("invalid entity name");
-	    	badRequest(resp,"Invalid entity name");
-	    	return;
-	    }
-		
-	    checkLogin(id,apikey).setHandler(login -> {
-		
-	    if(!login.succeeded())
-	    {
-		logger.debug(login.cause());
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("login ok");
-	    entityDoesNotExist(full_entity_name).setHandler(entityDoesNotExist -> {
-					
-	    if(!entityDoesNotExist.succeeded())
-	    {
-	    	logger.debug(entityDoesNotExist.cause());
-	    	conflict(resp,"ID already used");
-	    	return;
-	    }
-		
-	    logger.debug("entity does not exist");
-	    generateCredentials(full_entity_name, schema, autonomous_flag)
-	    .setHandler(genCredentials -> {
-							
-	    if(!genCredentials.succeeded())
-	    {
-		logger.debug(genCredentials.cause());
-		error(resp,"Could not generate entity credentials");
-		return;
-	    }
-		
-	    logger.debug("credentials generated");
-	    brokerService.createEntityResources(full_entity_name, createEntityResources -> {
-									
-	    if(!createEntityResources.succeeded())
-	    {
-	    	logger.debug(createEntityResources.cause());
-	    	error(resp,"Could not create exchanges and queues");
-	    	return;
-	    }
-		
-	    logger.debug("resources created");
-	    brokerService.createEntityBindings(full_entity_name, createEntityBindings -> {
-										
-	    if(!createEntityBindings.succeeded())
-	    {
-	    	logger.debug(createEntityBindings.cause());
-		error(resp,"Could not create bindings");
-		return;
-	    }
-		
-	    logger.debug("all ok");
-			
-	    JsonObject response = new JsonObject();
-	    response.put("id", full_entity_name);
-	    response.put("apikey", genCredentials.result());
-			
-	    if(!resp.closed())
-	    {
-	    	resp
-	    	.putHeader("content-type", "application-json")
-	    	.setStatusCode(201)
-	    	.end(response.encodePrettily());
-	    	return;
-	    }
-				});
-			    });
-			});		
-		    });
-		});	
-	    });
-	}
-	/**
-	 * This method is the implementation of entity De-Registration API, which handles
-	 * the device or application de-registration requests by owners.
-	 * 
-	 * @param HttpServerRequest req - This is the handle for the incoming request
-	 *                          from client.
-	 * @return HttpServerResponse resp - This sends the appropriate response for the
-	 *         incoming request.
-	 */
-	
-	public void deRegister(RoutingContext context) 
-	{
-	    logger.debug("In deregister entity");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp 	=   request.response();
-	    String 		id 	=   request.getHeader("id");
-	    String 		apikey	=   request.getHeader("apikey");
-	    String 		entity	=   request.getHeader("entity");
-		
-	    logger.debug("id="+id+"\napikey="+apikey+"\nentity="+entity);
+    int port = 8443;
+    pool = new ConcurrentHashMap<String, Channel>();
+    dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+    brokerService =
+        vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
 
-	    // Check if ID is owner
-	    if (!isValidOwner(id)) 
-	    {
-	    	forbidden(resp,"Invalid owner");
-	    	return;
-	    } 
-		
-	    if(!isOwner(id, entity))
-	    {
-	    	forbidden(resp,"You are not the owner of the entity");
-	    	return;
-	    }
-		
-	    if(!isValidEntity(entity))
-	    {
-		forbidden(resp,"Invalid entity");
-		return;
-	    }
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		logger.debug("invalid credentials. Cause="+login.cause());
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("login ok");
-			
-	    entityExists(entity)
-	    .setHandler(entityExists -> {
-					
-	    if(!entityExists.succeeded())
-	    {
-		logger.debug("No such entity. Cause="+entityExists.cause());
-		badRequest(resp,"No such entity");
-		return;
-	    }
-		
-	    logger.debug("entity exists");
-	    brokerService.deleteEntityResources(entity, deleteEntityResources -> {
-							
-	    if(!deleteEntityResources.succeeded())
-	    {
-		logger.debug("Could not delete entity resources. Cause="+deleteEntityResources.cause());
-		error(resp,"Could not delete exchanges and queues");
-		return;
-	    }
-		
-	    logger.debug("Entity resources deleted");
-			
-	    String acl_query	=   "DELETE FROM acl WHERE "	+
-				    "from_id = '"		+
-				    entity			+
-				    "' OR exchange LIKE '"	+
-				    entity			+
-				    ".%'";
-		
-	    dbService.runQuery(acl_query, aclQuery -> {
-									
-	    if(!aclQuery.succeeded())
-	    {
-		logger.debug("Could not delete from acl. Cause="+aclQuery.cause());
-		error(resp,"Could not delete from acl");
-		return;
-	    }
-		
-	    logger.debug("Deleted from acl");
-			
-	    String follow_query	=   "DELETE FROM follow WHERE "	+
-				    " requested_by = '"		+
-				    entity			+
-				    "' OR exchange LIKE '"	+
-				    entity			+
-				    ".%'";
-										
-	    dbService.runQuery(follow_query, followQuery -> {
-											
-	    if(!followQuery.succeeded())
-	    {
-		logger.debug("Could not delete from follow. Cause="+followQuery.cause());
-		error(resp,"Could not delete from follow");
-		return;
-	    }
-		
-	    logger.debug("Deleted from follow");
-			
-	    String user_query	=   "DELETE FROM users WHERE "	+
-				    " id = '"			+
-				    entity			+
-				    "'";
-												
-	    dbService.runQuery(user_query, userQuery -> {
-													
-	    if(!userQuery.succeeded())
-	    {
-		logger.debug("Could not delete from users. Cause="+userQuery.cause());
-		error(resp,"Could not delete from users");
-		return;
-	    }
-		
-	    logger.debug("all ok");
-	
-	    ok(resp);
-	    return;
-				});
-			    });	
-			});
-		    });		
-		});	
-	    });
-	}
-	
-	/**
-	 * This method is the implementation of entity Block and Un-Block API, which
-	 * handles the device or application block requests by owners.
-	 * 
-	 * @param HttpServerRequest req - This is the handle for the incoming request
-	 *                          from client.
-	 * @param                   boolean block - This is the flag for a block request
-	 * @param                   boolean un_block - This is the flag for an un-block
-	 *                          request
-	 * @return HttpServerResponse resp - This sends the appropriate response for the
-	 *         incoming request.
-	 */
-	
-	public void block(RoutingContext context) 
-	{
-	    logger.debug("In block API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-	    String		id	=   request.getHeader("id");
-	    String		apikey	=   request.getHeader("apikey");
-	    String		owner	=   request.getHeader("owner");
-	    String		entity	=   request.getHeader("entity");
-	    String		blocked	=   "t";
-		
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		    return;
-	    }
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(	(owner	==  null)
-			&&
-		(entity	==  null)
-	    )
-	    {
-		badRequest(resp, "Inputs missing in headers");
-		return;
-	    }
-		
-	    if(owner != null)
-	    {
-		if(!isStringSafe(owner))
-		{
-		    badRequest(resp, "Invalid owner");
-		    return;
-		}
-			
-		if(!("admin".equals(id)))
-		{
-		    forbidden(resp, "Only admin can block owners");
-		    return;
-		}
-			
-		if(!isValidOwner(owner))
-		{
-		    badRequest(resp, "owner is not valid");
-		    return;
-		}
-	    }
-			
-	    else if(entity != null)
-	    {	
-		//XXX Verify the boolean logic here
-		if(!(isOwner(id, entity) || "admin".equals(id)))
-		{
-		    forbidden(resp,"You are not the owner of the entity");
-		    return;
-		}
-			
-		if(!isStringSafe(entity))
-		{
-		    badRequest(resp, "Invalid entity");
-		    return;
-		}
-			
-		if(!isValidEntity(entity))
-		{
-		    forbidden(resp,"entity is not valid");
-		    return;
-		}
-	    }
-		
-	    final String username   =	(owner==null)?entity:owner;
-	    final String userString =	(owner==null)?entity:owner+"/%";
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-	    	forbidden(resp,"Invalid id or apikey");
-	    	return;
-	    }
-		
-	    logger.debug("Login ok");
-			
-	    entityExists(username)
-	    .setHandler(entityExists -> {
-					
-	    if(!entityExists.succeeded())
-	    {
-	    	forbidden(resp,"No such entity");
-	    	return;
-	    }
-		
-	    logger.debug("Entity exists");
-			
-	    String query    =	"UPDATE users SET blocked = '"	+
-				blocked				+
-		    		"' WHERE (id = '"		+
-		    		username			+
-	    			"' OR id LIKE '"		+
-    				userString			+
-				"')";
+    Router router = Router.router(vertx);
 
-	    dbService.runQuery(query, updateUserTable -> {
-							
-	    if(!updateUserTable.succeeded())
-	    {
-	    	error(resp,"Could not update users table");
-	    	return;
-	    }
-		
-	    logger.debug("Updated users table. All ok");
-			
-	    ok(resp);
-	    return;	
-		    });
-		});	
-	    });
-	}
+    router.post("/entity/publish").handler(this::publish);
+    router.get("/entity/subscribe").handler(this::subscribe);
+    router.get("/catalogue").handler(this::cat);
+    router.get("/owner/entities").handler(this::entities);
+    router.post("/owner/reset-apikey").handler(this::resetApikey);
+    router.post("/owner/set-autonomous").handler(this::setAutonomous);
+    router.get("/admin/owners").handler(this::getOwners);
 
-	public void unblock(RoutingContext context) 
-	{
-	    logger.debug("In unblock API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-	    String		id	=   request.getHeader("id");
-	    String		apikey	=   request.getHeader("apikey");
-	    String		owner	=   request.getHeader("owner");
-	    String		entity	=   request.getHeader("entity");
-	    String		blocked	=   "t";
-		
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		    return;
-	    }
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(	(owner	==  null)
-			&&
-		(entity	==  null)
-	    )
-	    {
-		badRequest(resp, "Inputs missing in headers");
-		return;
-	    }
-		
-	    if(owner != null)
-	    {
-		if(!isStringSafe(owner))
-		{
-		    badRequest(resp, "Invalid owner");
-		    return;
-		}
-			
-		if(!("admin".equals(id)))
-		{
-		    forbidden(resp, "Only admin can block owners");
-		    return;
-		}
-			
-		if(!isValidOwner(owner))
-		{
-		    badRequest(resp, "owner is not valid");
-		    return;
-		}
-	    }
-			
-	    else if(entity != null)
-	    {	
-		//XXX Verify the boolean logic here
-		if(!(isOwner(id, entity) || "admin".equals(id)))
-		{
-		    forbidden(resp,"You are not the owner of the entity");
-		    return;
-		}
-			
-		if(!isStringSafe(entity))
-		{
-		    badRequest(resp, "Invalid entity");
-		    return;
-		}
-			
-		if(!isValidEntity(entity))
-		{
-		    forbidden(resp,"entity is not valid");
-		    return;
-		}
-	    }
-		
-	    final String username   =	(owner==null)?entity:owner;
-	    final String userString =	(owner==null)?entity:owner+"/%";
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-	    	forbidden(resp,"Invalid id or apikey");
-	    	return;
-	    }
-		
-	    logger.debug("Login ok");
-			
-	    entityExists(username)
-	    .setHandler(entityExists -> {
-					
-	    if(!entityExists.succeeded())
-	    {
-	    	forbidden(resp,"No such entity");
-	    	return;
-	    }
-		
-	    logger.debug("Entity exists");
-			
-	    String query    =	"UPDATE users SET blocked = '"	+
-				blocked				+
-		    		"' WHERE (id = '"		+
-		    		username			+
-	    			"' OR id LIKE '"		+
-    				userString			+
-				"')";
+    router.post("/admin/register-owner").handler(this::registerOwner);
+    router.post("/admin/deregister-owner").handler(this::deRegisterOwner);
 
-	    dbService.runQuery(query, updateUserTable -> {
-							
-	    if(!updateUserTable.succeeded())
-	    {
-	    	error(resp,"Could not update users table");
-	    	return;
-	    }
-		
-	    logger.debug("Updated users table. All ok");
-			
-	    ok(resp);
-	    return;	
-		    });
-		});	
-	    });
-	}
-	
-	public void queueBind(RoutingContext context)
-	{
-	    logger.debug("In queue_bind");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    //Mandatory headers
-	    String id		=   request.getHeader("id");
-	    String apikey	=   request.getHeader("apikey");
-	    String to		=   request.getHeader("to");
-	    String topic	=   request.getHeader("topic");
-	    String message_type	=   request.getHeader("message-type");
-		
-	    //Optional headers
-	    String is_priority	=   request.getHeader("is-priority");
-	    String from		=   request.getHeader("from");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("to="+to);
-	    logger.debug("topic="+topic);
-	    logger.debug("message-type="+message_type);
-		
-	    logger.debug("is-priorty="+is_priority);
-	    logger.debug("from="+from);
-		
-	    if(	(id		==  null)
-				||
-		(apikey		==  null)
-				||
-		(to		==  null)
-				||
-		(topic		==  null)
-				||
-		(message_type	==  null)		
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(!(isValidOwner(id) ^ isValidEntity(id)))
-	    {
-		badRequest(resp,"Invalid id");
-		return;
-	    }
-	    
-	    if(isValidOwner(id))
-	    {
-		if(from	==	null)
-		{
-		    forbidden(resp,"'from' value missing in headers");
-		    return;
-		}
-			
-		if(!isOwner(id, from))
-		{
-		    forbidden(resp,"You are not the owner of the 'from' entity");
-		    return;
-		}
-			
-		if(!isValidEntity(from))
-		{
-		    forbidden(resp,"'from' is not a valid entity");
-		    return;
-		}
-	    }
-	    else
-	    {
-		from	=	id;
-	    }
-		
-	    if(	(!"public".equals(message_type))
-			    &&
-		(!"private".equals(message_type))
-			    &&
-		(!"protected".equals(message_type))
-			    &&
-		(!"diagnostics".equals(message_type))
-	    )
-	    {
-		badRequest(resp,"'message-type' is invalid");
-		return;
-	    }
-		
-	    if(	("private".equals(message_type))	
-			    &&	
-		    (!isOwner(id, to))	
-	    )
-	    {
-		forbidden(resp,"You are not the owner of the 'to' entity");
-		return;
-	    }
-		
-	    if(	(!isStringSafe(from))
-			||
-		(!isStringSafe(to))
-			||
-		(!isStringSafe(topic))
-	    )
-	    {
-	    	forbidden(resp,"Invalid headers");
-	    	return;
-	    }
-		
-	    String queue	=	from;
-		
-	    if(is_priority	!=	null)
-	    {
-		if( (!"true".equals(is_priority)
-				&&
-		    (!"false".equals(is_priority)))
-		)
-		{
-		    forbidden(resp,"Invalid is-priority header");
-		    return;
-		}
-		else if("true".equals(is_priority))
-		{
-		    queue   =	queue + ".priority";
-		}
-	    }
-		
-	    final String from_id	=   from;
-	    final String exchange_name	=   to + "." + message_type;
-	    final String queue_name	=   queue;
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-		
-	    if(!login.succeeded())
-	    {
-	    	forbidden(resp,"Invalid id or apikey");
-	    	return;
-	    }
-			
-	    logger.debug("Login ok");
-			
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-			
-	    logger.debug("Autonomous ok");
-				
-	    if(!"public".equals(message_type))
-	    {
-		logger.debug("Message type is not public");
-					
-		if(!isOwner(id, to))
-		{
-		    logger.debug("Id is not the owner of to");
-						
-		    String acl_query	=   "SELECT * FROM acl WHERE"		    +
-					    " from_id	    ='"	+from_id+"'"	    +
-					    " AND exchange  ='" +exchange_name+"'"  +
-					    " AND permission='read'"		    +
-					    " AND valid_till > now()"		    +
-					    " AND topic	=   '"+topic+"'";
-			
-		    dbService.runQuery(acl_query, aclQuery -> {
-				
-		    if(!aclQuery.succeeded())
-		    {
-		    	error(resp,"Could not query acl table");
-			return;
-		    }
-				
-		    if(aclQuery.result().size()!=1)
-		    {
-			forbidden(resp,"Unauthorised");
-			return;
-		    }
-				
-		    brokerService.bind(queue_name, exchange_name, topic, bind -> {
-			
-		    if(!bind.succeeded())
-		    {
-			error(resp,"Bind failed");
-			return;
-		    }
-					
-		    logger.debug("Bound. All ok");
-									
-		    ok(resp);
-		    return;
-			});
-		    });
-		}
-		else
-		{
-		    logger.debug("Id is the owner of to");
-						
-		    brokerService.bind(queue_name, exchange_name, topic, bind -> {
-						
-		    if(!bind.succeeded())
-		    {
-			error(resp,"Bind failed");
-			return;
-		    }
-				
-		    logger.debug("Bound. All ok");
-							
-		    ok(resp);
-		    return;
-		    });
-			
-		}				
-	    }
-	    else
-	    {
-		logger.debug("Message type is public");
-			
-		logger.debug("exchange="+exchange_name);
-		logger.debug("queue="+queue_name);
-					
-		brokerService.bind(queue_name, exchange_name, topic, bind -> {
-			
-		if(!bind.succeeded())
-		{
-		    error(resp,"Bind failed");
-		    return;
-		}
-			
-		logger.debug("Bound. All ok");
-							
-		ok(resp);
-		return;
-		});
-	    }
-	    });	
-	}
+    router.post("/admin/register-entity").handler(this::register);
+    router.post("/owner/register-entity").handler(this::register);
 
-	public void queueUnbind(RoutingContext context)
-	{
-	    logger.debug("In queue_unbind");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    //Mandatory headers
-	    String id				=	request.getHeader("id");
-	    String apikey			=	request.getHeader("apikey");
-	    String to				=	request.getHeader("to");
-	    String topic			=	request.getHeader("topic");
-	    String message_type		=	request.getHeader("message-type");
-		
-	    //Optional headers
-	    String is_priority		=	request.getHeader("is-priority");
-	    String from				=	request.getHeader("from");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("to="+to);
-	    logger.debug("topic="+topic);
-	    logger.debug("message-type="+message_type);
-		
-	    logger.debug("is-priorty="+is_priority);
-	    logger.debug("from="+from);
-		
-	    if(	(id		==  null)
-				||
-		(apikey		==  null)
-				||
-    		(to		==  null)
-				||
-	    	(topic		==  null)
-				||
-		(message_type	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(!(isValidOwner(id) ^ isValidEntity(id)))
-	    {
-		badRequest(resp,"Invalid id");
-		return;
-	    }
-	    
-	    if(isValidOwner(id))
-	    {
-		if(from ==  null)
-		{
-		    forbidden(resp,"'from' value missing in headers");
-		    return;
-		}
-			
-		if(!isOwner(id, from))
-		{
-		    forbidden(resp,"You are not the owner of the 'from' entity");
-		    return;
-		}
-			
-		if(!isValidEntity(from))
-		{
-		    forbidden(resp,"'from' is not a valid entity");
-		    return;
-		}
-	    }
-	    else
-	    {
-		from	=   id;
-	    }
-		
-	    if(!isValidEntity(to))
-	    {
-		forbidden(resp,"'to' is not a valid entity");
-		return;
-	    }
-		
-	    if(	(!"public".equals(message_type))
-			    &&
-		(!"private".equals(message_type))
-			    &&
-		(!"protected".equals(message_type))
-			    &&
-		(!"diagnostics".equals(message_type))
-	    )
-	    {
-		badRequest(resp,"'message-type' is invalid");
-		return;
-	    }
-		
-	    if(	("private".equals(message_type))	
-			    &&	
-		    (!isOwner(id, to))	
-	    )
-	    {
-		forbidden(resp,"You are not the owner of the 'to' entity");
-		return;
-	    }
-		
-	    if(	(!isStringSafe(from))
-			||
-		(!isStringSafe(to))
-			||
-		(!isStringSafe(topic))
-	    )
-	    {
-		forbidden(resp,"Invalid headers");
-		return;
-	    }
-		
-	    String queue    =	from;
-		
-	    if(is_priority  !=	null)
-	    {
-		if( (!"true".equals(is_priority)
-				&&
-		    (!"false".equals(is_priority)))
-		)
-		{
-		    forbidden(resp,"Invalid is-priority header");
-		    return;
-		}
-		else if("true".equals(is_priority))
-		{
-		    queue   =	queue	+   ".priority";
-		}
-	    }
-		
-	    final String from_id	=   from;
-	    final String exchange_name	=   to + "." + message_type;
-	    final String queue_name	=   queue;
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-		
-	    if(!login.succeeded())
-	    {
-	    	forbidden(resp,"Invalid id or apikey");
-	    	return;
-	    }
-			
-	    logger.debug("Login ok");
-			
-	    if(!login.result())
-	    {
-	    	forbidden(resp,"Unauthorised");
-	    	return;
-	    }
-			
-	    logger.debug("Autonomous ok");
-				
-	    if(!"public".equals(message_type))
-	    {
-		logger.debug("Message type is not public");
-					
-		if(!isOwner(id, to))
-		{
-		    logger.debug("Id is not the owner of to");
-						
-		    String acl_query	=   "SELECT * FROM acl WHERE"		    +
-					    " from_id	    =   '"+from_id+"'"	    +
-					    " AND exchange  =	'"+exchange_name+"'"+
-					    " AND permission=	'read'"		    +
-					    " AND valid_till > now()"		    +
-					    " AND topic	=	'"+topic+"'";
-			
-		    dbService.runQuery(acl_query, aclQuery -> {
-				
-		    if(!aclQuery.succeeded())
-		    {
-			error(resp,"Could not query acl table");
-			return;
-		    }
-				
-		    if(aclQuery.result().size()!=1)
-		    {
-			forbidden(resp,"Unauthorised");
-			return;
-		    }
-				
-		    brokerService.unbind(queue_name, exchange_name, topic, bind -> {
-			
-		    if(!bind.succeeded())
-		    {
-			error(resp,"Unbind failed");
-			return;
-		    }
-					
-		    logger.debug("Unbound. All ok");
-									
-		    ok(resp);
-		    return;
-			});
-		    });
-		}
-		else
-		{
-		    logger.debug("Id is the owner of to");
-						
-		    brokerService.unbind(queue_name, exchange_name, topic, bind -> {
-						
-		    if(!bind.succeeded())
-		    {
-			error(resp,"Unbind failed");
-			return;
-		    }	
-		    
-		    logger.debug("Unbound. All ok");
-							
-		    ok(resp);
-		    return;
-		    });
-			
-		}				
-	    }
-		
-	    else
-	    {
-		logger.debug("Message type is public");
-					
-		brokerService.unbind(queue_name, exchange_name, topic, bind -> {
-			
-		if(!bind.succeeded())
-		{
-		    error(resp,"Bind failed");
-		    return;
-		}
-			
-		logger.debug("Bound. All ok");
-							
-		ok(resp);
-		return;
-		});
-	    }
-	    });	
-	}
-	
-	public void follow(RoutingContext context) 
-	{
-	    logger.debug("In follow API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    //Mandatory Headers
-	    String  id		=   request.getHeader("id");
-	    String  apikey	=   request.getHeader("apikey");
-	    String  to		=   request.getHeader("to");
-	    String  topic	=   request.getHeader("topic");
-	    String  validity	=   request.getHeader("validity");
-	    String  permission	=   request.getHeader("permission");
-		
-	    //Optional Headers
-	    String  from		=   request.getHeader("from");
-	    String  message_type_header	=   request.getHeader("message-type");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("to="+to);
-	    logger.debug("message-type="+message_type_header);
-	    logger.debug("topic="+topic);
-	    logger.debug("validity="+validity);
-	    logger.debug("permission="+permission);
-		
-	    if(	(id	    ==	null)
-			    ||
-		(apikey	    ==	null)
-			    ||
-		(to	    ==	null)
-			    ||
-		(topic	    ==	null)
-			    ||
-		(validity   ==	null)
-			    ||
-		(permission ==	null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(!(isValidOwner(id) ^ isValidEntity(id)))
-	    {
-		badRequest(resp,"Invalid id");
-		return;
-	    }
-		
-	    if(isValidOwner(id))
-	    {
-		if(from	==	null)
-		{
-		    forbidden(resp,"'from' value missing in headers");
-		    return;
-		}
-			
-		if(!isOwner(id, from))
-		{
-		    forbidden(resp,"You are not the owner of the 'from' entity");
-		    return;
-		}
-			
-		if(!isValidEntity(from))
-		{
-		    forbidden(resp,"'from' is not a valid entity");
-		    return;
-		}
-	    }
-	    else
-	    {
-		from	=   id;
-	    }
-		
-	    if(message_type_header  !=	null)
-	    {
-		if( (!"protected".equals(message_type_header))
-				    &&
-		    (!"diagnostics".equals(message_type_header))
-		)
-		{
-		    badRequest(resp,"'message-type' is invalid");
-		    return;
-		}
-			
-	    }
-	    else
-	    {
-		message_type_header	=	"protected";
-	    }
-		
-	    if(	!(  ("read".equals(permission))
-				||
-		    ("write".equals(permission))
-				||
-		    ("read-write".equals(permission))
-		)
-	    )
-	    {
-		badRequest(resp,"Invalid permission string");
-		return;
-	    }
-		
-	    try
-	    {
-		int validity_integer	=   Integer.parseInt(validity);
-			
-		if( (validity_integer<0)
-			    ||
-		    (validity_integer>10000)
-		)
-		{
-		    badRequest(resp,"Invalid validity header");
-		    return;
-		}
-	    }
-	    catch(Exception e)
-	    {
-		badRequest(resp,"Invalid validity header");
-		return;
-	    }
-		
-	    if(	(!isStringSafe(from))
-			||
-		(!isStringSafe(to))
-			||
-		(!isStringSafe(topic))
-			||
-		(!isStringSafe(validity))
-			||
-		(!isStringSafe(permission))
-	    )
-	    {
-		badRequest(resp,"Invalid headers");
-		return;
-	    }
-		
-	    final String from_id	=   from;
-	    final String message_type	=   message_type_header;
-	    final String status		=   (isOwner(id, to))?"approved":"pending";
-				
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-		
-	    if(!login.succeeded())
-	    {
-	    	forbidden(resp, "Invalid id or apikey");
-	    	return;
-	    }
-		
-	    logger.debug("Login ok");
-		
-	    if(!login.result())
-	    {
-		forbidden(resp, "Unauthorised");
-		return;
-	    }
-		
-	    logger.debug("Autonomous ok");
-			
-	    // Check if the requested follow entity exists
-	    entityExists(to).setHandler(entityExists -> {
-			
-	    if(!entityExists.succeeded())
-	    {
-		//TODO: What about blocked entities?
-		forbidden(resp, "'to' entity does not exist");
-		return;
-	    }
-				
-	    if("read".equals(permission)) 
-	    {
-		logger.debug("Permission is read");
-				
-		insertIntoFollow(   id,to+"."+message_type,topic,"read",
-				    validity,from_id,status
-				)
-		.setHandler(followInsert -> {
-				
-		if(!followInsert.succeeded())
-		{
-		    error(resp, "Could not insert into follow");
-		    return;
-		}
-		
-		if("approved".equals(status))
-		{
-		    String validity_string  =	"now()	+   interval	'"  +	
-						validity		    +	
-						" hours'";
-							
-		    insertIntoAcl   (	from_id, to+"."+message_type, permission,	
-					validity_string, followInsert.result(), 
-					topic
-				    )
-		    .setHandler(aclInsert -> {
-					
-		    if(!aclInsert.succeeded())
-		    {
-			error(resp,"Could not insert into acl");
-			return;
-		    }
-				
-		    publishToNotification   (	from_id, permission, 
-						to, entityExists.result()
-					    )
-		    .setHandler(publish -> {
-										
-		    if(!publish.succeeded())
-		    {
-			error(resp, "Could not publish to notification exchange");
-			return;
-		    }
-				
-		    if(!resp.closed())
-		    {
-			resp
-			.putHeader("content-type", "application/json")
-		    	.setStatusCode(202)
-		    	.end(new JsonObject()
-		    	.put("follow-id-read", followInsert.result())
-	    		.put("status", "approved")
-    			.encodePrettily());
-		    }
-				
-		    return;
-			});
-		    });
-		}
-		else
-		{
-		    publishToNotification(from_id, permission, to, entityExists.result())
-		    .setHandler(publish -> {
-								
-		    if(!publish.succeeded())
-		    {
-			error(resp,"Could not publish to notification exchange");
-			return;
-		    }
-				
-		    if(!resp.closed())
-		    {
-			resp
-			.putHeader("content-type", "application/json")
-			.setStatusCode(202)
-			.end(new JsonObject()
-			.put("follow-id-read", followInsert.result())
-			.encodePrettily());
-		    }
-				
-		    return;
-					});
-		}
-			});
-	    }
-			
-	    if("write".equals(permission))
-	    {
-		logger.debug("Permission is write");
-				
-		insertIntoFollow    (	id, to+".command", topic, "write", 
-					validity, from_id, status
-				    )
-		.setHandler(followInsert -> {
-				
-		if(!followInsert.succeeded())
-		{
-		    error(resp,"Could not insert into follow");
-		    return;
-		}
-			
-		if("approved".equals(status))
-		{
-		    String validity_string  =	"now()	+   interval	'"  +	
-						validity		    +	
-						" hours'";
-							
-		    insertIntoAcl   (	from_id, to+".command", permission,	
-					validity_string, followInsert.result(), 
-					topic
-				    )
-							
-		    .setHandler(aclInsert -> {
-								
-		    if(!aclInsert.succeeded())
-		    {
-			error(resp,"Could not insert into acl");
-			return;
-		    }
-					
-		    bindToPublishExchange(from_id, to, topic)
-		    .setHandler(bind -> {
-				
-		    if(!bind.succeeded())
-		    {
-			error(resp,"Could not bind publish exchnage and command queue");
-			return;
-		    }
-						
-		    publishToNotification(from_id, permission, to, entityExists.result())
-		    .setHandler(publish -> {
-				
-		    if(!publish.succeeded())
-		    {
-			error(resp,"Could not publish to notification exchange");
-			return;
-		    }
-				
-		    if(!resp.closed())
-		    {
-			resp
-		    	.putHeader("content-type", "application/json")
-		    	.setStatusCode(202)
-			.end(new JsonObject()
-			.put("follow-id-write", followInsert.result())
-			.put("status", "approved")
-			.encodePrettily());
-		    }
-											
-		    return;
-			    });
-			});
-		    });
-		}
-		else
-		{
-		    publishToNotification(from_id, permission, to, entityExists.result())
-		    .setHandler(publish -> {
-					
-		    if(!publish.succeeded())
-		    {
-			error(resp,"Could not publish to notification exchange");
-			return;
-		    }
-				
-		    if(!resp.closed())
-		    {
-			resp
-			.putHeader("content-type", "application/json")
-			.setStatusCode(202)
-			.end(new JsonObject()
-			.put("follow-id-write", followInsert.result())
-			.encodePrettily());
-		    }
-					
-		    return;
-		    });
-		}
-		});
-	    }
-			
-	    if("read-write".equals(permission))
-	    {
-		logger.debug("Permission is read-write");
-				
-		insertIntoFollow    (	id, to+"."+message_type, topic, "read", 
-					validity, from_id, status
-				    )
-		.setHandler(readFollow -> {
-			
-		if(!readFollow.succeeded())
-		{
-		    error(resp,"Could not insert into follow");
-		    return;
-		}
+    router.post("/admin/deregister-entity").handler(this::deRegister);
+    router.post("/owner/deregister-entity").handler(this::deRegister);
 
-		insertIntoFollow    (	id, to+".command", topic, "write", 
-					validity, from_id, status
-				    )
-		.setHandler(writeFollow -> {
-				
-		if(!writeFollow.succeeded())
-		{
-		    error(resp,"Could not insert into follow" );
-		    return;
-		}
-			
-		if("approved".equals(status))
-		{
-		    String validity_string  =	"now()	+   interval	'"  +	
-						validity		    +	
-						" hours'";
-									
-		    insertIntoAcl   (	from_id, to+"."+message_type, "read",	
-					validity_string, readFollow.result(), 
-					topic
-				    )
-		    .setHandler(addAclRead -> {
-				
-		    if(!addAclRead.succeeded())
-		    {
-			error(resp,"Could not insert into acl");
-			return;
-		    }
-						
-		    insertIntoAcl   (	from_id, to+".command", "write",	
-					validity_string, writeFollow.result(), 
-					topic
-				    )
-		    .setHandler(addAclWrite -> {
-				
-		    if(!addAclWrite.succeeded())
-		    {
-			error(resp,"Could not add into acl");
-			return;
-		    }
-						
-		    bindToPublishExchange(from_id, to, topic)
-		    .setHandler(bind -> {
-		
-		    if(!bind.succeeded())
-		    {
-			error(resp,"Could not bind publish exchnage and command queue");
-			return;
-		    }
-				
-		    publishToNotification(from_id, permission, to, entityExists.result())
-		    .setHandler(publish -> {
-				
-		    if(!publish.succeeded())
-		    {
-			error(resp,"Could not publish to notification exchange");
-			return;
-		    }
-				
-		    if(!resp.closed())
-		    {
-			resp
-			.putHeader("content-type", "application/json")
-			.setStatusCode(202)
-			.end(new JsonObject()
-			.put("follow-id-read", readFollow.result())
-			.put("follow-id-write", writeFollow.result())
-			.put("status", "approved")
-			.encodePrettily());
-		    }
-																	
-		    return;
-				});
-			    });
-			});	
-		    });
-		}
-			
-		else
-		{
-		    publishToNotification(from_id, permission, to, entityExists.result())
-		    .setHandler(publish -> {
-				
-		    if(!publish.succeeded())
-		    {
-			error(resp,"Could not publish to notification exchange");
-			return;
-		    }
-				
-		    if(!resp.closed())
-		    {
-			resp
-			.putHeader("content-type", "application/json")
-			.setStatusCode(202)
-			.end(new JsonObject()
-			    .put("follow-id-read", readFollow.result())
-			    .put("follow-id-write", writeFollow.result())
-			    .encodePrettily());
-		    }
-											
-		    return;
-		    });
-		}
-		    });
-		});
-	    }
-		});
-	    });
-	}
-	
-	public Future<Void> bindToPublishExchange(String from, String to, String topic)
-	{
-	    Promise<Void> promise   =	Promise.promise();
-		
-	    String exchange	=   from    +	".publish";
-	    String queue	=   to	    +	".command";
-	    String routingKey	=   to	    +	".command." +   topic;	
-		
-	    brokerService.bind(queue, exchange, routingKey, bind -> {
-			
-	    if(bind.succeeded())
-	    {
-		promise.complete();
-	    }
-	    else
-	    {
-		promise.fail(bind.cause());
-	    }
-	    });
-	    return promise.future();
-	}
-	
-	public Future<Void> publishToNotification(String from_id, String permission, String to, boolean autonomous)
-	{
-	    Promise<Void> promise   =	Promise.promise();
-	    String exchange	    =	autonomous?to+".notification":to.split("/")[0]+".notification";
-	    String topic	    =	"Request for follow";
-	    String message_string   =	from_id + " has requested " + permission + " access on " + to;
-	    JsonObject	message	    =	new JsonObject().put("message", message_string);
-		
-	    brokerService.adminPublish(exchange, topic, message.toString(), publish -> {
-			
-	    if(publish.succeeded())
-	    {
-		promise.complete();
-	    }
-	    else
-	    {
-		promise.fail(publish.cause());
-	    }
-	    });
-		
-	    return promise.future();
-	}
-	
-	public Future<String> insertIntoFollow	(   String id, String exchange, String topic, 
-						    String permission, String validity, 
-						    String from, String status
-						)
-	{
-	    logger.debug("In insert into follow");
-		
-	    Promise<String> promise = Promise.promise();
-		
-	    String follow_query	=   "INSERT INTO follow VALUES (DEFAULT,    '"	+
-				    id						+	"','"	+
-				    exchange					+	"',"	+
-				    "now(),				    '"	+
-				    permission					+	"','"	+
-				    topic					+	"','"	+
-				    validity					+	"','"	+
-				    status					+	"','"	+
-				    from					+	"')"	;
-		
-	    dbService.runQuery(follow_query, followQuery -> {
-			
-	    if(followQuery.succeeded())
-	    {
-		String follow_id_query	=   "SELECT * FROM follow WHERE from_id	=   '"	+
-					    from					+
-					    "' AND exchange =	'"			+
-					    exchange					+
-					    "'";
-				
-		dbService.runQuery(follow_id_query, getFollowID -> {
-					
-		if(getFollowID.succeeded())
-		{
-		    List<String>    list	=   getFollowID.result();
-		    String	    row		=   list.get(0);
-		    String	    follow_id	=   row.substring(
-							row.indexOf("[")+1,
-							row.indexOf("]"))
-						    .trim()
-						    .split(",\\s")[0];
-			
-		    logger.debug("Row="+row);
-		    logger.debug("Follow ID="+follow_id);
-						
-		    promise.complete(follow_id);
-		}
-		else
-		{
-		    promise.fail(getFollowID.cause());
-		}
-		    });
-		}
-		else
-		{
-		    promise.fail(followQuery.cause());
-		}
-	    });
-		
-	    return promise.future();
-	}
-	
-	public Future<Void> insertIntoAcl   (	String from_id, String exchange, String permission, 
-						String valid_till, String follow_id, String topic
-					    )
-	{
-	    logger.debug("In insert into acl");
-		
-	    Promise<Void> promise   =	Promise.promise();
-		
-	    String acl_query	=   "INSERT INTO acl VALUES (	'"  +
-				    from_id			    +	"','"	+	
-				    exchange			    +	"','"	+
-				    permission			    +	"',"	+
-				    valid_till			    +	",'"	+
-				    follow_id			    +	"','"	+
-				    topic			    +	"',DEFAULT)";
-		
-	    dbService.runQuery(acl_query, query -> {
-			
-	    if(query.succeeded())
-	    {
-		promise.complete();
-	    }
-	    else
-	    {
-		promise.fail(query.cause());
-	    }
-		});
-	    return promise.future();
-	}
-	
-	public void unfollow(RoutingContext context)
-	{
-	    logger.debug("In unfollow API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    //Mandatory Headers
-	    String  id			=   request.getHeader("id");
-	    String  apikey		=   request.getHeader("apikey");
-	    String  to			=   request.getHeader("to");
-	    String  topic		=   request.getHeader("topic");
-	    String  permission		=   request.getHeader("permission");
-	    String  message_type_header	=   request.getHeader("message-type");
-		
-	    //Optional Headers
-	    String  from    =	request.getHeader("from");
-		
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("to="+to);
-	    logger.debug("message-type="+message_type_header);
-	    logger.debug("topic="+topic);
-	    logger.debug("permission="+permission);
-		
-	    if(	(id	    ==	null)
-			    ||
-		(apikey	    ==	null)
-			    ||
-		(to	    ==	null)
-			    ||
-		(topic	    ==	null)
-			    ||
-		(permission ==	null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(!(isValidOwner(id) ^ isValidEntity(id)))
-	    {
-		badRequest(resp,"Invalid id");
-		return;
-	    }
-		
-	    if(isValidOwner(id))
-	    {
-		if(from	==  null)
-		{
-		    forbidden(resp, "'from' value missing in headers");
-		    return;
-		}
-			
-		if(!isOwner(id, from))
-		{
-		    forbidden(resp,"You are not the owner of the 'from' entity");
-		    return;
-		}
-			
-		if(!isValidEntity(from))
-		{
-		    forbidden(resp,"'from' is not a valid entity");
-		    return;
-		}
-	    }
-	    else
-	    {
-		from	=   id;
-	    }
-		
-	    if(message_type_header  !=	null)
-	    {
-		if  (	(!"protected".equals(message_type_header))
-					&&
-			(!"diagnostics".equals(message_type_header))
-		    )
-		{
-		    forbidden(resp,"'message-type' is invalid");
-		    return;
-		}
-			
-	    }
-	    else
-	    {
-		message_type_header =	"protected";
-	    }
-		
-	    if(	!(  ("read".equals(permission))
-				||
-		    ("write".equals(permission))
-				||
-		    ("read-write".equals(permission))
-		)
-	    )
-	    {
-		badRequest(resp,"Invalid permission string");
-		return;
-	    }
-		
-	    if(	(!isStringSafe(from))
-			||
-		(!isStringSafe(to))
-			||
-		(!isStringSafe(topic))
-	    )
-	    {
-		badRequest(resp,"Invalid headers");
-		return;
-	    }
-		
-	    final String from_id	=   from;
-	    final String message_type	=   message_type_header;
-	    final String exchange	=   to	+   "."	+   message_type;
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-			
-	    logger.debug("Login ok");
-				
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-				
-	    logger.debug("Autonomous ok");
-		
-	    if	("write".equals(permission))
-	    {
-		String acl_query    =	"SELECT * FROM acl WHERE from_id    =	'"  +
-					from_id					    +			
-					"' AND exchange			    =	'"  +
-					to					    +
-					".command"				    +
-					"' AND topic			    =	'"  +
-					topic					    +
-					"' AND permission		    =	'write'";
+    router.post("/owner/block").handler(this::block);
+    router.post("/entity/block").handler(this::block);
 
-		dbService.runQuery(acl_query, query -> {
-			
-		if(!query.succeeded())
-		{
-		    error(resp,"Could not get acl details");
-		    return;
-		}
-			
-		if(query.result().size()!=1)
-		{
-		    forbidden(resp, "Unauthorised");
-		    return;
-		}
-			
-		String raw  =	query.result().get(0);
-				
-		String processed_row[]	=   raw.substring(raw.indexOf("[")+1, 
-							raw.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-				
-		String acl_id	    =	processed_row[6];
-		String follow_id    =	processed_row[4];
-					
-		brokerService.unbind(to+".command", from_id+".publish", to+".command."+topic, unbind -> {
-						
-		if(!unbind.succeeded())
-		{
-		    error(resp,"Could not unbind");
-		    return;
-		}
-						
-		String delete_from_acl	=   "DELETE FROM acl WHERE acl_id="+acl_id;
-						
-		dbService.runQuery(delete_from_acl, aclDelete -> {
-							
-		if(!aclDelete.succeeded())
-		{
-		    error(resp,"Could not delete from acl");
-		    return;
-		}
-							
-		String delete_from_follow   =	"DELETE FROM follow WHERE follow_id='"+follow_id+"'";
-							
-		dbService.runQuery(delete_from_follow, followDelete -> {
-								
-		if(!followDelete.succeeded())
-		{
-		    error(resp,"Could not delete from follow");
-		    return;
-		}
-			
-		ok(resp);
-		return;
-				});
-			    });
-			});
-		    });
-		}
-		
-		else if("read".equals(permission))
-		{
-		    String acl_query	=   "SELECT * FROM acl WHERE from_id    =   '"  +
-					    from_id					+	
-					    "' AND exchange			=   '"  +
-					    to						+
-					    "."						+
-					    message_type				+
-					    "' AND topic			=   '"  +
-					    topic					+
-					    "' AND permission			=   'read'";
-		
-		    dbService.runQuery(acl_query, query -> {
-					
-		    if(!query.succeeded())
-		    {
-			error(resp,"Could not get acl details");
-			return;	
-		    }		
-						
-		    if(query.result().size()!=1)
-		    {
-			forbidden(resp,"Unauthorised");
-			return;
-		    }
-						
-		    String raw		    =   query.result().get(0);
-		    String processed_row[]  =	raw.substring(
-							raw.indexOf("[")+1, 
-							raw.indexOf("]"))
-						.trim()
-						.split(",\\s");
-					
-		    String acl_id	    =   processed_row[6];
-		    String follow_id	    =   processed_row[4];
-		    String delete_from_acl  =   "DELETE FROM acl WHERE acl_id="+acl_id;
-						
-		    dbService.runQuery(delete_from_acl, aclDelete -> {
-				
-		    if(!aclDelete.succeeded())
-		    {
-			error(resp,"Could not delete from acl");
-			return;
-		    }
-				
-		    String delete_from_follow	=   "DELETE FROM follow WHERE follow_id='"+follow_id+"'";
-								
-		    dbService.runQuery(delete_from_follow, followDelete -> {
-							
-		    if(!followDelete.succeeded())
-		    {
-			error(resp,"Could not delete from follow");
-			return;
-		    }
-			
-		    logger.debug("Queue="+from_id+" Exchange="+exchange);
-			
-		    brokerService.unbind(from_id, exchange, topic, unbind -> {
-			
-		    if(!unbind.succeeded())
-		    {
-			error(resp,"Could not unbind regular queue");
-			return;
-		    }
-			
-		    brokerService.unbind(from_id+".priority", exchange, topic, priorityUnbind -> {
-				
-		    if(!priorityUnbind.succeeded())
-		    {
-			error(resp,"Could not unbind priority queue");
-			return;
-		    }
-													
-		    ok(resp);
-		    return;	
-				    });
-				});
-			    });
-			});
-		    });	
-		}
-		else if("read-write".equals(permission))
-		{
-		    String acl_query	=   "SELECT * FROM acl WHERE from_id	=   '"	+
-					    from_id +   "' AND (exchange	=   '"	+
-					    to	    +   ".command' OR exchange	=   '"	+
-					    to	    +   ".protected')"			+
-					    " AND topic				=   '"	+	
-					    topic					+
-					    "' AND (permission	=	'write'"	+
-					    " OR permission 	=	'read')";
+    router.post("/entity/unblock").handler(this::block);
+    router.post("/owner/unblock").handler(this::block);
 
-		    dbService.runQuery(acl_query, query -> {
-			
-		    if(!query.succeeded())
-		    {
-			error(resp,"Could not get acl details");
-			return;
-		    }
-			
-		    if(query.result().size()!=2)
-		    {
-			forbidden(resp, "Unauthorised");
-			return;
-		    }
-			
-		    String first    =	query.result().get(0);
-		    String second   =	query.result().get(1);
-			
-		    String first_follow_id  =	first.substring(first.indexOf("[")+1,first.indexOf("]"))
-						.trim()
-						.split(",\\s")
-						[4];
-			
-		    String second_follow_id =	second.substring(second.indexOf("[")+1,second.indexOf("]"))
-						.trim()
-						.split(",\\s")
-						[4];
-			
-		    String first_acl_id	    =	first.substring(first.indexOf("[")+1,first.indexOf("]"))
-						.trim()
-						.split(",\\s")
-						[6];
+    router.post("/entity/bind").handler(this::queueBind);
+    router.post("/owner/bind").handler(this::queueBind);
 
-		    String second_acl_id    =	second.substring(second.indexOf("[")+1,second.indexOf("]"))
-						.trim()
-						.split(",\\s")
-						[6];
-				
-		    brokerService.unbind(to+".command", from_id+".publish", to+".command."+topic, commandUnbind -> {
-					
-		    if(!commandUnbind.succeeded())
-		    {
-			error(resp,"Could not unbind");
-			return;
-		    }
-			
-		    brokerService.unbind(from_id, exchange, topic, regularUnbind -> {
-				
-		    if(!regularUnbind.succeeded())
-		    {
-			error(resp,"Could not unbind");
-			return;
-		    }
-			
-		    brokerService.unbind(from_id + ".priority", exchange, topic, priorityUnbind -> {
-				
-		    if(!priorityUnbind.succeeded())
-		    {
-			error(resp,"Could not unbind");
-			return;
-		    }
-			
-			});
-		    });
-					
-		    String delete_from_acl  =	"DELETE FROM acl WHERE (acl_id	=   "   +
-						first_acl_id				+
-						" OR acl_id 			=   "	+
-						second_acl_id				+
-						")";
-					
-		    dbService.runQuery(delete_from_acl, aclDelete -> {
-						
-		    if(!aclDelete.succeeded())
-		    {
-			error(resp,"Could not delete from acl");
-			return;
-		    }
-						
-		    String delete_from_follow	=   "DELETE FROM follow WHERE (follow_id    =	"   +
-						    first_follow_id				    +
-						    " OR follow_id 			    = 	"   +
-						    second_follow_id				    +
-						    ")";
-						
-		    dbService.runQuery(delete_from_follow, followDelete -> {
-							
-		    if(!followDelete.succeeded())
-		    {
-			error(resp,"Could not delete from follow");
-			return;
-		    }
-			
-		    ok(resp);
-		    return;
-				});
-			    });
-			});
-		    });
-		}
-	    });		
-	}
-										
-	public void share(RoutingContext context)
-	{
-	    logger.debug("In share API");
-		
-	    HttpServerRequest	request	    =   context.request();
-	    HttpServerResponse	resp	    =   request.response();
-	    String		id	    =   request.getHeader("id");
-	    String		apikey	    =	request.getHeader("apikey");
-	    String		follow_id   =	request.getHeader("follow-id");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("follow-id="+follow_id);
-		
-	    if(	(id	    ==	null)
-			    ||
-		(apikey	    ==	null)
-			    ||
-		(follow_id  ==	null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    String exchange_string  =	isValidOwner(id)?(id+"/%.%"):(isValidEntity(id))?id+".%":"";
-		
-	    if(!isStringSafe(follow_id))
-	    {
-		forbidden(resp,"Invalid follow-id");
-		return;
-	    }
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-			
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-			
-	    logger.debug("Autonomous ok");
-			
-	    String follow_query	=   "SELECT * FROM follow WHERE follow_id   =	"   +
-				    Integer.parseInt(follow_id)			    +
-				    " AND exchange LIKE 			'"  +
-				    exchange_string				    +
-				    "' AND status   =	'pending'";
-				
-	    dbService.runQuery(follow_query, getDetails -> {
-					
-	    if(!getDetails.succeeded())
-	    {
-		error(resp,"Could not get follow details");
-		return;
-	    }
-		
-	    List<String> resultList =	getDetails.result();
-	    int rowCount	    =	resultList.size();
-			
-	    if(rowCount!=1)
-	    {
-		forbidden(resp,"Follow ID is invalid or has already been approved");
-		return;
-	    }
-			
-	    String row		    =	resultList.get(0);
-	    String  processed_row[] =	row.substring(
-					    row.indexOf("[")+1, 
-					    row.indexOf("]"))
-					.trim()
-					.split(",\\s");
-			
-	    String from_id	=   processed_row[8];
-	    String exchange	=   processed_row[2];
-	    String permission	=   processed_row[4];
-	    String topic	=   processed_row[5];
-	    String validity	=   processed_row[6];
-			
-	    logger.debug("from_id="+from_id);
-	    logger.debug("exchange="+exchange);
-	    logger.debug("permission="+permission);
-	    logger.debug("topic="+topic);
-	    logger.debug("validity="+validity);
-							
-	    String from_query	=   "SELECT * FROM users WHERE id = '" + from_id + "'";
-							
-	    dbService.runQuery(from_query, fromQuery -> {
-								
-	    if(!fromQuery.succeeded())
-	    {
-		error(resp,"Could not query users table");
-		return;
-	    }
-		
-	    logger.debug("From query ok");
-			
-	    if(fromQuery.result().size()!=1)
-	    {
-		forbidden(resp,"Invalid from id");
-		return;
-	    }
-		
-	    logger.debug("Found from entity");
-				
-	    String update_follow_query	=	"UPDATE follow SET status = 'approved' WHERE follow_id = " + follow_id;
-										
-	    dbService.runQuery(update_follow_query, updateFollowQuery -> {
-											
-	    if(!updateFollowQuery.succeeded())
-	    {
-		error(resp,"Could not update follow table");
-		return;
-	    }
-		
-	    logger.debug("Update follow ok");
-			
-	    String acl_insert = "INSERT INTO acl VALUES("   +	"'"
-				+from_id		    +	"','"
-				+exchange 		    +	"','"
-				+permission		    +	"',"
-				+"now() + interval '"	    +
-				Integer.parseInt(validity)  +
-				" hours'"		    +	",'"
-				+follow_id		    +	"','"
-				+topic			    +	"',"
-				+"DEFAULT)";
-												
-												
-	    dbService.runQuery(acl_insert, aclInsert -> {
-													
-	    if(!aclInsert.succeeded())
-	    {
-		error(resp,"Failed to insert into acl table");
-		return;
-	    }
-		
-	    logger.debug("Insert into acl ok");
-			
-	    if("write".equals(permission))
-	    {
-		logger.debug("Permission is write");
-			
-		String publish_exchange	=   from_id + ".publish";
-		String publish_queue	=   exchange;
-		String publish_topic	=   exchange + "." + topic;
-															
-		brokerService.bind(publish_queue, publish_exchange, publish_topic, bind -> {
-																
-		if(!bind.succeeded())
-		{
-		    error(resp,"Failed to bind");
-		    return;
-		}
-		
-		logger.debug("Bound. All ok");
-			
-		ok(resp);
-		return;
-		    });
-		}
-		else
-		{
-		    logger.debug("All ok");
-			
-		    ok(resp);
-		    return;
-		}	
-			    });
-			});
-		    });
-		});
-	    });	
-	}
-	
-	public void cat(RoutingContext context)
-	{
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    logger.debug("In cat API");
-		
-	    String cat_query	=   "SELECT id, schema FROM users WHERE id LIKE '%/%'";
-		
-	    dbService.runQuery(cat_query, query -> {
-			
-	    if(!query.succeeded())
-	    {
-		error(resp,"Could not get catalogue items");
-		return;
-	    }
-			
-	    List<String> resultList =	query.result();
-	    JsonArray response	    =	new JsonArray();
-						
-	    for(String row:resultList)
-	    {
-		String	processed_row[]	=   row.substring(
-						    row.indexOf("[")+1, 
-						    row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-							
-		logger.debug("Processed row ="+Arrays.asList(processed_row));
-							
-		JsonObject entity   =	new JsonObject();
-				
-		entity.put("id", processed_row[0]);
-		entity.put("schema", new JsonObject(processed_row[1]));
-		response.add(entity);
-	    }
-			
-	    logger.debug("All ok");
-			
-	    if(!resp.closed())
-	    {
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-	    });
-	}
+    router.post("/entity/unbind").handler(this::queueBind);
+    router.post("/owner/unbind").handler(this::queueBind);
 
-	public void entities(RoutingContext context)
-	{
-	    logger.debug("In entities API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-	    String id			=   request.getHeader("id");
-	    String apikey		=   request.getHeader("apikey");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
+    router.post("/entity/follow").handler(this::follow);
+    router.post("/owner/follow").handler(this::follow);
 
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(!isValidOwner(id))
-	    {
-		forbidden(resp,"id is not valid");
-		return;
-	    }
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-				
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-				
-	    logger.debug("Autonomous ok");
-				
-	    String users_query	=   "SELECT * FROM users WHERE id LIKE '" + id + "/%'";
-			
-	    dbService.runQuery(users_query, query -> {
-					
-	    if(!query.succeeded())
-	    {
-		error(resp,"Could not get entities' details");
-		return;
-	    }
-		
-	    List<String> resultList =   query.result();
-	    JsonArray response	    =   new JsonArray();
-					
-	    for(String row:resultList)
-	    {
-		String	processed_row[]	=   row.substring(
-						    row.indexOf("[")+1, 
-						    row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-						
-		logger.debug("Processed row ="+Arrays.asList(processed_row));
-						
-		JsonObject entity   =   new JsonObject();
-						
-		entity.put("id", processed_row[0]);
-		entity.put("is-autonomous", processed_row[5]);
-						
-		response.add(entity);
-	    }
-		
-	    logger.debug("All ok");
-		
-	    if(!resp.closed())
-	    {
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-		});
-	    });
-	}
-	
-	public void resetApikey(RoutingContext context)
-	{
-	    logger.debug("In reset apikey");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    String  id	    =   request.getHeader("id");
-	    String  apikey  =   request.getHeader("apikey");
-	    String  owner   =   request.getHeader("owner");
-	    String  entity  =   request.getHeader("entity");
-		
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(	(owner	==  null)
-			&&
-		(entity	==  null)
-	    )
-	    {
-		badRequest(resp, "Inputs missing in headers");
-		return;
-	    }
-		
-	    if(owner != null)
-	    {
-		if(!isStringSafe(owner))
-		{
-		    badRequest(resp, "Invalid owner");
-		    return;
-		}
-			
-		if(!("admin".equals(id)))
-		{
-		    forbidden(resp, "Only admin can block owners");
-		    return;
-		}
-			
-		if(!isValidOwner(owner))
-		{
-		    badRequest(resp, "owner is not valid");
-		    return;
-		}
-	    }
-			
-	    else if(entity != null)
-	    {	
-		if  (	!(
-			    isOwner(id, entity)
-				    || 
-			    "admin".equals(id)
-			)
-		    )
-		{
-		    forbidden(resp,"You are not the owner of the entity");
-		    return;
-		}
-			
-		if(!isStringSafe(entity))
-		{
-		    badRequest(resp, "Invalid entity");
-		    return;
-		}
-			
-		if(!isValidEntity(entity))
-		{
-		    forbidden(resp,"entity is not valid");
-		    return;
-		}
-	    }
-		
-	    final String username   =   (owner==null)?entity:owner;
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-		
-	    entityExists(username)
-	    .setHandler(entityExists -> {
-			
-	    if(!entityExists.succeeded())
-	    {
-		badRequest(resp, "No such entity");
-		return;
-	    }
-			
-	    updateCredentials(username)
-	    .setHandler(update -> {
-						
-	    if(!update.succeeded())
-	    {
-		error(resp,"Could not reset apikey");
-		return;
-	    }
-			
-	    logger.debug("All ok");
-							
-	    JsonObject response	=   new JsonObject();
-							
-	    response.put("id", username);
-	    response.put("apikey", update.result());
-			
-	    if(!resp.closed())
-	    {
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-		    });	
-		});	
-	    });
-	}
-	
-	public void setAutonomous(RoutingContext context)
-	{
-	    logger.debug("In set autonomous");
-		
-	    HttpServerRequest	request	    =	context.request();
-	    HttpServerResponse	resp	    =	request.response();
-	    String		id	    =	request.getHeader("id");
-	    String		apikey	    =	request.getHeader("apikey");
-	    String		entity	    =	request.getHeader("entity");
-	    String		autonomous  =	request.getHeader("is-autonomous");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("entity="+entity);
-	    logger.debug("is-autonomous="+autonomous);
-		
-	    if(	(id	    ==	null)
-			    ||
-		(apikey	    ==	null)
-			    ||
-		(entity	    ==	null)
-			    ||
-		(autonomous ==	null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if (!isValidOwner(id))
-	    {
-		forbidden(resp,"id is not valid");
-		return;
-	    }
-		
-	    if(!isValidEntity(entity))
-	    {
-		forbidden(resp,"entity is not valid");
-		return;
-	    }
-		
-	    if(	!(  ("true".equals(autonomous))
-				||
-		    ("false".equals(autonomous))
-		)
-	    )
-	    {
-		badRequest(resp,"Invalid is-autonomous header");
-		return;
-	    }
-		
-	    if(!isOwner(id, entity))
-	    {
-		forbidden(resp,"You are not the owner of the entity");
-		return;
-	    }
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-				
-	    String  query   =	"UPDATE users SET is_autonomous	=   '"	+
-				autonomous				+
-				"' WHERE id			=   '"	+
-				entity					+
-				"'";
-				
-	    dbService.runQuery(query, queryResult -> {
-					
-	    if(!queryResult.succeeded())
-	    {
-		error(resp,"Could not update is-autonomous value");
-		return;
-	    }
-		
-	    logger.debug("All ok");
-			
-	    ok(resp);
-	    return;
-		});
-	    });
-	}
-	
-	public void getOwners(RoutingContext context)
-	{
-	    logger.debug("In owners API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-	    String	id		=   request.getHeader("id");
-	    String	apikey		=   request.getHeader("apikey");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(!"admin".equals(id))
-	    {
-		forbidden(resp);
-		return;
-	    }
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-				
-	    String user_query	=   "SELECT * FROM users WHERE id NOT LIKE '%/%'";
-				
-	    dbService.runQuery(user_query, query -> {
-					
-	    if(!query.succeeded())
-	    {
-		error(resp,"Could not get owner details");
-		return;
-	    }
-		
-	    List<String> list	=   query.result();
-	    JsonArray response	=   new JsonArray();
-					
-	    for(String row:list)
-	    {
-		String	processed_row[]	=   row.substring(
-						row.indexOf("[")+1, 
-						row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-						
-		logger.debug("Processed row ="+Arrays.asList(processed_row));
-						
-		response.add(processed_row[0]);
-	    }
-		
-	    logger.debug("All ok");
-		
-	    if(!resp.closed())
-	    {	
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-		});
-	    });
-	}
-	
-	public void followRequests(RoutingContext context)
-	{
-	    logger.debug("In follow-requests API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    String  id	    =	request.getHeader("id");
-	    String  apikey  =	request.getHeader("apikey");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(	!(  (isValidOwner(id))
-			    ^
-		    (isValidEntity(id))
-		)	
-	    )
-	    {
-		forbidden(resp,"Invalid id");
-		return;
-	    }
-		
-	    String exchange_string  =	isValidOwner(id)?(id+"/%.%"):(isValidEntity(id))?id+".%":"";
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-				
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-				
-	    logger.debug("Autonomous ok");
-				
-	    String follow_query	=   "SELECT * FROM follow WHERE exchange LIKE '"    +
-				    exchange_string 				    +
-				    "' AND status = 'pending' ORDER BY TIME";
-				
-	    dbService.runQuery(follow_query, query -> {
-					
-	    if(!query.succeeded())
-	    {
-		error(resp,"Could not get follow requests' details");
-		return;
-	    }
-		
-	    List<String>    list	=   query.result();
-	    JsonArray	    response	=   new JsonArray();
-					
-	    for(String row:list)
-	    {
-		String	processed_row[]	=   row.substring(
-						row.indexOf("[")+1, 
-						row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-						
-		logger.debug("Processed row ="+Arrays.asList(processed_row));
-						
-		JsonObject temp	=   new JsonObject();
-						
-		temp.put("follow-id", processed_row[0]);
-		temp.put("from", processed_row[1]);
-		temp.put("to", processed_row[2]);
-		temp.put("time", processed_row[3]);
-		temp.put("permission", processed_row[4]);
-		temp.put("topic", processed_row[5]);
-		temp.put("validity", processed_row[6]);
-						
-		response.add(temp);
-	    }
-					
-	    logger.debug("All ok");
-		
-	    if(!resp.closed())
-	    {	
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-		});
-	    });
-	}
-	
-	public void followStatus(RoutingContext context)
-	{
-	    logger.debug("In follow-status API");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    String  id	    =   request.getHeader("id");
-	    String  apikey  =   request.getHeader("apikey");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(	!(  (isValidOwner(id))
-			    ^
-		    (isValidEntity(id))
-		)	
-	    )
-	    {
-		forbidden(resp,"Invalid id");
-		return;
-	    }
-		
-	    String from_string	=   isValidOwner(id)?(id+"/%"):(isValidEntity(id))?id:"";
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-				
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-				
-	    logger.debug("Autonomous ok");
-				
-	    String follow_query	=   "SELECT * FROM follow WHERE from_id LIKE '"	+
-				    from_string 				+
-				    "' ORDER BY TIME"	;
-				
-	    dbService.runQuery(follow_query, query -> {
-					
-	    if(!query.succeeded())
-	    {
-		error(resp,"Could not get follow requests' details");
-		return;
-	    }
-		
-	    List<String>    list	=   query.result();
-	    JsonArray	    response	=   new JsonArray();
-					
-	    for(String row:list)
-	    {
-		String	processed_row[]	=   row.substring(
-						row.indexOf("[")+1, 
-						row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-						
-		logger.debug("Processed row ="+Arrays.asList(processed_row));
-						
-		JsonObject temp	=   new JsonObject();
-						
-		temp.put("follow-id", processed_row[0]);
-		temp.put("from", processed_row[1]);
-		temp.put("to", processed_row[2]);
-		temp.put("time", processed_row[3]);
-		temp.put("permission", processed_row[4]);
-		temp.put("topic", processed_row[5]);
-		temp.put("validity", processed_row[6]);
-		temp.put("status", processed_row[7]);
-						
-		response.add(temp);
-	    }
-						
-	    logger.debug("All ok");
-			
-	    if(!resp.closed())
-	    {
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-		});
-	    });
-	}
-	
-	public void rejectFollow(RoutingContext context)
-	{
-	    logger.debug("In reject follow");
-		
-	    HttpServerRequest	request	    =   context.request();
-	    HttpServerResponse	resp	    =   request.response();
-	    String		id	    =   request.getHeader("id");
-	    String		apikey	    =   request.getHeader("apikey");
-	    String		follow_id   =   request.getHeader("follow-id");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("follow-id="+follow_id);
-		
-	    if(	(id	    ==	null)
-			    ||
-		(apikey	    ==	null)
-			    ||
-		(follow_id  ==	null)
-	    )
-	    {
-		forbidden(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(!isStringSafe(follow_id))
-	    {
-		badRequest(resp,"Invalid follow-id");
-		return;
-	    }
-		
-	    String exchange_string  =	isValidOwner(id)?(id+"/%.%"):(isValidEntity(id))?id+".%":"";
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    logger.debug("Login ok");
-				
-	    if(!login.result())
-	    {
-		forbidden(resp,"Unauthorised");
-		return;
-	    }
-				
-	    logger.debug("Autonomous ok");
-				
-	    String follow_query	=   "SELECT * FROM follow WHERE follow_id   =	'"  +
-				    follow_id					    +
-				    "' AND exchange LIKE			'"  +
-				    exchange_string				    +
-				    "' AND status = 'pending'";
-				
-	    dbService.runQuery(follow_query, query -> {
-					
-	    if(!query.succeeded())
-	    {
-		error(resp,"Could not get follow details");
-		return;
-	    }
-		
-	    if(query.result().size()!=1)
-	    {
-		badRequest(resp,"Follow-id is not valid");
-		return;
-	    }
-						
-	    logger.debug("Follow-id is valid");
-						
-	    String update_query	=   "UPDATE follow SET status	=   'rejected'"	+
-				    "WHERE follow_id		=   '"		+
-				    follow_id					+
-				    "'";
-						
-	    dbService.runQuery(update_query, updateQuery -> {
-							
-	    if(!updateQuery.succeeded())
-	    {
-		error(resp,"Could not run update query on follow");
-		return;
-	    }
-		
-	    logger.debug("All ok");
-								
-	    ok(resp);
-	    return;
-		    });
-		});
-	    });
-	}
-	
-	public void permissions(RoutingContext context)
-	{
-	    logger.debug("In permissions");
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-	    String		id	=   request.getHeader("id");
-	    String		apikey	=   request.getHeader("apikey");
-	    String		entity	=   request.getHeader("entity");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-		
-	    if(	(id	==  null)
-			||
-		(apikey	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    if(	!(  (isValidOwner(id))
-		    	    ^
-		    (isValidEntity(id))
-		)	
-	    )
-	    {
-		forbidden(resp,"Invalid id");
-		return;
-	    }
-		
-	    if(isValidOwner(id))
-	    {
-		if(entity	==	null)
-		{
-		    badRequest(resp,"Entity value not specified in headers");
-		    return;
-		}
-			
-		if(!isOwner(id, entity))
-		{
-		    forbidden(resp,"You are not the owner of the entity");
-		    return;
-		}
-	    }
-		
-	    String from_id  =	(isValidOwner(id))?entity:(isValidEntity(id)?id:"");
-		
-	    checkLogin(id,apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp,"Invalid id or apikey");
-		return;
-	    }
-		
-	    String  acl_query	=   "SELECT * FROM acl WHERE from_id	=   '"	+
-				    from_id					+
-				    "' AND valid_till > now()";
-				
-	    dbService.runQuery(acl_query, query -> {
-					
-	    if(!query.succeeded())
-	    {
-		error(resp, "Could not get acl details");
-		return;
-	    }
-		
-	    List<String>    list	=   query.result();
-	    JsonArray 	    response	=   new JsonArray();
-					
-	    for(String row:list)
-	    {
-		String	processed_row[]	=   row.substring(
-						    row.indexOf("[")+1, 
-						    row.indexOf("]"))
-					    .trim()
-					    .split(",\\s");
-						
-		logger.debug("Processed row ="+Arrays.asList(processed_row));
-									
-		JsonObject temp	=   new JsonObject();
-						
-		temp.put("entity", processed_row[1]);
-		temp.put("permission", processed_row[2]);
-						
-		response.add(temp);
-	    }
-				
-	    logger.debug("All ok");
-		
-	    if(!resp.closed())
-	    {	resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(response.encodePrettily());
-	    }
-		});
-	    });	
-	}
-	
-	/**
-	 * This method is the implementation of Publish API, which handles the
-	 * publication request by clients.
-	 * 
-	 * @param HttpServerRequest event - This is the handle for the incoming request
-	 *                          from client.
-	 * @return HttpServerResponse resp - This sends the appropriate response for the
-	 *         incoming request.
-	 */
-	
-	public void publish(RoutingContext context) 
-	{
-	    HttpServerRequest	request		=   context.request();
-	    HttpServerResponse	resp		=   request.response();
-	    String		id		=   request.getHeader("id");
-	    String		apikey		=   request.getHeader("apikey");
-	    String		to		=   request.getHeader("to");
-	    String		subject		=   request.getHeader("subject");
-	    String		message_type	=   request.getHeader("message-type");
-		
-	    logger.debug("id="+id);
-	    logger.debug("apikey="+apikey);
-	    logger.debug("to="+to);
-	    logger.debug("subject="+subject);
-	    logger.debug("message-type="+message_type);
-		
-	    if(	(id		==  null)
-				||
-		(apikey		==  null)
-				||
-		(to		==  null)
-				||
-		(subject	==  null)
-				||
-		(message_type	==  null)
-	    )
-	    {
-		badRequest(resp,"Inputs missing in headers");
-		return;
-	    }
-		
-	    //TODO: Add proper validation
-	    request.bodyHandler(body -> 
-	    {
-		message = body.toString();
-			
-		logger.debug("body="+message);
-			
-		String temp_exchange	=   "";
-		String temp_topic	=   "";
-			
-		if(id.equals(to))
-		{
-		    if(	(!"public".equals(message_type))
-					&&
-			(!"private".equals(message_type))
-					&&
-			(!"protected".equals(message_type))
-					&&
-			(!"diagnostics".equals(message_type))
-		    )
-		    {
-			badRequest(resp,"'message-type' is invalid");
-			return;
-		    }
-				
-		    temp_exchange   =	id  +	"." +	message_type;
-		    temp_topic	    =	subject;
-		}
-		else
-		{
-		    if(!"command".equals(message_type))
-		    {
-			badRequest(resp,"'message-type' can only be command");
-			return;
-		    }
-				
-		    temp_topic	    =   to + "." + message_type + "." + subject;
-		    temp_exchange   =	id	+	".publish";
-		}
-			
-		if(!isValidEntity(to))
-		{
-		    badRequest(resp, "'to' is not a valid entity");
-		    return;
-		}
-			
-		final String exchange	=   temp_exchange;
-		final String topic	=   temp_topic;
-			
-		logger.debug("Exchange="+exchange);
-		logger.debug("Topic="+topic);
-			
-		if(!pool.containsKey(id + ":" + apikey))
-		{
-		    logger.debug("Pool does not contain key");
-		    checkLogin(id, apikey)
-		    .setHandler(login -> {
-					
-		    if(!login.succeeded())
-		    {
-			forbidden(resp);
-			return;
-		    }
+    router.post("/entity/unfollow").handler(this::unfollow);
+    router.post("/owner/unfollow").handler(this::unfollow);
 
-		    try
-		    {
-			getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
-		    }
-		    catch(Exception e)
-		    {
-			error(resp, "Could not publish to broker");
-			return;
-		    }
-				
-		    accepted(resp);
-		    return;
-		    });
-		}
-		else
-		{
-		    try
-		    {
-			getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
-		    }
-		    catch(Exception e)
-		    {
-			error(resp, "Could not publish to broker");
-			return;
-		    }
-				
-		    accepted(resp);
-		    return;
-		}
-	    });
-	}
+    router.post("/entity/share").handler(this::share);
+    router.post("/owner/share").handler(this::share);
 
-	/**
-	 * This method is the implementation of Subscribe API, which handles the
-	 * subscription request by clients.apikey
-	 * 
-	 * @param HttpServerRequest event - This is the handle for the incoming request
-	 *                          from client.
-	 * @return void - Though the return type is void, the HTTP response is written internally as per the request. 
-	 */
-	
-	public void subscribe(RoutingContext context) 
-	{
-		
-	    HttpServerRequest	request	=   context.request();
-	    HttpServerResponse	resp	=   request.response();
-		
-	    //Mandatory headers
-	    String  id 	    =	request.getHeader("id");
-	    String  apikey  = 	request.getHeader("apikey");
-		
-	    //Optional headers
-	    String  message_type_header	=   request.getHeader("message-type");
-	    String  num_messages	=   request.getHeader("num-messages");
-		
-	    if(	id	==  null	
-			||
-		apikey	==  null
-	    )
-	    {
-		badRequest(resp, "Inputs missing in headers");
-		return;
-	    }
-		
-	    if(message_type_header  !=	null)
-	    {
-		if  (	(!"priority".equals(message_type_header))
-									&&
-			(!"command".equals(message_type_header))
-									&&
-			(!"notification".equals(message_type_header))
-									&&
-			(!"private".equals(message_type_header))
-		    )
-		{
-		    badRequest(resp,"'message-type' is invalid");
-		    return;
-		}
-			
-		message_type_header = "." + message_type_header;
-			
-	    }
-	    else
-	    {
-		message_type_header =	"";
-	    }
-		
-	    if(num_messages	!=	null)
-	    {
-		int messages	=   0;
-			
-		try
-		{
-		    messages	=   Integer.parseInt(num_messages);
-		}
-		catch(Exception e)
-		{
-		    badRequest(resp, "Invalid num-messages header");
-		    return;
-		}
-			
-		if(messages<0)
-		{
-		    badRequest(resp, "Invalid num-messages header");
-		    return;
-		}
-			
-		if(messages>1000)
-		{
-		    num_messages="1000";
-		}
-	    }
-	    else
-	    {
-		    num_messages    =	"10";
-	    }
-		
-	    final String message_type	=   message_type_header;
-	    final int message_count	=   Integer.parseInt(num_messages);
-		
-		
-	    checkLogin(id, apikey)
-	    .setHandler(login -> {
-			
-	    if(!login.succeeded())
-	    {
-		forbidden(resp);
-		return;
-	    }
-			
-	    brokerService.subscribe(id, apikey, message_type, message_count, result -> {
-				
-	    if(!result.succeeded())
-	    {
-		error(resp, "Could not get messages");
-		return;
-	    }
-				
-	    if(!resp.closed())
-	    {	
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(200)
-		.end(result.result().encodePrettily());
-	    }
-		    });
-		});
-	    return;
-	}
-	
-	/**
-	 * This method is used to verify if the requested registration entity is already
-	 * registered.
-	 * 
-	 * @param String registration_entity_id - This is the handle for the incoming
-	 *               request header (entity) from client.
-	 * @return Future<String> verifyentity - This is a callable Future which notifies
-	 *         on completion.
-	 */
-	
-	public Future<Boolean> entityExists(String entity_id) 
-	{
-	    logger.debug("In entity does not exist");
-		
-	    Promise<Boolean> promise	=   Promise.promise();		
-		
-	    String query    =	"SELECT * FROM users WHERE id   =   '"  + 
-				entity_id 				+	
-				"'";
-		
-	    dbService.runQuery(query, reply -> {
-			
-	    if(reply.succeeded())
-	    {	
-		List<String> list   =	reply.result();
-		int rowCount	    =	list.size();
-			
-		if(rowCount==1)
-		{
-		    String raw		    =	list.get(0);
-		    String  processed_row[] =	raw.substring(
-							raw.indexOf("[")+1, 
-							raw.indexOf("]"))
-						.trim()
-						.split(",\\s");
-				
-		    boolean autonomous	=   "true".equals(processed_row[5])?true:false;
-				
-		    promise.complete(autonomous);
-		}
-		else
-		{
-		    promise.fail("Entity does not exist");
-		}		
-	    }
-		});
-	    return promise.future();
-	}
-	
-	//XXX Why is this needed?
-	public Future<Void> entityDoesNotExist(String registration_entity_id) 
-	{
-	    logger.debug("in entity does not exist");
-		
-	    Promise<Void> promise   =	Promise.promise();		
-	    String query	    =	"SELECT * FROM users WHERE id = '"
-					+ registration_entity_id +	"'";
-		
-	    dbService.runQuery(query, reply -> {
-			
-	    if(reply.succeeded())
-	    {
-		List<String> resultList	=   reply.result();
-		int rowCount		=   resultList.size();
-		
-		if(rowCount==1)
-		{
-		    promise.fail("Entity exists");	
-		}
-		else
-		{
-		    promise.complete();
-		}
-	    }
-	    else
-	    {
-		logger.debug(reply.cause());
-		promise.fail("Could not get entity details");
-	    }
-		});
-	    return promise.future();
-	}
-	
-	public boolean isOwner(String owner, String entity)
-	{
-	    logger.debug("In is_owner");
-		
-	    logger.debug("Owner="+owner);
-	    logger.debug("Entity="+entity);
-		
-	    if(	(isValidOwner(owner))
-			&&
-		(entity.startsWith(owner))
-			&&
-		(entity.contains("/"))
-	    )
-	    {
-		return true;
-	    }
-	    else
-	    {
-		return false;
-	    }
-	}
-	
-	public Future<String> generateCredentials(String id, String schema, String autonomous) 
-	{
-	    logger.debug("In generate credentials");
-		
-	    Promise<String> promise =	Promise.promise();
-		
-	    String apikey   =	genRandString(32);
-	    String salt     =	genRandString(32);
-	    String blocked  =	"f";
-		
-	    String string_to_hash   =	apikey + salt + id;
-	    String hash		    =	Hashing.sha256()
-					.hashString(string_to_hash, StandardCharsets.UTF_8)
-					.toString();
-		
-	    logger.debug("Id="+id);
-	    logger.debug("Generated apikey="+apikey);
-	    logger.debug("Salt="+salt);
-	    logger.debug("String to hash="+string_to_hash);
-	    logger.debug("Hash="+hash);
-		
-	    String query    =   "INSERT INTO users VALUES('"
-				+id		+	"','"
-				+hash		+	"','"
-				+schema 	+	"','"
-				+salt		+ 	"','"
-				+blocked	+	"','"
-				+autonomous	+	"')";
-		
-	    dbService.runQuery(query, reply -> {
-			
-	    if(reply.succeeded())
-	    {
-		logger.debug("Generate credentials query succeeded");
-		promise.complete(apikey);
-	    }
-	    else
-	    {
-		logger.debug("Failed to run query. Cause="+reply.cause());
-		promise.fail(reply.cause().toString());
-	    }
-	});
-	    return promise.future();
-	}
-	
-	public Future<String> updateCredentials(String id)
-	{
-	    logger.debug("In update credentials");
-		
-	    Promise<String> promise =	Promise.promise();
-	    String apikey	    =	genRandString(32);
-	    String salt 	    =   genRandString(32);
-	    String string_to_hash   =	apikey + salt + id;
-	    String hash		    =	Hashing.sha256()
-					.hashString(string_to_hash, StandardCharsets.UTF_8)
-					.toString();
-		
-	    logger.debug("Id="+id);
-	    logger.debug("Generated apikey="+apikey);
-	    logger.debug("Salt="+salt);
-	    logger.debug("String to hash="+string_to_hash);
-	    logger.debug("Hash="+hash);
-		
-	    String update_query	=   "UPDATE users SET password_hash =	'" 
-				    +	hash	+	"', salt    =	'" 
-				    + 	salt	+	"' WHERE id =	'"
-				    +	id	+	"'";														
-		
-	    dbService.runQuery(update_query, reply -> {
-			
-	    if(reply.succeeded())
-	    {
-		logger.debug("Update credentials query succeeded");
-		promise.complete(apikey);
-	    }
-	    else
-	    {
-		logger.debug("Failed to run query. Cause="+reply.cause());
-		promise.fail(reply.cause().toString());
-	    }
-	    });
-		return promise.future();
-	}
-	
-	public String genRandString(int len)
-	{
-	    logger.debug("In genRandString");
-		
-	    String randStr  =	RandomStringUtils
-				.random(len, 0, PASSWORDCHARS.length(), 
-				true, true, PASSWORDCHARS.toCharArray());
-		
-	    logger.debug("Generated random string = "+randStr);
-		
-	    return randStr;
-	}
-	
-	public Future<Boolean> checkLogin(String id, String apikey)
-	{
-	    logger.debug("In check_login");
-		
-	    logger.debug("ID="+id);
-	    logger.debug("Apikey="+apikey);
-		
-	    Promise<Boolean> promise	=   Promise.promise();
+    router.get("/entity/follow-requests").handler(this::followRequests);
+    router.get("/owner/follow-requests").handler(this::followRequests);
 
-	    if("".equals(id) || "".equals(apikey))
-	    {
-		promise.fail("Invalid credentials");
-	    }
-		
-	    if(! (isValidOwner(id) ^ isValidEntity(id)))
-	    {
-		promise.fail("Invalid credentials");
-	    }
-		
-	    String query    =	"SELECT * FROM users WHERE id	=   '"	+
-				id		+ 		    "'"	+
-				"AND blocked = 'f'";
-		
-	    dbService.runQuery(query, reply -> {
-			
-	    if(reply.succeeded())
-	    {	
-		List<String> resultList	=   reply.result();
-		int rowCount		=   resultList.size();
-			
-		if(rowCount==0)
-		{
-		    promise.fail("Not found");
-		}
-		else if(rowCount==1)
-		{
-		    String raw		    =	resultList.get(0);
-		    String row[]	    =	raw
-						.substring( raw.indexOf("[")+1, 
-							    raw.indexOf("]"))
-						.split(",\\s");
-		    String salt 	    =	row[3];
-		    String string_to_hash   =	apikey + salt + id;
-		    String expected_hash    = 	row[1];
-		    String actual_hash	    =	Hashing
-						.sha256()
-						.hashString(string_to_hash, StandardCharsets.UTF_8)
-						.toString();
-				
-		    boolean autonomous	    =	"true".equals(row[5])?true:false;
-				
-		    logger.debug("Salt ="+salt);
-		    logger.debug("String to hash="+string_to_hash);
-		    logger.debug("Expected hash ="+expected_hash);
-		    logger.debug("Actual hash ="+actual_hash);
-										
-		    if(actual_hash.equals(expected_hash))
-		    {
-			promise.complete(autonomous);
-		    }
-		    else
-		    {
-			promise.fail("Invalid credentials");
-		    }
-		}
-		else
-		{
-		    promise.fail("Something is terribly wrong");
-		}
-	    }
-	    });
-		
-	    return promise.future();
-	}
+    router.get("/entity/follow-status").handler(this::followStatus);
+    router.get("/owner/follow-status").handler(this::followStatus);
 
-	public boolean isStringSafe(String resource)
-	{
-	    logger.debug("In is_string_safe");
-		
-	    logger.debug("resource="+resource);
-		
-	    boolean safe = (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9_]+", "")).length())==0?true:false;
-		
-	    logger.debug("Original resource name ="+resource);
-	    logger.debug("Replaced resource name ="+resource.replaceAll("[^#-/a-zA-Z0-9]+", ""));
-	    return safe;
-	}
-	
-	public boolean isValidOwner(String owner_name)
-	{
-	    logger.debug("In is_valid_owner");
-		
-	    //TODO simplify this
-	    if( (!Character.isDigit(owner_name.charAt(0)))
-					    &&
-		((owner_name.length() - (owner_name.replaceAll("[^a-z0-9-_]+", "")).length())==0)
-	    )
-	    {
-		logger.debug("Original owner name = "+owner_name);
-		logger.debug("Replaced name = "+owner_name.replaceAll("[^a-z0-9-_]+", ""));
-		return true;
-	    }
-	    else
-	    {
-		logger.debug("Original owner name = "+owner_name);
-		logger.debug("Replaced name = "+owner_name.replaceAll("[^a-z0-9-_]+", ""));
-		return false;
-	    }
-	}
-	
-	public boolean isValidEntity(String resource)
-	{
-	    //TODO: Add a length check
-	    logger.debug("In is_valid_entity");
-		
-	    String entries[]	=	resource.split("/");
-		
-	    logger.debug("Entries = "+Arrays.asList(entries));
-		
-	    if(entries.length!=2)
-	    {
-		return false;
-	    }
-	    else if((isValidOwner(entries[0]))
-			    &&
-		    (isStringSafe(entries[1]))
-		)
-	    {
-		return true;
-	    }
-	    else
-	    {
-		return false;
-	    }
-	}
-	
-	public void forbidden(HttpServerResponse resp)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(403).end();
-	    }
-	    return;
-	}
-	
-	public void forbidden(HttpServerResponse resp, String message)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(403).end(message);
-	    }
-		
-	    return;
-	}
-	
-	public void error(HttpServerResponse resp, String message)
-	{
-	    if(!resp.closed())
-	    {
-		resp
-		.putHeader("content-type", "application/json")
-		.setStatusCode(500)
-		.end(new JsonObject()
-		.put("error", message)
-		.encodePrettily());
-	    }
-		
-	    return;
-	}
-	
-	public void ok(HttpServerResponse resp)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(200).end();
-	    }
-		
-	    return;
-	}
-	
-	public void ok(HttpServerResponse resp, String message)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(200).end(message);
-	    }
-		
-	    return;
-	}
-	
-	public void accepted(HttpServerResponse resp)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(202).end();
-	    }
-		
-	    return;
-	}
-	
-	public void accepted(HttpServerResponse resp, String message)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(202).end(message);
-	    }
-		
-	    return;
-	}
-	
-	public void badRequest(HttpServerResponse resp)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(400).end();
-	    }
-		
-	    return;
-	}
-	
-	public void badRequest(HttpServerResponse resp, String message)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(400).end(message);
-	    }
-		
-	    return;
-	}	
-	
-	public void conflict(HttpServerResponse resp, String message)
-	{
-	    if(!resp.closed())
-	    {
-		resp.setStatusCode(409).end(message);
-	    }	
-		
-	    return;
-	}
-	
+    router.post("/entity/reject-follow").handler(this::rejectFollow);
+    router.post("/owner/reject-follow").handler(this::rejectFollow);
+
+    router.get("/entity/permissions").handler(this::permissions);
+    router.get("/owner/permissions").handler(this::permissions);
+
+    vertx
+        .createHttpServer(
+            new HttpServerOptions()
+                .setSsl(true)
+                .setKeyStoreOptions(
+                    new JksOptions().setPath("my-keystore.jks").setPassword("password")))
+        .requestHandler(router)
+        .rxListen(port)
+        .subscribe(
+            s -> {
+              logger.debug("Server started");
+              startPromise.complete();
+            },
+            err -> {
+              logger.debug("Could not start server. Cause=" + err.getMessage());
+              startPromise.fail(err.getMessage());
+            });
+
+    vertx.exceptionHandler(Throwable::printStackTrace);
+
+    brokerService
+        .rxCreateQueue("DATABASE")
+        .doOnError(err -> logger.error("Could not create queue. Cause=" + err.getMessage()))
+        .subscribe();
+  }
+
+  public Channel getChannel(String id, String apikey) throws Exception {
+    String token = id + ":" + apikey;
+
+    if (!pool.containsKey(token) || !pool.get(token).isOpen()) {
+      ConnectionFactory factory = new ConnectionFactory();
+
+      factory.setUsername(id);
+      factory.setPassword(apikey);
+      factory.setVirtualHost("/");
+      factory.setHost(Utils.getBrokerUrl(id));
+      factory.setPort(5672);
+      factory.setAutomaticRecoveryEnabled(true);
+      factory.setNetworkRecoveryInterval(10000);
+
+      Connection connection = factory.newConnection();
+      Channel channel = connection.createChannel();
+
+      logger.debug("Rabbitmq channel created");
+
+      pool.put(id + ":" + apikey, channel);
+    }
+
+    return pool.get(id + ":" + apikey);
+  }
+
+  public void registerOwner(RoutingContext context) {
+    logger.debug("In register owner");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String owner_name = request.getHeader("owner");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("owner=" + owner_name);
+
+    if ((id == null) || (apikey == null) || (owner_name == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (!"admin".equalsIgnoreCase(id)) {
+      apiFailure(context, new UnauthorisedThrowable("Only admins can invoke this API"));
+      return;
+    }
+
+    if (!isValidOwner(owner_name)) {
+      apiFailure(context, new UnauthorisedThrowable("Owner name is invalid"));
+      return;
+    }
+
+    JsonObject responseJson = new JsonObject().put("id", owner_name);
+
+    checkLogin(id, apikey)
+        .andThen(Completable.defer(() -> checkEntityExistence(owner_name, false)))
+        .andThen(Completable.defer(() -> brokerService.rxCreateOwnerResources(owner_name)))
+        .andThen(Completable.defer(() -> brokerService.rxCreateOwnerBindings(owner_name)))
+        .andThen(Single.defer(() -> generateCredentials(owner_name, "{}", "true")))
+        .subscribe(
+            generatedApikey -> {
+              resp.putHeader("content-type", "application/json")
+                  .setStatusCode(CREATED)
+                  .end(responseJson.put("apikey", generatedApikey).encodePrettily());
+            },
+            err -> apiFailure(context, err));
+  }
+
+  // TODO: Allow owner deregistration only after all entities have been removed
+
+  public void deRegisterOwner(RoutingContext context) {
+    logger.debug("In deregister_owner");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String owner_name = request.getHeader("owner");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("owner=" + owner_name);
+
+    if ((id == null) || (apikey == null) || (owner_name == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (!"admin".equalsIgnoreCase(id)) {
+      apiFailure(context, new UnauthorisedThrowable("Only admin can invoke this API"));
+      return;
+    }
+
+    if (!isValidOwner(owner_name)) {
+      apiFailure(context, new BadRequestThrowable("Owner name is invalid"));
+      return;
+    }
+
+    String acl_query =
+        "DELETE FROM acl WHERE"
+            + " from_id LIKE '"
+            + owner_name
+            + "/%'"
+            + " OR exchange LIKE '"
+            + owner_name
+            + "/%'";
+
+    String entity_query = "SELECT * FROM users WHERE" + " id LIKE '" + owner_name + "/%'";
+
+    String user_query =
+        "DELETE FROM users WHERE"
+            + " id LIKE '"
+            + owner_name
+            + "/%'"
+            + " OR id LIKE '"
+            + owner_name
+            + "'";
+
+    checkLogin(id, apikey)
+        .andThen(Completable.defer(() -> checkEntityExistence(owner_name, true)))
+        .andThen(Completable.defer(() -> brokerService.rxDeleteOwnerResources(owner_name)))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(acl_query)))
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(entity_query)))
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(row -> processRow(row)[0])
+        .collect(JsonArray::new, JsonArray::add)
+        .flatMapCompletable(
+            idList -> Completable.defer(() -> brokerService.rxDeleteEntityResources(idList)))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(user_query)))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void register(RoutingContext context) {
+    logger.debug("In register entity");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String entity = request.getHeader("entity");
+    String is_autonomous = request.getHeader("is-autonomous");
+    String full_entity_name = id + "/" + entity;
+
+    if ((!"true".equals(is_autonomous))
+        && (!"false".equals(is_autonomous))
+        && (is_autonomous != null)) {
+      apiFailure(context, new BadRequestThrowable("Invalid is-autonomous header"));
+      return;
+    }
+
+    String autonomous_flag =
+        ((is_autonomous == null) || ("false".equals(is_autonomous))) ? "f" : "t";
+
+    logger.debug(
+        "id="
+            + id
+            + "\napikey="
+            + apikey
+            + "\nentity="
+            + entity
+            + "\nis-autonomous="
+            + is_autonomous);
+
+    // TODO: Check if body is null
+    request.bodyHandler(
+        body -> {
+          schema = body.toString();
+          logger.debug("schema=" + schema);
+
+          try {
+            new JsonObject(schema);
+          } catch (Exception e) {
+            apiFailure(context, new UnauthorisedThrowable("Body must be a valid JSON"));
+            return;
+          }
+
+          if ((id == null) || (apikey == null) || (entity == null)) {
+            apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+            return;
+          }
+
+          // TODO: Add appropriate field checks. E.g. valid owner, valid entity etc.
+          // Check if ID is owner
+          if (!isValidOwner(id)) {
+            logger.debug("owner is invalid");
+            apiFailure(context, new UnauthorisedThrowable("Invalid owner"));
+            return;
+          }
+
+          if (!isStringSafe(entity)) {
+            logger.debug("invalid entity name");
+            apiFailure(context, new BadRequestThrowable("Invalid entity name"));
+            return;
+          }
+
+          JsonObject responseJson = new JsonObject().put("id", full_entity_name);
+
+          checkLogin(id, apikey)
+              .andThen(Completable.defer(() -> checkEntityExistence(full_entity_name, false)))
+              .andThen(
+                  Completable.defer(() -> brokerService.rxCreateEntityResources(full_entity_name)))
+              .andThen(
+                  Completable.defer(() -> brokerService.rxCreateEntityBindings(full_entity_name)))
+              .andThen(
+                  Single.defer(
+                      () -> generateCredentials(full_entity_name, schema, autonomous_flag)))
+              .subscribe(
+                  generatedApikey ->
+                      resp.putHeader("content-type", "application/json")
+                          .setStatusCode(CREATED)
+                          .end(responseJson.put("apikey", generatedApikey).encodePrettily()),
+                  err -> apiFailure(context, err));
+        });
+  }
+
+  public void deRegister(RoutingContext context) {
+    logger.debug("In deregister entity");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String entity = request.getHeader("entity");
+
+    logger.debug("id=" + id + "\napikey=" + apikey + "\nentity=" + entity);
+
+    // Check if ID is owner
+    if (!isValidOwner(id)) {
+      apiFailure(context, new UnauthorisedThrowable("Invalid owner"));
+      return;
+    }
+
+    if (!isOwner(id, entity)) {
+      apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
+      return;
+    }
+
+    if (!isValidEntity(entity)) {
+      apiFailure(context, new UnauthorisedThrowable("Invalid entity"));
+      return;
+    }
+
+    JsonArray entityArray = new JsonArray();
+
+    String acl_query =
+        "DELETE FROM acl WHERE " + "from_id = '" + entity + "' OR exchange LIKE '" + entity + ".%'";
+
+    String follow_query =
+        "DELETE FROM follow WHERE "
+            + " requested_by = '"
+            + entity
+            + "' OR exchange LIKE '"
+            + entity
+            + ".%'";
+
+    String user_query = "DELETE FROM users WHERE " + " id = '" + entity + "'";
+
+    checkLogin(id, apikey)
+        .andThen(Completable.defer(() -> checkEntityExistence(entity, true)))
+        .andThen(
+            Completable.defer(() -> brokerService.rxDeleteEntityResources(entityArray.add(entity))))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(acl_query)))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(follow_query)))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(user_query)))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void block(RoutingContext context) {
+    logger.debug("In block API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String owner = request.getHeader("owner");
+    String entity = request.getHeader("entity");
+
+    String[] currentRoute = context.normalisedPath().split("/");
+
+    String blocked = currentRoute[2].equals("block") ? "t" : "f";
+
+    if ((id == null) || (apikey == null) || (owner == null) && (entity == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if (owner != null) {
+      if (!isStringSafe(owner)) {
+        apiFailure(context, new BadRequestThrowable("Invalid owner"));
+        return;
+      }
+
+      if (!("admin".equals(id))) {
+        apiFailure(context, new UnauthorisedThrowable("Only admin can block owners"));
+        return;
+      }
+
+      if (!isValidOwner(owner)) {
+        apiFailure(context, new BadRequestThrowable("Owner is not valid"));
+        return;
+      }
+    } else if (entity != null) {
+      // TODO Verify the boolean logic here
+      if (!(isOwner(id, entity) || "admin".equals(id))) {
+        apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
+        return;
+      }
+
+      if (!isStringSafe(entity)) {
+        apiFailure(context, new BadRequestThrowable("Invalid entity"));
+        return;
+      }
+
+      if (!isValidEntity(entity)) {
+        apiFailure(context, new UnauthorisedThrowable("Entity is not valid"));
+        return;
+      }
+    }
+
+    final String username = (owner == null) ? entity : owner;
+    final String userString = (owner == null) ? entity : owner + "/%";
+
+    String query =
+        "UPDATE users SET blocked = '"
+            + blocked
+            + "' WHERE (id = '"
+            + username
+            + "' OR id LIKE '"
+            + userString
+            + "')";
+
+    checkLogin(id, apikey)
+        .andThen(Completable.defer(() -> checkEntityExistence(username, true)))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(query)))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void queueBind(RoutingContext context) {
+    logger.debug("In queue_bind");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    // Mandatory headers
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String to = request.getHeader("to");
+    String topic = request.getHeader("topic");
+    String message_type = request.getHeader("message-type");
+
+    // Optional headers
+    String is_priority = request.getHeader("is-priority");
+    String from = request.getHeader("from");
+
+    String[] currentRoute = context.normalisedPath().split("/");
+
+    logger.debug("Path=" + context.normalisedPath());
+
+    String operation = currentRoute[2].equals("bind") ? "bind" : "unbind";
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("to=" + to);
+    logger.debug("topic=" + topic);
+    logger.debug("message-type=" + message_type);
+
+    logger.debug("is-priorty=" + is_priority);
+    logger.debug("from=" + from);
+
+    if ((id == null)
+        || (apikey == null)
+        || (to == null)
+        || (topic == null)
+        || (message_type == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid id"));
+      return;
+    }
+
+    if (isValidOwner(id)) {
+      if (from == null) {
+        apiFailure(context, new BadRequestThrowable("'from value missing in headers"));
+        return;
+      }
+
+      if (!isOwner(id, from)) {
+        apiFailure(
+            context, new UnauthorisedThrowable("You are not the owner of the 'from' entity"));
+        return;
+      }
+
+      if (!isValidEntity(from)) {
+        apiFailure(context, new BadRequestThrowable("'from is not a valid entity"));
+        return;
+      }
+    } else {
+      from = id;
+    }
+
+    if ((!"public".equals(message_type))
+        && (!"private".equals(message_type))
+        && (!"protected".equals(message_type))
+        && (!"diagnostics".equals(message_type))) {
+      apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
+      return;
+    }
+
+    if (("private".equals(message_type)) && (!isOwner(id, to))) {
+      apiFailure(context, new UnauthorisedThrowable("You are not the owner of the 'to' entity"));
+      return;
+    }
+
+    if ((!isStringSafe(from)) || (!isStringSafe(to)) || (!isStringSafe(topic))) {
+      apiFailure(context, new UnauthorisedThrowable("Invalid headers"));
+      return;
+    }
+
+    String queue = from;
+
+    if (is_priority != null) {
+      if ((!"true".equals(is_priority) && (!"false".equals(is_priority)))) {
+        apiFailure(context, new UnauthorisedThrowable("Invalid 'is-priority' header"));
+        return;
+      } else if ("true".equals(is_priority)) {
+        queue = queue + ".priority";
+      }
+    }
+
+    final String from_id = from;
+    final String exchange_name = to + "." + message_type;
+    final String queue_name = queue;
+
+    String acl_query =
+        "SELECT * FROM acl WHERE"
+            + " from_id	    ='"
+            + from_id
+            + "'"
+            + " AND exchange  ='"
+            + exchange_name
+            + "'"
+            + " AND permission='read'"
+            + " AND valid_till > now()"
+            + " AND topic	=   '"
+            + topic
+            + "'";
+
+    autonomous = false;
+
+    Completable loginCheck =
+        Completable.defer(
+            () ->
+                checkLogin(id, apikey)
+                    .andThen(
+                        Completable.defer(
+                            () ->
+                                autonomous
+                                    ? Completable.complete()
+                                    : Completable.error(
+                                        new UnauthorisedThrowable("Unauthorised")))));
+
+    if ("public".equals(message_type) || isOwner(id, to)) {
+      loginCheck
+          .andThen(
+              "bind".equals(operation)
+                  ? brokerService.rxBind(queue_name, exchange_name, topic)
+                  : brokerService.rxUnbind(queue_name, exchange_name, topic))
+          .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+    } else {
+      loginCheck
+          .andThen(dbService.rxRunSelectQuery(acl_query))
+          .flatMapCompletable(
+              result ->
+                  result.size() == 1
+                      ? Completable.complete()
+                      : Completable.error(new UnauthorisedThrowable("Unauthorised")))
+          .andThen(
+              "bind".equals(operation)
+                  ? brokerService.rxBind(queue_name, exchange_name, topic)
+                  : brokerService.rxUnbind(queue_name, exchange_name, topic))
+          .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+    }
+  }
+
+  public void follow(RoutingContext context) {
+    logger.debug("In follow API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    // Mandatory Headers
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String to = request.getHeader("to");
+    String topic = request.getHeader("topic");
+    String validity = request.getHeader("validity");
+    String permission = request.getHeader("permission");
+
+    // Optional Headers
+    String from = request.getHeader("from");
+    String message_type_header = request.getHeader("message-type");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("to=" + to);
+    logger.debug("message-type=" + message_type_header);
+    logger.debug("topic=" + topic);
+    logger.debug("validity=" + validity);
+    logger.debug("permission=" + permission);
+
+    if ((id == null)
+        || (apikey == null)
+        || (to == null)
+        || (topic == null)
+        || (validity == null)
+        || (permission == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid id"));
+      return;
+    }
+
+    if (isValidOwner(id)) {
+      if (from == null) {
+        apiFailure(context, new BadRequestThrowable("'from value missing in headers"));
+        return;
+      }
+
+      if (!isOwner(id, from)) {
+        apiFailure(
+            context, new UnauthorisedThrowable("You are not the owner of the 'from' entity"));
+        return;
+      }
+
+      if (!isValidEntity(from)) {
+        apiFailure(context, new BadRequestThrowable("'from is not a valid entity"));
+        return;
+      }
+    } else {
+      from = id;
+    }
+
+    if (message_type_header != null) {
+      if ((!"protected".equals(message_type_header))
+          && (!"diagnostics".equals(message_type_header))) {
+        apiFailure(context, new BadRequestThrowable("'message-type is invalid"));
+        return;
+      }
+
+    } else {
+      message_type_header = "protected";
+    }
+
+    if (!(("read".equals(permission))
+        || ("write".equals(permission))
+        || ("read-write".equals(permission)))) {
+      apiFailure(context, new BadRequestThrowable("Invalid permission string"));
+      return;
+    }
+
+    try {
+      int validity_integer = Integer.parseInt(validity);
+
+      if ((validity_integer < 0) || (validity_integer > 10000)) {
+        apiFailure(context, new BadRequestThrowable("Invalid validity header"));
+        return;
+      }
+    } catch (Exception e) {
+      apiFailure(context, new BadRequestThrowable("Invalid validity header"));
+      return;
+    }
+
+    if ((!isStringSafe(from))
+        || (!isStringSafe(to))
+        || (!isStringSafe(topic))
+        || (!isStringSafe(validity))
+        || (!isStringSafe(permission))) {
+      apiFailure(context, new BadRequestThrowable("Invalid headers"));
+      return;
+    }
+
+    final String from_id = from;
+    final String message_type = message_type_header;
+    final String status = (isOwner(id, to)) ? "approved" : "pending";
+
+    String validity_string = "now()	+   interval	'" + validity + " hours'";
+
+    autonomous = false;
+    JsonObject responseJson = new JsonObject();
+
+    Completable loginCheck =
+        Completable.defer(
+            () ->
+                checkLogin(id, apikey)
+                    .andThen(
+                        Completable.defer(
+                            () ->
+                                autonomous
+                                    ? Completable.complete()
+                                    : Completable.error(
+                                        new UnauthorisedThrowable("Unauthorised")))));
+
+    // TODO: If follow request exists, return follow-id without processing anything
+    loginCheck
+        .andThen(Completable.defer(() -> checkEntityExistence(to, true)))
+        .andThen(Completable.defer(() -> checkEntityExistence(from_id, true)))
+        .andThen(Observable.fromIterable(Arrays.asList(permission.split("-"))))
+        .flatMapCompletable(
+            currentPermission ->
+                insertIntoFollow(
+                        id,
+                        to + ("read".equals(currentPermission) ? "." + message_type : ".command"),
+                        topic,
+                        currentPermission,
+                        validity,
+                        from_id,
+                        status)
+                    .map(
+                        followId -> {
+                          responseJson.put("follow-id-" + currentPermission, followId);
+                          return followId;
+                        })
+                    .flatMapCompletable(
+                        followId ->
+                            "approved".equals(status)
+                                ? insertIntoAcl(
+                                    from_id,
+                                    to
+                                        + ("read".equals(currentPermission)
+                                            ? "." + message_type
+                                            : ".command"),
+                                    currentPermission,
+                                    validity_string,
+                                    followId,
+                                    topic)
+                                : Completable.complete())
+                    .andThen(
+                        ("approved".equals(status)) && ("write".equals(currentPermission))
+                            ? bindToPublishExchange(from_id, to, topic)
+                            : Completable.complete()))
+        .andThen(
+            Completable.defer(() -> publishToNotification(from_id, permission, to, autonomous)))
+        .subscribe(
+            () ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(ACCEPTED)
+                    .end(responseJson.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public Completable bindToPublishExchange(String from, String to, String topic) {
+
+    String exchange = from + ".publish";
+    String queue = to + ".command";
+    String routingKey = to + ".command." + topic;
+
+    return brokerService.rxBind(queue, exchange, routingKey);
+  }
+
+  public Completable publishToNotification(
+      String from_id, String permission, String to, boolean autonomous) {
+
+    String exchange = autonomous ? to + ".notification" : to.split("/")[0] + ".notification";
+    String topic = "Request for follow";
+    String message_string = from_id + " has requested " + permission + " access on " + to;
+    JsonObject message = new JsonObject().put("message", message_string);
+
+    return Completable.defer(
+        () -> brokerService.rxAdminPublish(exchange, topic, message.toString()));
+  }
+
+  public Single<String> insertIntoFollow(
+      String id,
+      String exchange,
+      String topic,
+      String permission,
+      String validity,
+      String from,
+      String status) {
+
+    logger.debug("In insert into follow");
+    logger.debug("id=" + id);
+    logger.debug("exchange=" + exchange);
+    logger.debug("topic=" + topic);
+    logger.debug("permission=" + permission);
+    logger.debug("validity=" + validity);
+    logger.debug("from=" + from);
+    logger.debug("status=" + status);
+
+    String follow_query =
+        "INSERT INTO follow VALUES (DEFAULT, '"
+            + id
+            + "','"
+            + exchange
+            + "',"
+            + "now(), '"
+            + permission
+            + "','"
+            + topic
+            + "','"
+            + validity
+            + "','"
+            + status
+            + "','"
+            + from
+            + "')";
+
+    String follow_id_query =
+        "SELECT * FROM follow WHERE from_id	=   '" + from + "' AND exchange =	'" + exchange + "'";
+
+    return dbService
+        .rxRunQuery(follow_query)
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_id_query)))
+        .map(row -> row.get(0))
+        .map(row -> processRow(row)[0]);
+  }
+
+  public Completable insertIntoAcl(
+      String from_id,
+      String exchange,
+      String permission,
+      String valid_till,
+      String follow_id,
+      String topic) {
+    logger.debug("In insert into acl");
+
+    String acl_query =
+        "INSERT INTO acl VALUES (	'"
+            + from_id
+            + "','"
+            + exchange
+            + "','"
+            + permission
+            + "',"
+            + valid_till
+            + ",'"
+            + follow_id
+            + "','"
+            + topic
+            + "',DEFAULT)";
+
+    return dbService.rxRunQuery(acl_query);
+  }
+
+  public void unfollow(RoutingContext context) {
+    logger.debug("In unfollow API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    // Mandatory Headers
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String to = request.getHeader("to");
+    String topic = request.getHeader("topic");
+    String permission = request.getHeader("permission");
+    String message_type_header = request.getHeader("message-type");
+
+    // Optional Headers
+    String from = request.getHeader("from");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("to=" + to);
+    logger.debug("message-type=" + message_type_header);
+    logger.debug("topic=" + topic);
+    logger.debug("permission=" + permission);
+
+    if ((id == null)
+        || (apikey == null)
+        || (to == null)
+        || (topic == null)
+        || (permission == null)) {
+      logger.debug("Inputs missing in headers");
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      logger.debug("Invalid id");
+      apiFailure(context, new BadRequestThrowable("Invalid id"));
+      return;
+    }
+
+    if (isValidOwner(id)) {
+      if (from == null) {
+        logger.debug("'from' value missing in headers");
+        apiFailure(context, new BadRequestThrowable("'from' value missing in headers"));
+        return;
+      }
+
+      if (!isOwner(id, from)) {
+
+        logger.debug("You are not the owner of the 'from' entity");
+        apiFailure(
+            context, new UnauthorisedThrowable("You are not the owner of the 'from' entity"));
+        return;
+      }
+
+      if (!isValidEntity(from)) {
+        logger.debug("'from' is not a valid entity");
+        apiFailure(context, new BadRequestThrowable("'from' is not a valid entity"));
+        return;
+      }
+    } else {
+      from = id;
+    }
+
+    if (message_type_header != null) {
+      if ((!"protected".equals(message_type_header))
+          && (!"diagnostics".equals(message_type_header))) {
+        logger.debug("'message-type' is invalid");
+        apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
+        return;
+      }
+
+    } else {
+      message_type_header = "protected";
+    }
+
+    if (!(("read".equals(permission))
+        || ("write".equals(permission))
+        || ("read-write".equals(permission)))) {
+      logger.debug("Invalid permission string");
+      apiFailure(context, new BadRequestThrowable("Invalid permission string"));
+      return;
+    }
+
+    if ((!isStringSafe(from)) || (!isStringSafe(to)) || (!isStringSafe(topic))) {
+      logger.debug("Invalid headers");
+      apiFailure(context, new BadRequestThrowable("Invalid headers"));
+      return;
+    }
+
+    final String from_id = from;
+    final String message_type = message_type_header;
+    final String exchange = to + "." + message_type;
+
+    String acl_query =
+        "SELECT * FROM acl WHERE from_id  = '"
+            + from_id
+            + "' AND exchange	=	'"
+            + to
+            + "."
+            + "%1$s"
+            + "' AND topic		=	'"
+            + topic
+            + "' AND permission = '%2$s'";
+
+    String delete_query = "DELETE FROM %1$s WHERE follow_id='%2$s'";
+
+    autonomous = false;
+
+    Completable loginCheck =
+        Completable.defer(
+            () ->
+                checkLogin(id, apikey)
+                    .andThen(
+                        Completable.defer(
+                            () ->
+                                autonomous
+                                    ? Completable.complete()
+                                    : Completable.error(
+                                        new UnauthorisedThrowable("Unauthorised")))));
+
+    Completable writeUnbind =
+        Completable.defer(
+            () ->
+                brokerService.rxUnbind(
+                    to + ".command", from_id + ".publish", to + ".command." + topic));
+
+    Completable readUnbind =
+        Completable.defer(() -> brokerService.rxUnbind(from_id, exchange, topic));
+
+    Completable priorityUnbind =
+        Completable.defer(() -> brokerService.rxUnbind(from_id + ".priority", exchange, topic));
+
+    loginCheck
+        .andThen(Observable.fromIterable(Arrays.asList(permission.split("-"))))
+        .flatMapCompletable(
+            currentPermission ->
+                dbService
+                    .rxRunSelectQuery(
+                        String.format(
+                            acl_query,
+                            ("write".equals(currentPermission) ? "command" : message_type),
+                            currentPermission))
+                    .map(row -> row.size() == 1 ? row.get(0) : "")
+                    .map(
+                        queryResult ->
+                            (queryResult.length() != 0)
+                                ? processRow(queryResult.toString())[4]
+                                : "")
+                    .flatMapCompletable(
+                        followId ->
+                            (followId.length() != 0)
+                                ? dbService
+                                    .rxRunQuery(String.format(delete_query, "acl", followId))
+                                    .concatWith(
+                                        dbService.rxRunQuery(
+                                            String.format(delete_query, "follow", followId)))
+                                : Completable.error(
+                                    new UnauthorisedThrowable("No such entry in ACL")))
+                    .andThen("write".equals(currentPermission) ? writeUnbind : readUnbind)
+                    .andThen(
+                        "read".equals(currentPermission) ? priorityUnbind : Completable.complete()))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void share(RoutingContext context) {
+    logger.debug("In share API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String follow_id = request.getHeader("follow-id");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("follow-id=" + follow_id);
+
+    if ((id == null) || (apikey == null) || (follow_id == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    String exchange_string =
+        isValidOwner(id) ? (id + "/%.%") : (isValidEntity(id)) ? id + ".%" : "";
+
+    if (!isStringSafe(follow_id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid follow-id"));
+      return;
+    }
+
+    String follow_query =
+        "SELECT * FROM follow WHERE follow_id   =	"
+            + Integer.parseInt(follow_id)
+            + " AND exchange LIKE 			'"
+            + exchange_string
+            + "' AND status   =	'pending'";
+
+    String update_follow_query =
+        "UPDATE follow SET status = 'approved' WHERE follow_id = " + follow_id;
+
+    String acl_insert =
+        "INSERT INTO acl VALUES("
+            + "'"
+            + "%1$s"
+            + "','"
+            + "%2$s"
+            + "','"
+            + "%3$s"
+            + "',"
+            + "now() + interval '"
+            + "%4$s"
+            + " hours'"
+            + ",'"
+            + follow_id
+            + "','"
+            + "%5$s"
+            + "',"
+            + "DEFAULT)";
+
+    autonomous = false;
+
+    Completable loginCheck =
+        Completable.defer(
+            () ->
+                checkLogin(id, apikey)
+                    .andThen(
+                        Completable.defer(
+                            () ->
+                                autonomous
+                                    ? Completable.complete()
+                                    : Completable.error(
+                                        new UnauthorisedThrowable("Unauthorised")))));
+
+    loginCheck
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
+        .map(result -> (result.size() == 1) ? processRow(result.get(0)) : new String[0])
+        .flatMapCompletable(
+            row ->
+                (row.length != 0)
+                    ? dbService
+                        .rxRunQuery(update_follow_query)
+                        /**
+                         * from_id = row[8], exchange = row[2], permission = row[4], topic = row[5],
+                         * validity = row[6]
+                         */
+                        .concatWith(
+                            dbService.rxRunQuery(
+                                String.format(acl_insert, row[8], row[2], row[4], row[6], row[5])))
+                        .andThen(
+                            "write".equals(row[4])
+                                ? brokerService.rxBind(
+                                    row[2], row[8] + ".publish", row[2] + "." + row[5])
+                                : Completable.complete())
+                    : Completable.error(
+                        new UnauthorisedThrowable(
+                            "Follow ID is invalid or has already been approved")))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void cat(RoutingContext context) {
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    logger.debug("In cat API");
+
+    String cat_query = "SELECT id, schema FROM users WHERE id LIKE '%/%'";
+
+    dbService
+        .rxRunSelectQuery(cat_query)
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(this::processRow)
+        // id = row[0], schema = row[1]
+        .map(row -> new JsonObject().put("id", row[0]).put("schema", new JsonObject(row[1])))
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void entities(RoutingContext context) {
+    logger.debug("In entities API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if ((id == null) || (apikey == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (!isValidOwner(id)) {
+      apiFailure(context, new BadRequestThrowable("'id' is not valid"));
+      return;
+    }
+
+    String users_query = "SELECT * FROM users WHERE id LIKE '" + id + "/%'";
+
+    checkLogin(id, apikey)
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(users_query)))
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(this::processRow)
+        // id = row[0], is-autonomous = row[5]
+        .map(row -> new JsonObject().put("id", row[0]).put("is-autonomous", row[5]))
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void resetApikey(RoutingContext context) {
+    logger.debug("In reset apikey");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String owner = request.getHeader("owner");
+    String entity = request.getHeader("entity");
+
+    if ((id == null) || (apikey == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if ((owner == null) && (entity == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (owner != null) {
+      if (!isStringSafe(owner)) {
+        apiFailure(context, new BadRequestThrowable("Invalid owner"));
+        return;
+      }
+
+      if (!isValidOwner(owner)) {
+        apiFailure(context, new UnauthorisedThrowable("Invalid owner"));
+        return;
+      }
+
+      if (!("admin".equals(id))) {
+        apiFailure(context, new UnauthorisedThrowable("Only admin can reset owners' credentials"));
+        return;
+      }
+    } else if (entity != null) {
+      if (!(isOwner(id, entity) || "admin".equals(id))) {
+        apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
+        return;
+      }
+
+      if (!isStringSafe(entity)) {
+        apiFailure(context, new BadRequestThrowable("Invalid entity"));
+        return;
+      }
+
+      if (!isValidEntity(entity)) {
+        apiFailure(context, new BadRequestThrowable("Entity is not valid"));
+        return;
+      }
+    }
+
+    final String username = (owner == null) ? entity : owner;
+
+    autonomous = false;
+
+    Completable loginCheck =
+        checkLogin(id, apikey)
+            .andThen(
+                Completable.defer(
+                    () ->
+                        autonomous
+                            ? Completable.complete()
+                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+
+    loginCheck
+        .andThen(Completable.defer(() -> checkEntityExistence(username, true)))
+        .andThen(Single.defer(() -> updateCredentials(username)))
+        .map(updatedApikey -> new JsonObject().put("id", username).put("apikey", updatedApikey))
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void setAutonomous(RoutingContext context) {
+    logger.debug("In set autonomous");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String entity = request.getHeader("entity");
+    String autonomous = request.getHeader("is-autonomous");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("entity=" + entity);
+    logger.debug("is-autonomous=" + autonomous);
+
+    if ((id == null) || (apikey == null) || (entity == null) || (autonomous == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (!isValidOwner(id)) {
+      apiFailure(context, new BadRequestThrowable("id is not valid"));
+      return;
+    }
+
+    if (!isValidEntity(entity)) {
+      apiFailure(context, new BadRequestThrowable("entity is not valid"));
+      return;
+    }
+
+    if (!(("true".equals(autonomous)) || ("false".equals(autonomous)))) {
+      apiFailure(context, new BadRequestThrowable("Invalid is-autonomous header"));
+      return;
+    }
+
+    if (!isOwner(id, entity)) {
+      apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
+      return;
+    }
+
+    String update_query =
+        "UPDATE users SET is_autonomous	= '" + autonomous + "' WHERE id	=  '" + entity + "'";
+
+    checkLogin(id, apikey)
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(update_query)))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void getOwners(RoutingContext context) {
+    logger.debug("In owners API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if (!"admin".equals(id)) {
+      apiFailure(context, new UnauthorisedThrowable("Only admin can invoke this API"));
+      return;
+    }
+
+    String user_query = "SELECT * FROM users WHERE id NOT LIKE '%/%'";
+
+    checkLogin(id, apikey)
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(user_query)))
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(this::processRow)
+        .map(row -> row[0])
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void followRequests(RoutingContext context) {
+    logger.debug("In follow-requests API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if ((id == null) || (apikey == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid id"));
+      return;
+    }
+
+    String exchange_string =
+        isValidOwner(id) ? (id + "/%.%") : (isValidEntity(id)) ? id + ".%" : "";
+
+    autonomous = false;
+
+    Completable loginCheck =
+        checkLogin(id, apikey)
+            .andThen(
+                Completable.defer(
+                    () ->
+                        autonomous
+                            ? Completable.complete()
+                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+
+    String follow_query =
+        "SELECT * FROM follow WHERE exchange LIKE '"
+            + exchange_string
+            + "' AND status = 'pending' ORDER BY TIME";
+
+    loginCheck
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(this::processRow)
+        .map(
+            row ->
+                new JsonObject()
+                    .put("follow-id", row[0])
+                    .put("from", row[1])
+                    .put("to", row[2])
+                    .put("time", row[3])
+                    .put("permission", row[4])
+                    .put("topic", row[5])
+                    .put("validity", row[6]))
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void followStatus(RoutingContext context) {
+    logger.debug("In follow-status API");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if ((id == null) || (apikey == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid id"));
+      return;
+    }
+
+    String from_string = isValidOwner(id) ? (id + "/%") : (isValidEntity(id)) ? id : "";
+
+    Completable loginCheck =
+        checkLogin(id, apikey)
+            .andThen(
+                Completable.defer(
+                    () ->
+                        autonomous
+                            ? Completable.complete()
+                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+
+    String follow_query =
+        "SELECT * FROM follow WHERE from_id LIKE '" + from_string + "' ORDER BY TIME";
+
+    loginCheck
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(this::processRow)
+        .map(
+            row ->
+                new JsonObject()
+                    .put("follow-id", row[0])
+                    .put("from", row[1])
+                    .put("to", row[2])
+                    .put("time", row[3])
+                    .put("permission", row[4])
+                    .put("topic", row[5])
+                    .put("validity", row[6])
+                    .put("status", row[7]))
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void rejectFollow(RoutingContext context) {
+    logger.debug("In reject follow");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String follow_id = request.getHeader("follow-id");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("follow-id=" + follow_id);
+
+    if ((id == null) || (apikey == null) || (follow_id == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (!isStringSafe(follow_id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid follow-id"));
+      return;
+    }
+
+    String exchange_string =
+        isValidOwner(id) ? (id + "/%.%") : (isValidEntity(id)) ? id + ".%" : "";
+
+    String follow_query =
+        "SELECT * FROM follow WHERE follow_id = '"
+            + follow_id
+            + "' AND exchange LIKE '"
+            + exchange_string
+            + "' AND status = 'pending'";
+
+    String update_query =
+        "UPDATE follow SET status	=   'rejected'" + "WHERE follow_id		=   '" + follow_id + "'";
+
+    Completable loginCheck =
+        checkLogin(id, apikey)
+            .andThen(
+                Completable.defer(
+                    () ->
+                        autonomous
+                            ? Completable.complete()
+                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+
+    loginCheck
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
+        .flatMapCompletable(
+            row ->
+                (row.size() == 1)
+                    ? Completable.complete()
+                    : Completable.error(new BadRequestThrowable("Follow-id is invalid")))
+        .andThen(Completable.defer(() -> dbService.rxRunQuery(update_query)))
+        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
+  }
+
+  public void permissions(RoutingContext context) {
+    logger.debug("In permissions");
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String entity = request.getHeader("entity");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+
+    if ((id == null) || (apikey == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      apiFailure(context, new BadRequestThrowable("Invalid id"));
+      return;
+    }
+
+    if (isValidOwner(id)) {
+      if (entity == null) {
+        apiFailure(context, new BadRequestThrowable("Entity value not specified in headers"));
+        return;
+      }
+
+      if (!isOwner(id, entity)) {
+        apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
+        return;
+      }
+    }
+
+    String from_id = (isValidOwner(id)) ? entity : (isValidEntity(id) ? id : "");
+
+    String acl_query =
+        "SELECT * FROM acl WHERE from_id	=   '" + from_id + "' AND valid_till > now()";
+
+    checkLogin(id, apikey)
+        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(acl_query)))
+        .flatMapPublisher(Flowable::fromIterable)
+        .map(this::processRow)
+        .map(row -> new JsonObject().put("entity", row[1]).put("permission", row[2]))
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public void publish(RoutingContext context) {
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+    String to = request.getHeader("to");
+    String subject = request.getHeader("subject");
+    String message_type = request.getHeader("message-type");
+
+    logger.debug("id=" + id);
+    logger.debug("apikey=" + apikey);
+    logger.debug("to=" + to);
+    logger.debug("subject=" + subject);
+    logger.debug("message-type=" + message_type);
+
+    if ((id == null)
+        || (apikey == null)
+        || (to == null)
+        || (subject == null)
+        || (message_type == null)) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    // TODO: Add proper validation
+    request.bodyHandler(
+        body -> {
+          message = body.toString();
+
+          logger.debug("body=" + message);
+
+          String temp_exchange = "";
+          String temp_topic = "";
+
+          if (id.equals(to)) {
+            if ((!"public".equals(message_type))
+                && (!"private".equals(message_type))
+                && (!"protected".equals(message_type))
+                && (!"diagnostics".equals(message_type))) {
+              apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
+              return;
+            }
+
+            temp_exchange = id + "." + message_type;
+            temp_topic = subject;
+          } else {
+            if (!"command".equals(message_type)) {
+              apiFailure(context, new BadRequestThrowable("'message-type can only be command"));
+              return;
+            }
+
+            temp_topic = to + "." + message_type + "." + subject;
+            temp_exchange = id + ".publish";
+          }
+
+          if (!isValidEntity(to)) {
+            apiFailure(context, new BadRequestThrowable("'to' is not a valid entity"));
+            return;
+          }
+
+          final String exchange = temp_exchange;
+          final String topic = temp_topic;
+
+          logger.debug("Exchange=" + exchange);
+          logger.debug("Topic=" + topic);
+
+          if (!pool.containsKey(id + ":" + apikey)) {
+            logger.debug("Pool does not contain key");
+
+            checkLogin(id, apikey)
+                .doOnComplete(
+                    () -> {
+                      try {
+                        getChannel(id, apikey)
+                            .basicPublish(exchange, topic, null, message.getBytes());
+                        accepted(resp);
+                      } catch (Exception e) {
+                        apiFailure(
+                            context, new InternalErrorThrowable("Could not publish to broker"));
+                      }
+                    })
+                .subscribe(() -> accepted(resp), err -> apiFailure(context, err));
+          } else {
+            try {
+              getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
+              accepted(resp);
+            } catch (Exception e) {
+              apiFailure(context, new InternalErrorThrowable("Could not publish to broker"));
+            }
+          }
+        });
+  }
+
+  public void subscribe(RoutingContext context) {
+
+    HttpServerRequest request = context.request();
+    HttpServerResponse resp = request.response();
+
+    // Mandatory headers
+    String id = request.getHeader("id");
+    String apikey = request.getHeader("apikey");
+
+    // Optional headers
+    String message_type_header = request.getHeader("message-type");
+    String num_messages = request.getHeader("num-messages");
+
+    if (id == null || apikey == null) {
+      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+      return;
+    }
+
+    if (message_type_header != null) {
+      if ((!"priority".equals(message_type_header))
+          && (!"command".equals(message_type_header))
+          && (!"notification".equals(message_type_header))
+          && (!"private".equals(message_type_header))) {
+        apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
+        return;
+      }
+
+      message_type_header = "." + message_type_header;
+
+    } else {
+      message_type_header = "";
+    }
+
+    if (num_messages != null) {
+      int messages = 0;
+
+      try {
+        messages = Integer.parseInt(num_messages);
+      } catch (Exception e) {
+        apiFailure(context, new BadRequestThrowable("Invalid num-messages header"));
+        return;
+      }
+
+      if (messages < 0) {
+        apiFailure(context, new BadRequestThrowable("Invalid num-messages header"));
+        return;
+      }
+
+      if (messages > 1000) {
+        num_messages = "1000";
+      }
+    } else {
+      num_messages = "10";
+    }
+
+    final String message_type = message_type_header;
+    final int message_count = Integer.parseInt(num_messages);
+
+    checkLogin(id, apikey)
+        .andThen(
+            Single.defer(() -> brokerService.rxSubscribe(id, apikey, message_type, message_count)))
+        .subscribe(
+            response ->
+                resp.putHeader("content-type", "application/json")
+                    .setStatusCode(OK)
+                    .end(response.encodePrettily()),
+            err -> apiFailure(context, err));
+  }
+
+  public Completable checkEntityExistence(String registration_entity_id, boolean shouldExist) {
+    logger.debug("in entity does not exist");
+
+    String query = "SELECT * FROM users WHERE id = '" + registration_entity_id + "'";
+
+    return dbService
+        .rxRunSelectQuery(query)
+        .map(row -> row.size() == 1)
+        .map(size -> shouldExist == size)
+        .flatMapCompletable(
+            exists -> {
+              if (exists) return Completable.complete();
+              else if ((shouldExist) && (!exists))
+                return Completable.error(new UnauthorisedThrowable("No such owner/entity"));
+              else return Completable.error(new ConflictThrowable("Owner/Entity already present"));
+            });
+  }
+
+  public boolean isOwner(String owner, String entity) {
+    logger.debug("In is_owner");
+
+    logger.debug("Owner=" + owner);
+    logger.debug("Entity=" + entity);
+
+    return (isValidOwner(owner)) && (entity.startsWith(owner)) && (entity.contains("/"));
+  }
+
+  public Single<String> generateCredentials(String id, String schema, String autonomous) {
+    logger.debug("In generate credentials");
+
+    String apikey = genRandString(32);
+    String salt = genRandString(32);
+    String blocked = "f";
+
+    String string_to_hash = apikey + salt + id;
+    String hash = Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
+
+    logger.debug("Id=" + id);
+    logger.debug("Generated apikey=" + apikey);
+    logger.debug("Salt=" + salt);
+    logger.debug("String to hash=" + string_to_hash);
+    logger.debug("Hash=" + hash);
+
+    String query =
+        "INSERT INTO users VALUES('"
+            + id
+            + "','"
+            + hash
+            + "','"
+            + schema
+            + "','"
+            + salt
+            + "','"
+            + blocked
+            + "','"
+            + autonomous
+            + "')";
+
+    return dbService.rxRunQuery(query).andThen(Single.just(apikey));
+  }
+
+  public Single<String> updateCredentials(String id) {
+    logger.debug("In update credentials");
+
+    String apikey = genRandString(32);
+    String salt = genRandString(32);
+    String string_to_hash = apikey + salt + id;
+    String hash = Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
+
+    logger.debug("Id=" + id);
+    logger.debug("Generated apikey=" + apikey);
+    logger.debug("Salt=" + salt);
+    logger.debug("String to hash=" + string_to_hash);
+    logger.debug("Hash=" + hash);
+
+    String update_query =
+        "UPDATE users SET password_hash =	'"
+            + hash
+            + "', salt    =	'"
+            + salt
+            + "' WHERE id =	'"
+            + id
+            + "'";
+
+    return dbService.rxRunQuery(update_query).andThen(Single.just(apikey));
+  }
+
+  public String genRandString(int len) {
+    logger.debug("In genRandString");
+
+    // Characters for generating apikeys
+    String PASSWORD_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-";
+    String randStr =
+        RandomStringUtils.random(
+            len, 0, PASSWORD_CHARS.length(), true, true, PASSWORD_CHARS.toCharArray());
+
+    logger.debug("Generated random string = " + randStr);
+
+    return randStr;
+  }
+
+  public Completable checkLogin(String id, String apikey) {
+    logger.debug("In check_login");
+
+    logger.debug("ID=" + id);
+    logger.debug("Apikey=" + apikey);
+
+    if ("".equals(id) || "".equals(apikey)) {
+      return Completable.error(new BadRequestThrowable("ID or Apikey is missing"));
+    }
+
+    if (isValidOwner(id) == isValidEntity(id)) {
+      return Completable.error(new BadRequestThrowable("User is neither an owner nor an entity"));
+    }
+
+    String query = "SELECT * FROM users WHERE id	=	'" + id + "'" + " AND blocked = 'f'";
+
+    return dbService
+        .rxRunSelectQuery(query)
+        .map(row -> row.get(0))
+        .onErrorReturnItem("")
+        .map(
+            row -> {
+              if (row.length() != 0) return Arrays.asList(processRow(row));
+              else return Collections.singletonList("");
+            })
+        .map(
+            row -> {
+              if (row.size() > 1) {
+                logger.debug("Row=" + row.toString());
+                String salt = row.get(3);
+                logger.debug("Salt=" + salt);
+                String string_to_hash = apikey + salt + id;
+                String expected_hash = row.get(1);
+                logger.debug("Expected hash=" + expected_hash);
+                String actual_hash =
+                    Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
+                logger.debug("Actual hash=" + actual_hash);
+                autonomous = "true".equals(row.get(5));
+                logger.debug("Autonomous=" + autonomous);
+                return expected_hash.equals(actual_hash);
+              } else return false;
+            })
+        .flatMapCompletable(
+            login ->
+                login
+                    ? Completable.complete()
+                    : Completable.error(new UnauthorisedThrowable("Invalid id or apikey")));
+  }
+
+  public boolean isStringSafe(String resource) {
+    logger.debug("In is_string_safe");
+
+    logger.debug("resource=" + resource);
+
+    boolean safe =
+        (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", "")).length()) == 0;
+
+    logger.debug("Original resource name =" + resource);
+    logger.debug("Replaced resource name =" + resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", ""));
+    return safe;
+  }
+
+  public boolean isValidOwner(String owner_name) {
+    logger.debug("In is_valid_owner");
+
+    // TODO simplify this
+    if ((!Character.isDigit(owner_name.charAt(0)))
+        && ((owner_name.length() - (owner_name.replaceAll("[^a-z0-9-_.]+", "")).length()) == 0)) {
+      logger.debug("Original owner name = " + owner_name);
+      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
+      return true;
+    } else {
+      logger.debug("Original owner name = " + owner_name);
+      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
+      return false;
+    }
+  }
+
+  public boolean isValidEntity(String resource) {
+    // TODO: Add a length check
+    logger.debug("In is_valid_entity");
+
+    String[] entries = resource.split("/");
+
+    logger.debug("Entries = " + Arrays.asList(entries));
+
+    if (entries.length != 2) {
+      return false;
+    } else return (isValidOwner(entries[0])) && (isStringSafe(entries[1]));
+  }
+
+  public String[] processRow(String row) {
+    logger.debug("Row=" + row);
+    return row.substring(row.indexOf("[") + 1, row.indexOf("]")).trim().split(",\\s");
+  }
+
+  public void ok(HttpServerResponse resp) {
+    if (!resp.closed()) {
+      resp.setStatusCode(OK).end();
+    }
+  }
+
+  public void accepted(HttpServerResponse resp) {
+    if (!resp.closed()) {
+      resp.setStatusCode(ACCEPTED).end();
+    }
+  }
+
+  private void apiFailure(RoutingContext context, Throwable t) {
+    logger.debug("In apifailure");
+    logger.debug("Message=" + t.getMessage());
+    if (t instanceof BadRequestThrowable) {
+      context.response().setStatusCode(BAD_REQUEST).end(t.getMessage());
+    } else if (t instanceof UnauthorisedThrowable) {
+      context.response().setStatusCode(FORBIDDEN).end(t.getMessage());
+    } else if (t instanceof ConflictThrowable) {
+      context.response().setStatusCode(CONFLICT).end(t.getMessage());
+    } else if (t instanceof InternalErrorThrowable) {
+      context.response().setStatusCode(INTERNAL_SERVER_ERROR).end(t.getMessage());
+    } else {
+      context.fail(t);
+    }
+  }
 }
