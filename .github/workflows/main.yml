@@ -9,6 +9,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Compile api server source files
+      run: cd api-server && mvn clean package
+    - name: Compile authenticator source files 
+      run: cd authenticator && mvn clean package
     - name: Install Vermillion
       run: ./single-node/install_with_deps -n
     - name: Wait for the middleware to be available
