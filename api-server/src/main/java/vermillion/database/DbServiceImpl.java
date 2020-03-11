@@ -1,83 +1,78 @@
 package vermillion.database;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import io.reactiverse.pgclient.PgClient;
-import io.reactiverse.pgclient.PgConnection;
-import io.reactiverse.pgclient.PgPool;
 import io.reactiverse.pgclient.PgPoolOptions;
-import io.reactiverse.pgclient.PgRowSet;
-import io.reactiverse.pgclient.Row;
+import io.reactiverse.reactivex.pgclient.PgClient;
+import io.reactiverse.reactivex.pgclient.PgPool;
+import io.reactiverse.reactivex.pgclient.Row;
+import io.reactivex.Completable;
+import io.reactivex.Flowable;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.Vertx;
-
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.reactivex.CompletableHelper;
+import io.vertx.reactivex.SingleHelper;
+import io.vertx.reactivex.core.Vertx;
+import vermillion.throwables.InternalErrorThrowable;
 
-public class DbServiceImpl implements DbService
-{
-	public	PgPoolOptions options;
-	public	PgPool client;
-	public	Vertx vertx;
-	
-	private final static Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
-	
-	public DbServiceImpl(Vertx vertx, PgPoolOptions options, Handler<AsyncResult<DbService>> resultHandler) 
-	{
-		this.vertx		=	vertx;
-		this.options	=	options;
-		client			=	PgClient.pool(vertx, options);
-		
-		resultHandler.handle(Future.succeededFuture(this));
-	}
+import java.util.ArrayList;
+import java.util.List;
 
-	@Override
-	public DbService runQuery(String query, Handler<AsyncResult<List<String>>> resultHandler) 
-	{
-		logger.debug("in run query");
-		
-		logger.debug("Query="+query);
-		
-		client.getConnection(connection -> {
-			
-			if(connection.succeeded())
-			{
-				logger.debug("got connection");
-				
-				PgConnection conn 	=  connection.result();
-				
-				conn.query(query, result -> {
-					
-					if(result.succeeded())
-					{
-						logger.debug("query succeeded");
-						List<String> resultList	=	new ArrayList<>();
-						PgRowSet rows			=	result.result();	
-						
-						for(Row row:rows)
-						{
-							resultList.add(row.toString());
-						}
-						
-						logger.debug("ResultList="+resultList.toString());
-						logger.debug("Row count="+rows.rowCount());
-						
-						conn.close();
-						resultHandler.handle(Future.succeededFuture(resultList));
-					}
-					else
-					{
-						conn.close();
-						logger.debug(result.cause());
-						resultHandler.handle(Future.failedFuture(result.cause()));
-					}
-				});
-			}
-		});
-		
-		return this;
-	}
+public class DbServiceImpl implements DbService {
+  private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
+  public PgPoolOptions options;
+  public PgPool pool;
+  public Vertx vertx;
+
+  public DbServiceImpl(
+      Vertx vertx, PgPoolOptions options, Handler<AsyncResult<DbService>> resultHandler) {
+    this.vertx = vertx;
+    this.options = options;
+    pool = PgClient.pool(vertx, options);
+
+    resultHandler.handle(Future.succeededFuture(this));
+  }
+
+  @Override
+  public DbService runSelectQuery(String query, Handler<AsyncResult<List<String>>> resultHandler) {
+    logger.debug("in run select query");
+
+    logger.debug("Query=" + query);
+
+    pool.rxGetConnection()
+        .flatMap(
+            conn ->
+                conn.rxQuery(query)
+                    .flatMapPublisher(Flowable::fromIterable)
+                    .map(Row::toString)
+                    .collect(ArrayList<String>::new, ArrayList::add)
+                    .doAfterTerminate(conn::close))
+        .subscribe(SingleHelper.toObserver(resultHandler));
+
+    return this;
+  }
+
+  @Override
+  public DbService runQuery(String query, Handler<AsyncResult<Void>> resultHandler) {
+    logger.debug("in run query");
+
+    logger.debug("Query=" + query);
+
+    pool.rxGetConnection()
+        .flatMapCompletable(
+            conn ->
+                conn.rxQuery(query)
+                    .flatMapPublisher(Flowable::fromIterable)
+                    .map(Row::size)
+                    .flatMapCompletable(
+                        size ->
+                            size == 0
+                                ? Completable.complete()
+                                : Completable.error(new InternalErrorThrowable("Query failed")))
+                    .doAfterTerminate(conn::close))
+        .subscribe(CompletableHelper.toObserver(resultHandler));
+
+    return this;
+  }
 }

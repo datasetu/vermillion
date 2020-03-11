@@ -1,95 +1,28 @@
 package vermillion;
 
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.reactivex.core.AbstractVerticle;
 import vermillion.broker.BrokerVerticle;
 import vermillion.database.DbVerticle;
 import vermillion.http.HttpServerVerticle;
 
-public class MainVerticle extends AbstractVerticle
-{	
-	public	final static Logger logger = LoggerFactory.getLogger(MainVerticle.class);
-	
-	@Override
-	public void start(Promise<Void> promise)throws Exception
-	{	
-		deployHelper(DbVerticle.class.getName())
-		.setHandler(db -> {
-			
-			if(!db.succeeded())
-			{
-				logger.debug(db.cause());
-				promise.fail(db.cause().toString());
-			}
-			
-			deployHelper(BrokerVerticle.class.getName())
-		.setHandler(broker -> {
-			
-			if(!broker.succeeded()) 
-			{
-				logger.debug(broker.cause());
-				promise.fail(broker.cause().toString());
-			}
-			
-			deployHelper(HttpServerVerticle.class.getName())
-		.setHandler(http -> {
-			
-			if(!http.succeeded())
-			{
-				logger.debug(http.cause());
-				promise.fail(http.cause().toString());
-			}
-			
-			promise.complete();
-		});
-		});
-		});
-		
+public class MainVerticle extends AbstractVerticle {
+  public static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
+
+  @Override
+  public void start(Promise<Void> promise) throws Exception {
+    int cpus = Runtime.getRuntime().availableProcessors();
+    DeploymentOptions options = new DeploymentOptions().setInstances(cpus);
+
+    vertx
+        .rxDeployVerticle(DbVerticle.class.getName())
+        .flatMap(id -> vertx.rxDeployVerticle(BrokerVerticle.class.getName()))
+        .flatMap(id -> vertx.rxDeployVerticle(HttpServerVerticle.class.getName(), options))
+        .subscribe(id -> promise.complete(), promise::fail);
+
+    logger.info("Deployed all verticles");
+  }
 }
-	private Future<Void> deployHelper(String name)
-	{
-		   Promise<Void> promise = Promise.promise();
-		   
-		   if("iudx.http.HttpServerVerticle".equals(name))
-		   {
-			   vertx.deployVerticle(name,	new DeploymentOptions()
-							.setWorker(true)
-					   		.setInstances(Runtime.getRuntime()
-					   		.availableProcessors()*2), res -> {
-			   if(res.succeeded()) 
-			   {
-				   logger.info("Deployed Verticle " + name);
-				   promise.complete();
-			   }
-			   else
-			   {
-				   logger.fatal("Failed to deploy verticle " + res.cause());
-				   promise.fail(res.cause());
-			   }
-					   						  
-			});
-		   }
-		   else
-		   {
-			   vertx.deployVerticle(name, res -> 
-			   {
-			      if(res.failed())
-			      {
-			         logger.fatal("Failed to deploy verticle " + name + " Cause = "+res.cause());
-			         promise.fail(res.cause());
-			      } 
-			      else 
-			      {
-			    	 logger.info("Deployed Verticle " + name);
-			         promise.complete();
-			      }
-			   });
-		   }
-		   
-		   return promise.future();
-}
-}	

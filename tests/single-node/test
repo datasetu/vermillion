@@ -1445,7 +1445,7 @@ def invalid_apikey(
 
     r = follow(app_admin_id, dummy_key,
                random.choice(device_keys.keys()), 'read')
-    check(r, 403)
+    check(r, 400)
     log('Received 403: OK', '')
 
     # Share
@@ -2276,7 +2276,7 @@ def invalid_subscribe(
 ''',
         'GREEN')
 
-    # With invalid message type
+    #With invalid message type
 
     log('---------------> SUBSCRIBE WITH INVALID MESSAGE-TYPE', 'HEADER'
         )
@@ -2407,7 +2407,7 @@ def invalid_bind(
     except Exception:
         pass
 
-    # Bind with a different topic from what was requested in follow
+    #Bind with a different topic from what was requested in follow
 
     log('---------------> BIND USING UNAUTHORISED TOPIC', 'HEADER')
 
@@ -3396,7 +3396,7 @@ def invalid_unfollow(
         'read',
         message_type=gen_rand(8),
         )
-    check(r, 403)
+    check(r, 400)
     log('Received 403: OK', '')
 
     r = unfollow(
@@ -5280,7 +5280,6 @@ def functional_tests(*args):
         devices = args[0][0]
         apps = args[0][1]
     else:
-
         devices = args[0]
         apps = args[1]
 
