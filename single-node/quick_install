@@ -10,9 +10,15 @@ APISERVER_JAR="api-server-fat.jar"
 AUTH_PATH="../authenticator/target"
 AUTH_JAR="authenticator-fat.jar"
 
-admin_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo)"
-postgres_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo)"
-mongo_passwd="$(env LC_ALL=C tr -dc a-zA-Z0-9 < /dev/urandom | head -c 32 ; echo)"
+if [ "$(uname)" == "Darwin" ]; then
+	generate_key="head /dev/urandom | shasum | cut -f1 -d' '"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+	generate_key="head /dev/urandom | sha1sum | cut -f1 -d' '"
+fi
+
+admin_passwd="$(eval $generate_key)"
+postgres_passwd="$(eval $generate_key)"
+mongo_passwd="$(eval $generate_key)"
 
 if [ -e ".env" ]
 then
