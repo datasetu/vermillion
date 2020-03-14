@@ -1,99 +1,83 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<groupId>api-server</groupId>
-	<artifactId>api-server</artifactId>
-	<version>latest</version>
-
-	<properties>
-		<maven.compiler.source>10</maven.compiler.source>
-		<maven.compiler.target>10</maven.compiler.target>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<hikaricp.version>3.2.0</hikaricp.version>
-		<jackson.version>2.9.7</jackson.version>
-		<maven-shade-plugin.version>3.1.1</maven-shade-plugin.version>
-		<mustache.version>0.9.5</mustache.version>
-		<postgresql.version>42.2.5</postgresql.version>
-		<main.class>vertx.App</main.class>
-		<stack.version>3.8.1</stack.version>
-		<vertx.version>4.0.0-SNAPSHOT</vertx.version>
-    	<main.verticle>vermillion.MainVerticle</main.verticle>
-    	<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-	</properties>
-
-	<dependencies>
-	<!-- https://mvnrepository.com/artifact/com.rabbitmq/amqp-client -->
-		<dependency>
-    		<groupId>com.rabbitmq</groupId>
-    		<artifactId>amqp-client</artifactId>
-    		<version>5.6.0</version>
-		</dependency>
-		 <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-rabbitmq-client</artifactId>
-            <version>3.8.5</version>
-        </dependency>
-		<dependency>
-      		<groupId>io.vertx</groupId>
-      		<artifactId>vertx-codegen</artifactId>
-     		<version>3.8.5</version>
-    	</dependency>
-		<dependency>
-    		<groupId>io.vertx</groupId>
-    		<artifactId>vertx-service-proxy</artifactId>
-   			 <version>3.8.5</version>
-		</dependency>	
-		<dependency>
-			<groupId>io.vertx</groupId>
-			<artifactId>vertx-web</artifactId>
-			<version>3.8.5</version>
-		</dependency>
-		<dependency>
-    		<groupId>com.google.guava</groupId>
-    		<artifactId>guava</artifactId>
-    		<version>28.2-jre</version>
-		</dependency>
-		<dependency>
-			<groupId>io.vertx</groupId>
-			<artifactId>vertx-core</artifactId>
-			<version>3.8.5</version>
-		</dependency>
-		<dependency>
-			<groupId>io.reactiverse</groupId>
-			<artifactId>reactive-pg-client</artifactId>
-			<version>0.11.4</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-lang3</artifactId>
-			<version>3.9</version>
-		</dependency>
-		<dependency>
-			<groupId>javax.xml.bind</groupId>
-			<artifactId>jaxb-api</artifactId>
-			<version>2.3.1</version>
-		</dependency>
-        <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-rx-java2</artifactId>
-            <version>3.8.5</version>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2-gen -->
-        <dependency>
-            <groupId>io.vertx</groupId>
-            <artifactId>vertx-rx-java2-gen</artifactId>
-            <version>3.8.5</version>
-            <scope>provided</scope>
-        </dependency>
-	</dependencies>
-	
-	<build>
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>api-server</groupId>
+  <artifactId>api-server</artifactId>
+  <version>latest</version>
+  <properties>
+    <maven.compiler.source>10</maven.compiler.source>
+    <maven.compiler.target>10</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <hikaricp.version>3.2.0</hikaricp.version>
+    <jackson.version>2.9.7</jackson.version>
+    <maven-shade-plugin.version>3.1.1</maven-shade-plugin.version>
+    <mustache.version>0.9.5</mustache.version>
+    <postgresql.version>42.2.5</postgresql.version>
+    <main.class>vertx.App</main.class>
+    <stack.version>3.8.1</stack.version>
+    <vertx.version>4.0.0-SNAPSHOT</vertx.version>
+    <main.verticle>vermillion.MainVerticle</main.verticle>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <dependencies>
+    <!-- https://mvnrepository.com/artifact/com.rabbitmq/amqp-client -->
+    <dependency>
+      <groupId>com.rabbitmq</groupId>
+      <artifactId>amqp-client</artifactId>
+      <version>5.6.0</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-codegen</artifactId>
+      <version>3.8.5</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-service-proxy</artifactId>
+      <version>3.8.5</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-web</artifactId>
+      <version>3.8.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>28.2-jre</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-core</artifactId>
+      <version>3.8.5</version>
+    </dependency>
+    <dependency>
+      <groupId>io.reactiverse</groupId>
+      <artifactId>reactive-pg-client</artifactId>
+      <version>0.11.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.9</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-rx-java2</artifactId>
+      <version>3.8.5</version>
+    </dependency>
+    <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2-gen -->
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-rx-java2-gen</artifactId>
+      <version>3.8.5</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+  <build>
     <pluginManagement>
       <plugins>
-
         <!-- tag::codegen[] -->
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -102,7 +86,6 @@
             <source>1.8</source>
             <target>1.8</target>
             <useIncrementalCompilation>false</useIncrementalCompilation>
-
             <annotationProcessors>
               <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
             </annotationProcessors>
@@ -110,11 +93,9 @@
             <compilerArgs>
               <arg>-AoutputDirectory=${project.basedir}/src/main</arg>
             </compilerArgs>
-
           </configuration>
         </plugin>
         <!-- end::codegen[] -->
-
         <!-- tag::clean[] -->
         <plugin>
           <artifactId>maven-clean-plugin</artifactId>
@@ -128,7 +109,6 @@
           </configuration>
         </plugin>
         <!-- end::clean[] -->
-
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
@@ -137,10 +117,8 @@
             <skip>true</skip>
           </configuration>
         </plugin>
-
       </plugins>
     </pluginManagement>
-
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -171,7 +149,6 @@
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -192,5 +169,4 @@
       </plugin>
     </plugins>
   </build>
-
 </project>

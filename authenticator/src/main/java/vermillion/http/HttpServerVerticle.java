@@ -50,7 +50,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     vertx
         .createHttpServer()
         .requestHandler(router)
-        .rxListen(80)
+        .rxListen(port)
         .subscribe(
             s -> {
               logger.debug("Server started");
@@ -155,14 +155,12 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("user is an owner");
         if (name.equals(username + ".notification")) {
           ok(resp, "allow");
-          return;
         }
       } else {
         if (name.equals(username)
             || name.equals(username + ".priority")
             || name.equals(username + ".command")) {
           ok(resp, "allow");
-          return;
         }
       }
     } else if (("exchange".equals(resource)) || ("topic".equals(resource))) {
@@ -242,10 +240,10 @@ public class HttpServerVerticle extends AbstractVerticle {
     logger.debug("resource=" + resource);
 
     boolean safe =
-        (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9_]+", "")).length()) == 0;
+        (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", "")).length()) == 0;
 
     logger.debug("Original resource name =" + resource);
-    logger.debug("Replaced resource name =" + resource.replaceAll("[^#-/a-zA-Z0-9]+", ""));
+    logger.debug("Replaced resource name =" + resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", ""));
     return safe;
   }
 
@@ -254,13 +252,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     // TODO simplify this
     if ((!Character.isDigit(owner_name.charAt(0)))
-        && ((owner_name.length() - (owner_name.replaceAll("[^a-z0-9]+", "")).length()) == 0)) {
+        && ((owner_name.length() - (owner_name.replaceAll("[^a-z0-9-_.]+", "")).length()) == 0)) {
       logger.debug("Original owner name = " + owner_name);
-      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9]+", ""));
+      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
       return true;
     } else {
       logger.debug("Original owner name = " + owner_name);
-      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9]+", ""));
+      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
       return false;
     }
   }
