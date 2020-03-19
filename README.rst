@@ -6,7 +6,7 @@
 
 .. |github-workflow|  image:: https://github.com/rbccps-iisc/vermillion/workflows/CI/badge.svg
    :target: https://github.com/rbccps-iisc/vermillion/actions         
-.. |license| image:: https://img.shields.io/github/license/rbccps-iisc/vermillion
+.. |license| image:: https://img.shields.io/badge/license-ISC-orange
    :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
 .. |codacy| image:: https://api.codacy.com/project/badge/Grade/d5c93fe3cec44982bcdcca7470a27b68    
    :target: https://www.codacy.com/manual/pct960/vermillion?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=rbccps-iisc/vermillion&amp;utm_campaign=Badge_Grade
