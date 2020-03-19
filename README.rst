@@ -21,6 +21,8 @@
     
 Vermillion is a high performance, scalable and secure IoT middleware platform developed using `Vertx <https://vertx.io>`_. It is a middleware stack which focuses primarily on the compute layer in a smart city IoT deployment. One of the chief goals of Vermillion is to enable seamless data exchange between data producers and consumers in a smart city.
 
+The white paper published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_.
+
 Single-node Quickstart
 ====================== 
 
@@ -67,8 +69,3 @@ For other operating systems
    
      ./tests/single-node functional -d 1 -a 1
 
-Credits 
-=======
-
-- `Spacevim <https://spacevim.org/>`_ for the install script structure
-- `KindPNG <https://www.kindpng.com/>`_ for the logo
