@@ -21,7 +21,16 @@
     
 Vermillion is a high performance, scalable and secure IoT middleware platform developed using `Vertx <https://vertx.io>`_. It is a middleware stack which focuses primarily on the compute layer in a smart city IoT deployment. One of the chief goals of Vermillion is to enable seamless data exchange between data producers and consumers in a smart city.
 
-The white paper published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_.
+
+Performance
+===========
+
+Performance has been *the* key consideration while developing Vermillion. Intial results show that the middleware was able to handle at least 130,000 HTTPS requests/sec across 12 compute nodes. We suspect that this is not its true limit (and that it might actually be much higher), since a plateau was never reached in the results graph. The test tool that we used (`Tsung <http://tsung.erlang-projects.org/>`_) was not able to accurately report numbers for higher number of users and connections. A detailed white paper on this project published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_. The following is a result from the 12-node test:
+
+.. image:: 12-nodes.png
+
+   Performance of the 12-node deployment (6 brokers + 6 proxies)
+
 
 Single-node Quickstart
 ====================== 
