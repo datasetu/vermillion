@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# License: https://www.gnu.org/licenses/gpl-3.0.en.html
+
 set -e 
 OWNER="rbccps-iisc"
 REPO="vermillion"
