@@ -25,16 +25,12 @@ Vermillion is a high performance, scalable and secure IoT middleware platform de
 Performance
 ===========
 
-Performance has been *the* key consideration while developing Vermillion. Intial results show that the middleware was able to handle at least ``130,000`` HTTPS requests/sec across ``12`` compute nodes. We suspect that this is not its true limit (and that it might actually be much higher), since a plateau was never reached in the results graph. The test tool that we used (`Tsung <http://tsung.erlang-projects.org/>`_) was not able to accurately report numbers for higher number of users and connections. 
+Performance has been *the* key consideration while developing Vermillion. Initial results show that the middleware was able to handle at least ``130,000`` HTTPS requests/sec across ``12`` compute nodes. Computing Vermillion's performance under various conditions is still ongoing. 
 
 A detailed white paper on this project published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_. The following is a graph depicting results from the 12-node test:
 
-  .. figure:: 12-nodes.png
-     :scale: 50 %
-     :figclass: align-center
-   
-     Performance of the 12-node deployment (6 brokers + 6 proxies)
-
+.. image:: 12-nodes.png
+   :align: center
 
 Single-node Quickstart
 ====================== 
