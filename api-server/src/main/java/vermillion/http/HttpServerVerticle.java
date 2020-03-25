@@ -1688,16 +1688,9 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             checkLogin(id, apikey)
                 .doOnComplete(
-                    () -> {
-                      try {
+                    () ->
                         getChannel(id, apikey)
-                            .basicPublish(exchange, topic, null, message.getBytes());
-                        accepted(resp);
-                      } catch (Exception e) {
-                        apiFailure(
-                            context, new InternalErrorThrowable("Could not publish to broker"));
-                      }
-                    })
+                            .basicPublish(exchange, topic, null, message.getBytes()))
                 .subscribe(() -> accepted(resp), err -> apiFailure(context, err));
           } else {
             try {
