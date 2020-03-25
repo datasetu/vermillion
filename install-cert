@@ -1,0 +1,76 @@
+#!/bin/bash
+
+set -e
+
+email_regex="^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}$"
+
+if [ $# -lt 4 ];then
+	echo "Usage: ./install-cert -d, --domain <domain> -e, --email <email>"
+	exit 1
+fi
+
+while [[ "$#" -gt 0 ]]; do case $1 in
+	-d|--domain) domain="$2"; shift 1;;
+	-e|--email) email="$2"; shift 1;;
+	*) echo "Unknown parameter passed: $1"; exit 1;;
+esac; shift; done
+
+if [[ ! "$email" =~  $email_regex ]]
+then
+	echo "Email address $email is invalid"
+	exit 1
+fi
+
+if ! ping -c 1 $domain &> /dev/null
+then
+	echo "Domain $domain is invalid"
+	exit 1
+fi
+
+#Check if certbot exists
+if ! hash "certbot" &>/dev/null; then
+	sudo apt -y update && sudo apt -y install certbot
+fi
+
+#Obtain certificate for specified domain 
+certbot certonly --standalone --non-interactive --agree-tos -m $email -d $domain
+
+cert_path="$(readlink -f /etc/letsencrypt/live/$domain/fullchain.pem)"
+key_path="$(readlink -f /etc/letsencrypt/live/$domain/privkey.pem)"
+
+#Prepare jks file from cert and key
+cat $cert_path $key_path > combined.pem
+
+#TODO: Have dynamic passwords
+openssl pkcs12 -export 		\
+	-passin pass:password 	\
+	-passout pass:password	\
+	-in combined.pem 	\
+	-out cert.p12
+
+keytool -importkeystore 		\
+	-srckeystore cert.p12 		\
+	-srcstoretype pkcs12 		\
+	-destkeystore my-keystore.jks	\
+	-storepass password 		\
+	-keypass password 		\
+	-noprompt 			\
+	-srcstorepass password
+
+mv my-keystore.jks api-server/
+
+#Now for RabbitMQ
+
+cp $cert_path server_certificate.pem
+cp $key_path server_key.pem
+
+docker cp server_certificate.pem rabbit:/etc/rabbitmq/
+docker cp server_key.pem rabbit:/etc/rabbitmq/
+
+docker-compose -f single-node/docker-compose.yml restart vertx rabbit
+
+#Remove files
+rm server_certificate.pem
+rm server_key.pem
+rm combined.pem
+rm cert.p12

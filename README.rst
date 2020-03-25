@@ -1,6 +1,6 @@
 .. raw:: html
 
-  <p align="center"><img src="logo.png" alt="vermillion_logo"></p>
+  <p align="center"><img src="images/logo.png" alt="vermillion_logo"></p>
 
 |github-workflow| |codacy| |license| |dependabot| |docker-build-status| |docker-build-automation| |gitter|
 
@@ -29,7 +29,7 @@ Performance has been *the* key consideration while developing Vermillion. Initia
 
 A detailed white paper on this project published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_. The following is a graph depicting results from the 12-node test:
 
-.. image:: 12-nodes.png
+.. image:: images/12-nodes.png
    :align: center
 
 Single-node Quickstart
