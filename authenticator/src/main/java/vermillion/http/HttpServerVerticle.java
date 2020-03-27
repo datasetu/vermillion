@@ -202,7 +202,7 @@ public class HttpServerVerticle extends AbstractVerticle {
       return Completable.error(new BadRequestThrowable("User is neither an owner nor an entity"));
     }
 
-    String query = "SELECT * FROM users WHERE id	=	'" + id + "'" + " AND blocked = 'f'";
+    String query = "SELECT * FROM users WHERE id = '" + id + "'" + " AND blocked = 'f' LIMIT 1";
 
     return dbService
         .rxRunSelectQuery(query)
