@@ -31,6 +31,7 @@ jobs:
     needs: [setup]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v1
       - name: Run functional tests
         run:  ./tests/single-node/test functional --random
 
