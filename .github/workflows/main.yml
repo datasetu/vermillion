@@ -41,6 +41,7 @@ jobs:
         run:  ./tests/single-node/test concurrency
 
   upload-logs:
+    needs: [setup, tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
