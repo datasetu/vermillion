@@ -27,30 +27,22 @@ jobs:
     - name: Wait for the middleware to be available
       run:  sleep 15
 
-  tests:
-    needs: [setup]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - name: Run functional tests
-        run:  ./tests/single-node/test functional --random
+    - name: Run functional tests
+      run:  ./tests/single-node/test functional --random
 
-      - name: Run Security tests
-        run:  ./tests/single-node/test security
+    - name: Run Security tests
+      run:  ./tests/single-node/test security
 
-      - name: Run parallel load tests
-        run:  ./tests/single-node/test concurrency
+    - name: Run parallel load tests
+      run:  ./tests/single-node/test concurrency
 
-  upload-logs:
-    needs: [setup, tests]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Export docker logs to a file
-        run: docker logs vertx >& logs.txt
+    - name: Export docker logs to a file
+      if: always()
+      run: docker logs vertx >& logs.txt
 
-      - name: Upload file 'logs.txt' as an artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: pass_file
-          path: logs.txt
+    - name: Upload file 'logs.txt' as an artifact
+      if: always()
+      uses: actions/upload-artifact@v1
+      with:
+        name: pass_file
+        path: logs.txt
