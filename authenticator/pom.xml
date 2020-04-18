@@ -22,17 +22,17 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-codegen</artifactId>
-      <version>3.9.0</version>
+      <version>3.8.5</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-service-proxy</artifactId>
-      <version>3.9.0</version>
+      <version>3.8.5</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>3.8.4</version>
+      <version>3.8.5</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -58,13 +58,13 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-rx-java2</artifactId>
-      <version>3.9.0</version>
+      <version>3.8.5</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2-gen -->
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-rx-java2-gen</artifactId>
-      <version>3.9.0</version>
+      <version>3.8.5</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
