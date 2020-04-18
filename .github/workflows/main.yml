@@ -3,23 +3,52 @@ name: CI
 on: [push]
 
 jobs:
-  build:
-
+  setup:
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v1
+
+    - name: Set log level to "FINE" in apiserver
+      run: sed -i 's/INFO/FINE/g' api-server/src/main/resources/vertx-default-jul-logging.properties
+
+    - name: Set log level to "FINE" in authenticator
+      run: sed -i 's/INFO/FINE/g' authenticator//src/main/resources/vertx-default-jul-logging.properties
+
     - name: Compile api server source files
       run: cd api-server && mvn clean package
+
     - name: Compile authenticator source files 
       run: cd authenticator && mvn clean package
+
     - name: Install Vermillion
       run: ./single-node/install_with_deps -n
+
     - name: Wait for the middleware to be available
       run:  sleep 15
-    - name: Run functional tests
-      run:  ./tests/single-node/test functional --random
-    - name: Run Security tests
-      run:  ./tests/single-node/test security
-    - name: Run parallel load tests
-      run:  ./tests/single-node/test concurrency
+
+  tests:
+    needs: [setup]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run functional tests
+        run:  ./tests/single-node/test functional --random
+
+      - name: Run Security tests
+        run:  ./tests/single-node/test security
+
+      - name: Run parallel load tests
+        run:  ./tests/single-node/test concurrency
+
+  upload-logs:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Export docker logs to a file
+        run: docker logs vertx >& logs.txt
+
+      - name: Upload file 'logs.txt' as an artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: pass_file
+          path: logs.txt
