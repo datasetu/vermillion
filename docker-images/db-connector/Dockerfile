@@ -1,12 +1,12 @@
-from	alpine:3.10.2
+from	alpine:latest
 
-add	https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.1/wait /wait
+add	https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait /wait
 run	chmod +x /wait
 
+copy	requirements.txt /
+
 run	apk update			    &&	\
-	apk add python py-pip		    &&	\
-	pip install pika requests pymongo   &&	\
-	pip install python-dateutil
+	apk add python3 py3-pip		    &&	\
+	pip3 install -r requirements.txt
 
-
-cmd	/wait && python /db-connector/mongo.py
+cmd	/wait && python3 /db-connector/connector.py

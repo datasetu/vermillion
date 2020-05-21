@@ -7,7 +7,7 @@ networks:
 volumes:
   pgsql-data:
   broker-data:
-  mongo-data:
+  es-data:
 
 services:
 
@@ -48,7 +48,7 @@ services:
       - JAR_NAME=authenticator-fat.jar
 
   rabbit:
-    image: rabbitmq:3.8.2
+    image: rabbitmq:3.8.3
     container_name: rabbit
     restart: on-failure
     hostname: rabbit
@@ -76,19 +76,31 @@ services:
     env_file:
       - .env
 
-  mongo:
-    image: mongo
-    container_name: mongo
-    hostname: mongo
+  elasticsearch:
+    image: elasticsearch:7.7.0
+    container_name: elasticsearch
+    hostname: elasticsearch
     ports:
-      - "54321:27017"
+      - "9200:9200"
     restart: on-failure
     networks:
       - iudx-net
     volumes:
-      - mongo-data:/data/db
+      - es-data:/usr/share/elasticsearch/data
     env_file:
       - .env
+    environment:
+      - discovery.type=single-node
+
+  kibana:
+    image: kibana:7.7.0
+    container_name: kibana
+    hostname: kibana
+    ports:
+      - "5601:5601"
+    restart: on-failure
+    networks:
+      - iudx-net
 
   dbconnector:
     image: iudx/db-connector
@@ -102,7 +114,7 @@ services:
     env_file:
       - .env
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,mongo:27017
+      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,elasticsearch:9200
       - WAIT_HOSTS_TIMEOUT=120
 
   unbind-daemon:
