@@ -34,17 +34,23 @@ def connect_to_es():
                             "data": {
                                 "type": "object"
                                 },
+                            "blob": {
+                                "type": "binary"
+                                },
                             "timestamp": {
                                 "type": "date"
                                 },
                             "resource-id": {
                                 "type": "keyword"
                                 },
-                            "resource-group": {
+                            "category": {
                                 "type": "keyword"
                                 },
                             "coordinates": {
                                 "type": "geo_point"
+                                },
+                            "mime-type": {
+                                "type": "keyword"
                                 }
                             }
                         }

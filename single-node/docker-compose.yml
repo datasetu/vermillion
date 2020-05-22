@@ -115,7 +115,7 @@ services:
       - .env
     environment:
       - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,elasticsearch:9200
-      - WAIT_HOSTS_TIMEOUT=120
+      - WAIT_HOSTS_TIMEOUT=600
 
   unbind-daemon:
     image: iudx/unbind-daemon
