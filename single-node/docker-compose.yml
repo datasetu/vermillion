@@ -1,11 +1,10 @@
 version: "3"
 
 networks:
-  iudx-net:
+  vermillion-net:
     driver: bridge
 
 volumes:
-  pgsql-data:
   broker-data:
   es-data:
 
@@ -19,11 +18,11 @@ services:
     ports:
       - "443:8443"
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../api-server:/api-server/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
      - WAIT_HOSTS_TIMEOUT=120
@@ -36,11 +35,11 @@ services:
     hostname: authenticator
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../authenticator:/authenticator/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
       - WAIT_HOSTS=postgres:5432
       - WAIT_HOSTS_TIMEOUT=120
@@ -48,7 +47,7 @@ services:
       - JAR_NAME=authenticator-fat.jar
 
   rabbit:
-    image: rabbitmq:3.8.3
+    image: rabbitmq:${RABBITMQ_VERSION}
     container_name: rabbit
     restart: on-failure
     hostname: rabbit
@@ -57,50 +56,28 @@ services:
       - "5672:5672"
       - "15672:15672"
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - broker-data:/var/lib/rabbitmq/
-      - ../conf/rabbitmq/:/etc/rabbitmq/
+      - ../conf/rabbitmq/:/etc/rabbitmq/:rw
     env_file:
-      - .env
+      - vermillion.conf
   
-  postgres:
-    image: iudx/postgres
-    container_name: postgres
-    hostname: postgres
-    restart: on-failure
-    networks:
-      - iudx-net
-    volumes:
-      - pgsql-data:/var/lib/postgresql
-    env_file:
-      - .env
-
   elasticsearch:
-    image: elasticsearch:7.7.0
+    image: elasticsearch:${ES_VERSION}
     container_name: elasticsearch
     hostname: elasticsearch
     ports:
       - "9200:9200"
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - es-data:/usr/share/elasticsearch/data
     env_file:
-      - .env
+      - vermillion.conf
     environment:
       - discovery.type=single-node
-
-  kibana:
-    image: kibana:7.7.0
-    container_name: kibana
-    hostname: kibana
-    ports:
-      - "5601:5601"
-    restart: on-failure
-    networks:
-      - iudx-net
 
   dbconnector:
     image: iudx/db-connector
@@ -108,11 +85,11 @@ services:
     hostname: connector
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../db-connector:/db-connector/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
       - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,elasticsearch:9200
       - WAIT_HOSTS_TIMEOUT=600
@@ -123,11 +100,11 @@ services:
     hostname: daemon
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../unbind-daemon:/unbind-daemon/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
       - WAIT_HOSTS=postgres:5432,authenticator:80,rabbit:5672
       - WAIT_HOSTS_TIMEOUT=120

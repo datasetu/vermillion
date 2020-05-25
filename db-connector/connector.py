@@ -32,25 +32,18 @@ def connect_to_es():
                     "mappings": {
                         "properties": {
                             "data": {
-                                "type": "object"
-                                },
-                            "blob": {
-                                "type": "binary"
+                                "type": "object",
+                                "properties": {
+                                    "base64": {
+                                        "type": "binary"
+                                        }
+                                    }
                                 },
                             "timestamp": {
                                 "type": "date"
                                 },
-                            "resource-id": {
-                                "type": "keyword"
-                                },
-                            "category": {
-                                "type": "keyword"
-                                },
                             "coordinates": {
                                 "type": "geo_point"
-                                },
-                            "mime-type": {
-                                "type": "keyword"
                                 }
                             }
                         }
