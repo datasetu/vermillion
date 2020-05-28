@@ -385,7 +385,7 @@ public class BrokerServiceImpl implements BrokerService {
                   con.setRequestProperty("Content-Type", "application/json; utf-8");
                   con.setDoOutput(true);
 
-                  con.getOutputStream().write(body.encode().getBytes("UTF-8"));
+                  con.getOutputStream().write(body.encode().getBytes(StandardCharsets.UTF_8));
 
                   int code = con.getResponseCode();
 

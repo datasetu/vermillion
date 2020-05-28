@@ -21,51 +21,26 @@
   <dependencies>
     <dependency>
       <groupId>io.vertx</groupId>
-      <artifactId>vertx-codegen</artifactId>
-      <version>3.9.1</version>
-    </dependency>
-    <dependency>
-      <groupId>io.vertx</groupId>
-      <artifactId>vertx-service-proxy</artifactId>
-      <version>3.9.1</version>
-    </dependency>
-    <dependency>
-      <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
       <version>3.8.5</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>28.2-jre</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
       <version>${stack.version}</version>
     </dependency>
-    <dependency>
-      <groupId>io.reactiverse</groupId>
-      <artifactId>reactive-pg-client</artifactId>
-      <version>0.11.4</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>3.10</version>
-    </dependency>
+
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-rx-java2</artifactId>
       <version>3.9.1</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2-gen -->
+
     <dependency>
       <groupId>io.vertx</groupId>
-      <artifactId>vertx-rx-java2-gen</artifactId>
+      <artifactId>vertx-web-client</artifactId>
       <version>3.9.1</version>
-      <scope>provided</scope>
     </dependency>
   </dependencies>
   <build>
@@ -78,10 +53,6 @@
             <source>1.8</source>
             <target>1.8</target>
             <useIncrementalCompilation>false</useIncrementalCompilation>
-            <annotationProcessors>
-              <annotationProcessor>io.vertx.codegen.CodeGenProcessor</annotationProcessor>
-            </annotationProcessors>
-            <generatedSourcesDirectory>${project.basedir}/src/main/generated</generatedSourcesDirectory>
             <compilerArgs>
               <arg>-AoutputDirectory=${project.basedir}/src/main</arg>
             </compilerArgs>
@@ -93,7 +64,7 @@
           <configuration>
             <filesets>
               <fileset>
-                <directory>${project.basedir}/src/main/generated</directory>
+                <directory>${project.basedir}/src/main/target</directory>
               </fileset>
             </filesets>
           </configuration>
