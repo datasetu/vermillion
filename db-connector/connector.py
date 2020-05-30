@@ -7,7 +7,7 @@ import logging
 broker_host     =   "rabbit"
 broker_port     =   5672
 broker_username =   "admin"
-broker_pwd	=   os.getenv("ADMIN_PWD")
+broker_pwd	=   os.getenv("RABBITMQ_ADMIN_PASS")
 broker_queue    =   "DATABASE"
 es_host         =   "elasticsearch"
 

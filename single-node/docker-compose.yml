@@ -7,6 +7,7 @@ networks:
 volumes:
   broker-data:
   es-data:
+  redis-data:
 
 services:
 
@@ -24,10 +25,10 @@ services:
     env_file:
       - vermillion.conf
     environment:
-     - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
-     - WAIT_HOSTS_TIMEOUT=120
-     - PROJECT_DIR=api-server
-     - JAR_NAME=api-server-fat.jar
+      - WAIT_HOSTS=rabbit:5672,authenticator:80,redis:6379
+      - WAIT_HOSTS_TIMEOUT=120
+      - PROJECT_DIR=api-server
+      - JAR_NAME=api-server-fat.jar
 
   authenticator:
     image: iudx/java
@@ -41,8 +42,7 @@ services:
     env_file:
       - vermillion.conf
     environment:
-      - WAIT_HOSTS=postgres:5432
-      - WAIT_HOSTS_TIMEOUT=120
+      - WAIT_HOSTS=redis:6379
       - PROJECT_DIR=authenticator
       - JAR_NAME=authenticator-fat.jar
 
@@ -91,20 +91,21 @@ services:
     env_file:
       - vermillion.conf
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,elasticsearch:9200
+      - WAIT_HOSTS=rabbit:5672,authenticator:80,elasticsearch:9200
       - WAIT_HOSTS_TIMEOUT=600
 
-  unbind-daemon:
-    image: iudx/unbind-daemon
-    container_name: daemon
-    hostname: daemon
+  redis:
+    image: bitnami/redis
+    container_name: redis
+    hostname: redis
     restart: on-failure
     networks:
       - vermillion-net
     volumes:
-      - ../unbind-daemon:/unbind-daemon/
+      - redis-data:/bitnami/redis/data
+    ports:
+      - "6379:6379"
     env_file:
       - vermillion.conf
     environment:
-      - WAIT_HOSTS=postgres:5432,authenticator:80,rabbit:5672
-      - WAIT_HOSTS_TIMEOUT=120
+      - DISABLE_COMMANDS=FLUSHDB,FLUSHALL,CONFIG

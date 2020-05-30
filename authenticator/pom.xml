@@ -11,8 +11,6 @@
     <hikaricp.version>3.2.0</hikaricp.version>
     <jackson.version>2.9.7</jackson.version>
     <maven-shade-plugin.version>3.1.1</maven-shade-plugin.version>
-    <mustache.version>0.9.5</mustache.version>
-    <postgresql.version>42.2.5</postgresql.version>
     <stack.version>3.8.4</stack.version>
     <vertx.version>4.0.0-SNAPSHOT</vertx.version>
     <main.verticle>vermillion.MainVerticle</main.verticle>
@@ -22,21 +20,29 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>3.8.5</version>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-redis-client</artifactId>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.10</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
-      <version>${stack.version}</version>
+      <version>3.9.1</version>
     </dependency>
-
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-rx-java2</artifactId>
       <version>3.9.1</version>
     </dependency>
-
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web-client</artifactId>

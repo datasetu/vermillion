@@ -48,20 +48,25 @@ function encode_password()
 #Read vermillion.conf
 source vermillion.conf
 
-if [ -z $RABBITMQ_ADMIN_PASS ]; then
+if [ "$(uname)" == "Darwin" ]; then
+	generate_key="head /dev/urandom | shasum | cut -f1 -d' '"
+elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+	generate_key="head /dev/urandom | sha1sum | cut -f1 -d' '"
+else
+	echo "OS not supported"
+	exit 1
+fi
 
-	if [ "$(uname)" == "Darwin" ]; then
-		generate_key="head /dev/urandom | shasum | cut -f1 -d' '"
-	elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
-		generate_key="head /dev/urandom | sha1sum | cut -f1 -d' '"
-	else
-		echo "OS not supported"
-		exit 1
-	fi
+if [ -z $RABBITMQ_ADMIN_PASS ]; then
 	
 	RABBITMQ_ADMIN_PASS="$(eval $generate_key)"
-
 	sed -i "s/RABBITMQ_ADMIN_PASS=/RABBITMQ_ADMIN_PASS=$RABBITMQ_ADMIN_PASS/" $CONF_FILE
+fi
+
+if [ -z $REDIS_PASSWORD ]; then
+	
+	REDIS_PASSWORD="$(eval $generate_key)"
+	sed -i "s/REDIS_PASSWORD=/REDIS_PASSWORD=$REDIS_PASSWORD/" $CONF_FILE
 fi
 
 encode_password $RABBITMQ_ADMIN_PASS

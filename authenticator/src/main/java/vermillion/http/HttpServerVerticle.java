@@ -1,6 +1,7 @@
 package vermillion.http;
 
 import io.reactivex.Completable;
+import io.reactivex.Single;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -14,9 +15,13 @@ import io.vertx.reactivex.core.http.HttpServerResponse;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.client.WebClient;
+import io.vertx.reactivex.redis.client.Redis;
+import io.vertx.reactivex.redis.client.RedisAPI;
+import io.vertx.redis.client.RedisOptions;
+import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Optional;
 
 public class HttpServerVerticle extends AbstractVerticle {
   public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
@@ -24,9 +29,14 @@ public class HttpServerVerticle extends AbstractVerticle {
   // HTTP Codes
   public final int OK = 200;
 
-  //Use a database for this
-  public Map<String, JsonObject> introspectedCache = new HashMap<>();
-  public Map<String, JsonObject> usernameCache = new HashMap<>();
+  String redisPassword = System.getenv("REDIS_PASSWORD");
+  String connectionStr = "redis://:" + redisPassword + "@redis:6379/1";
+
+  RedisOptions options =
+      new RedisOptions()
+          .setConnectionString(connectionStr)
+          .setMaxPoolSize(10)
+          .setMaxWaitingHandlers(32);
 
   @Override
   public void start(Promise<Void> promise) {
@@ -56,12 +66,40 @@ public class HttpServerVerticle extends AbstractVerticle {
             });
   }
 
+  public Single<RedisAPI> getRedisCient() {
+    return Redis.createClient(vertx, options).rxConnect().map(RedisAPI::api);
+  }
+
+  public Single<String> getValue(String key) {
+
+    return getRedisCient()
+        .flatMapMaybe(redisAPI -> redisAPI.rxGet(key))
+        .map(Optional::of)
+        .toSingle(Optional.empty())
+        .map(value -> value.isPresent() ? value.get().toString() : "absent");
+  }
+
+  public Completable setValue(String key, String value) {
+    ArrayList<String> list = new ArrayList<>();
+
+    list.add(key);
+    list.add(value);
+
+    return getRedisCient()
+        .flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
+  }
+
   public void authUser(RoutingContext context) {
+
+    logger.debug("In auth user");
 
     HttpServerRequest request = context.request();
     HttpServerResponse resp = request.response();
     String username = request.getParam("username");
     String password = request.getParam("password");
+
+    logger.debug("Username=" + username);
+    logger.debug("Password=" + password);
 
     if (!(isStringSafe(username)) || !(isStringSafe(password))) {
       logger.debug("invalid entity name");
@@ -69,40 +107,36 @@ public class HttpServerVerticle extends AbstractVerticle {
       return;
     }
 
-    /* Check if supplied username is same as actual username applicable for the token */
-    if (introspectedCache.containsKey(password)) {
-      logger.debug("Already introspected");
-      if (introspectedCache.get(password).getString("consumer").equalsIgnoreCase(username))
-        ok(resp, "allow");
-      else {
-        logger.debug("Username does not match");
-        ok(resp, "deny");
-      }
-      return;
-    }
-
-    introspect(password)
-        .subscribe(
-            () -> {
-              if (introspectedCache.get(password).getString("consumer").equalsIgnoreCase(username))
-                ok(resp, "allow");
-              else {
-                logger.debug("username does not match");
-                ok(resp, "deny");
-              }
-            },
-            err -> {
-              logger.debug("Error=" + err.getMessage());
-              ok(resp, "deny");
-            });
+    getValue(password)
+        .flatMapCompletable(
+            cache ->
+                cache.equalsIgnoreCase("absent")
+                    ? introspect(password)
+                        .andThen(
+                            getValue(password)
+                                .flatMapCompletable(
+                                    value ->
+                                        (new JsonObject(value)
+                                                .getString("consumer")
+                                                .equalsIgnoreCase(username))
+                                            ? Completable.complete()
+                                            : Completable.error(new Throwable("Unauthorised"))))
+                    : (new JsonObject(cache)).getString("consumer").equalsIgnoreCase(username)
+                        ? Completable.complete()
+                        : Completable.error(new Throwable("Unauthorised")))
+        .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
   }
 
   public void authVhost(RoutingContext context) {
+
+    logger.debug("In auth vhost");
     HttpServerResponse resp = context.response();
     ok(resp, "allow");
   }
 
   public void authTopic(RoutingContext context) {
+
+    logger.debug("In auth topic");
     HttpServerResponse resp = context.response();
     HttpServerRequest request = context.request();
 
@@ -112,36 +146,53 @@ public class HttpServerVerticle extends AbstractVerticle {
     String permission = request.getParam("permission");
     String routingKey = request.getParam("routing_key");
 
+    logger.debug("Username=" + username);
+    logger.debug("ResourceType=" + resourceType);
+    logger.debug("ResourceName=" + resourceName);
+    logger.debug("Permission=" + permission);
+    logger.debug("RoutingKey=" + routingKey);
+
     if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
+
+      logger.debug("Denied due to requested permission");
       ok(resp, "deny");
       return;
     }
 
-    if (!"exchange".equals(resourceType)) {
+    if (!"exchange".equalsIgnoreCase(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+
+      logger.debug("Denied since resource is not an exchange");
       ok(resp, "deny");
       return;
     }
 
     if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+
+      logger.debug("Denied since resource name is not EXCHANGE");
       ok(resp, "deny");
       return;
     }
 
-    JsonArray authorisedRequests = usernameCache.get(username).getJsonArray("request");
+    getValue(username)
+        .flatMapCompletable(
+            result -> {
+              JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
+              for (int i = 0; i < authorisedRequests.size(); i++) {
+                JsonObject requestObject = authorisedRequests.getJsonObject(i);
+                logger.debug("Authorised request=" + requestObject.toString());
 
-    for (int i = 0; i < authorisedRequests.size(); i++) {
-      JsonObject requestObject = authorisedRequests.getJsonObject(i);
-
-      if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
-        ok(resp, "allow");
-        return;
-      }
-    }
-
-    ok(resp, "deny");
+                if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
+                  return Completable.complete();
+                }
+              }
+              return Completable.error(new Throwable("Unauthorised"));
+            })
+        .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
   }
 
   public void authResource(RoutingContext context) {
+
+    logger.debug("In auth resource");
     HttpServerRequest request = context.request();
     HttpServerResponse resp = request.response();
     String username = request.getParam("username");
@@ -149,26 +200,33 @@ public class HttpServerVerticle extends AbstractVerticle {
     String resourceName = request.getParam("name");
     String permission = request.getParam("permission");
 
-    logger.debug(resourceName);
-    logger.debug(username);
-    logger.debug(resourceType);
-    logger.debug(permission);
+    logger.debug("Username=" + username);
+    logger.debug("ResourceType=" + resourceType);
+    logger.debug("ResourceName=" + resourceName);
+    logger.debug("Permission=" + permission);
 
     if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
+
+      logger.debug("Denied due to requested permission");
       ok(resp, "deny");
       return;
     }
 
-    if (!"exchange".equals(resourceType)) {
+    if (!"exchange".equals(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+
+      logger.debug("Denied since requested resource type is not an exchange");
       ok(resp, "deny");
       return;
     }
 
     if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+
+      logger.debug("Denied since resource name is not EXCHANGE");
       ok(resp, "deny");
       return;
     }
 
+    logger.debug("Allowed");
     ok(resp, "allow");
   }
 
@@ -194,7 +252,6 @@ public class HttpServerVerticle extends AbstractVerticle {
   private Completable introspect(String token) {
 
     JsonObject body = new JsonObject();
-
     body.put("token", token);
 
     WebClientOptions options =
@@ -212,15 +269,31 @@ public class HttpServerVerticle extends AbstractVerticle {
         .ssl(true)
         .putHeader("content-type", "application/json")
         .rxSendJsonObject(body)
-        .flatMapCompletable(
+        .map(
             response -> {
-              if (response.statusCode() != 200)
-                return Completable.error(new Throwable("Unauthorised"));
-              else {
-                introspectedCache.put(token, response.bodyAsJsonObject());
-                usernameCache.put(token, response.bodyAsJsonObject());
-                return Completable.complete();
-              }
-            });
+              logger.debug("Body=" + response.bodyAsString());
+              if (response.statusCode() != 200) return new JsonObject();
+              else return response.bodyAsJsonObject();
+            })
+        .map(
+            responseJson -> {
+              if (responseJson != null) {
+                String requestBody = responseJson.encode();
+                String username = responseJson.getString("consumer");
+                return Pair.of(username, requestBody);
+              } else return Pair.of(null, null);
+            })
+        .flatMapCompletable(
+            data ->
+                (data.getLeft() != null && data.getRight() != null)
+                    ? setValue(data.getLeft().toString(), data.getRight().toString())
+                        .andThen(setValue(token, data.getRight().toString()))
+                    : Completable.error(new Throwable("Unauthorised")));
+  }
+
+  public void apiFailure(RoutingContext context, Throwable t) {
+    logger.debug("In apifailure");
+    logger.debug("Message=" + t.getMessage());
+    context.response().setStatusCode(OK).end("deny");
   }
 }
