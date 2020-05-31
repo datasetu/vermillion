@@ -1,12 +1,13 @@
 package vermillion.database;
 
-import io.reactiverse.pgclient.PgPoolOptions;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 import java.util.List;
 
@@ -14,11 +15,8 @@ import java.util.List;
 @VertxGen
 public interface DbService {
   @GenIgnore
-  static DbService create(
-      io.vertx.reactivex.core.Vertx vertx,
-      PgPoolOptions options,
-      Handler<AsyncResult<DbService>> resultHandler) {
-    return new DbServiceImpl(vertx, options, resultHandler);
+  static DbService create(Handler<AsyncResult<DbService>> resultHandler) {
+    return new DbServiceImpl(resultHandler);
   }
 
   @GenIgnore
@@ -28,8 +26,5 @@ public interface DbService {
   }
 
   @Fluent
-  DbService runSelectQuery(String query, Handler<AsyncResult<List<String>>> resultHandler);
-
-  @Fluent
-  DbService runQuery(String query, Handler<AsyncResult<Void>> resultHandler);
+  DbService runQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
 }

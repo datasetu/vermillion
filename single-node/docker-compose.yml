@@ -17,7 +17,7 @@ services:
     hostname: vertx
     restart: on-failure
     ports:
-      - "443:8443"
+      - "443:443"
     networks:
       - vermillion-net
     volumes:

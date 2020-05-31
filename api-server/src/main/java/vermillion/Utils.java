@@ -6,7 +6,7 @@ import vermillion.database.DbServiceImpl;
 
 public class Utils {
   public static final String broker_username = "admin";
-  public static final String broker_password = System.getenv("ADMIN_PWD");
+  public static final String broker_password = System.getenv("RABBITMQ_ADMIN_PASS");
   public static final int broker_port = 5672;
   public static final String broker_vhost = "/";
   public static final String psql_database_url = "postgres";
@@ -32,7 +32,7 @@ public class Utils {
       clustered = true;
     }
 
-    logger.debug("Single node?" + single_node);
+    logger.debug("Single node=" + single_node);
     logger.debug("Broker nodes=" + broker_nodes);
   }
 

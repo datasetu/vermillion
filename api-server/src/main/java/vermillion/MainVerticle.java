@@ -19,7 +19,7 @@ public class MainVerticle extends AbstractVerticle {
 
     vertx
         .rxDeployVerticle(DbVerticle.class.getName())
-        .flatMap(id -> vertx.rxDeployVerticle(BrokerVerticle.class.getName()))
+        //.flatMap(id -> vertx.rxDeployVerticle(BrokerVerticle.class.getName()))
         .flatMap(id -> vertx.rxDeployVerticle(HttpServerVerticle.class.getName(), options))
         .subscribe(id -> promise.complete(), promise::fail);
 
