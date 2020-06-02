@@ -43,19 +43,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     int port = 443;
 
-    ConfigRetriever retriever = ConfigRetriever.create(vertx);
-
     dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
-    brokerService =
-        vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
 
     Router router = Router.router(vertx);
 
     router.route().handler(BodyHandler.create());
 
     router.post("/latest").handler(this::latest);
-
-    retriever.rxGetConfig().subscribe((Consumer<JsonObject>) logger::debug);
 
     vertx
         .createHttpServer(
