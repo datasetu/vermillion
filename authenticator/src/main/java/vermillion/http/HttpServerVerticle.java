@@ -1,6 +1,7 @@
 package vermillion.http;
 
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
@@ -18,8 +19,9 @@ import io.vertx.reactivex.ext.web.client.WebClient;
 import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
-import org.apache.commons.lang3.tuple.Pair;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -29,14 +31,9 @@ public class HttpServerVerticle extends AbstractVerticle {
   // HTTP Codes
   public final int OK = 200;
 
-  String redisPassword = System.getenv("REDIS_PASSWORD");
-  String connectionStr = "redis://:" + redisPassword + "@redis:6379/1";
-
-  RedisOptions options =
-      new RedisOptions()
-          .setConnectionString(connectionStr)
-          .setMaxPoolSize(10)
-          .setMaxWaitingHandlers(32);
+  String redisPassword;
+  String connectionStr;
+  RedisOptions options;
 
   @Override
   public void start(Promise<Void> promise) {
@@ -50,6 +47,15 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.get("/auth/vhost").handler(this::authVhost);
     router.get("/auth/topic").handler(this::authTopic);
     router.get("/auth/resource").handler(this::authResource);
+
+    redisPassword = config().getString("REDIS_PASSWORD");
+    connectionStr = "redis://:" + redisPassword + "@redis:6379/1";
+
+    options =
+        new RedisOptions()
+            .setConnectionString(connectionStr)
+            .setMaxPoolSize(10)
+            .setMaxWaitingHandlers(32);
 
     vertx
         .createHttpServer()
@@ -95,35 +101,22 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     HttpServerRequest request = context.request();
     HttpServerResponse resp = request.response();
-    String username = request.getParam("username");
-    String password = request.getParam("password");
 
-    logger.debug("Username=" + username);
-    logger.debug("Password=" + password);
+    // Ignore the password parameter. Username is the token
+    String username = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
 
-    if (!(isStringSafe(username)) || !(isStringSafe(password))) {
+    logger.debug("Token=" + username);
+
+    if (!isStringSafe(username)) {
       logger.debug("invalid entity name");
       ok(resp, "deny");
       return;
     }
 
-    getValue(password)
+    getValue(username)
         .flatMapCompletable(
             cache ->
-                cache.equalsIgnoreCase("absent")
-                    ? introspect(password)
-                        .andThen(
-                            getValue(password)
-                                .flatMapCompletable(
-                                    value ->
-                                        (new JsonObject(value)
-                                                .getString("consumer")
-                                                .equalsIgnoreCase(username))
-                                            ? Completable.complete()
-                                            : Completable.error(new Throwable("Unauthorised"))))
-                    : (new JsonObject(cache)).getString("consumer").equalsIgnoreCase(username)
-                        ? Completable.complete()
-                        : Completable.error(new Throwable("Unauthorised")))
+                cache.equalsIgnoreCase("absent") ? introspect(username) : Completable.complete())
         .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
   }
 
@@ -180,6 +173,10 @@ public class HttpServerVerticle extends AbstractVerticle {
               for (int i = 0; i < authorisedRequests.size(); i++) {
                 JsonObject requestObject = authorisedRequests.getJsonObject(i);
                 logger.debug("Authorised request=" + requestObject.toString());
+
+                /* Return if a match is found. Cannot request for multiple IDs
+                 * in a single request
+                 */
 
                 if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
                   return Completable.complete();
@@ -269,25 +266,20 @@ public class HttpServerVerticle extends AbstractVerticle {
         .ssl(true)
         .putHeader("content-type", "application/json")
         .rxSendJsonObject(body)
-        .map(
+        .flatMapMaybe(
             response -> {
-              logger.debug("Body=" + response.bodyAsString());
-              if (response.statusCode() != 200) return new JsonObject();
-              else return response.bodyAsJsonObject();
+              if (response.statusCode() == 200) return Maybe.just(response.bodyAsString());
+              else {
+                logger.debug(response.bodyAsString());
+                return Maybe.empty();
+              }
             })
-        .map(
-            responseJson -> {
-              if (responseJson != null) {
-                String requestBody = responseJson.encode();
-                String username = responseJson.getString("consumer");
-                return Pair.of(username, requestBody);
-              } else return Pair.of(null, null);
-            })
+        .map(Optional::of)
+        .toSingle(Optional.empty())
         .flatMapCompletable(
             data ->
-                (data.getLeft() != null && data.getRight() != null)
-                    ? setValue(data.getLeft().toString(), data.getRight().toString())
-                        .andThen(setValue(token, data.getRight().toString()))
+                (data.isPresent())
+                    ? setValue(token, data.get())
                     : Completable.error(new Throwable("Unauthorised")));
   }
 

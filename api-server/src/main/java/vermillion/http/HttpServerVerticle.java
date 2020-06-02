@@ -10,7 +10,6 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
 import io.vertx.reactivex.config.ConfigRetriever;
 import io.vertx.reactivex.core.AbstractVerticle;
-import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
@@ -80,7 +79,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   public void latest(RoutingContext context) {
     logger.debug("In latest API");
-    HttpServerRequest request = context.request();
     HttpServerResponse response = context.response();
 
     JsonObject requestBody;
@@ -94,13 +92,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     logger.debug("Body=" + requestBody.encode());
 
-    if (!requestBody.containsKey("id") && !requestBody.containsKey("options")) {
-      apiFailure(context, new BadRequestThrowable("No id or options found in body"));
+    if (!requestBody.containsKey("id")) {
+      apiFailure(context, new BadRequestThrowable("No id found in body"));
       return;
     }
 
     String resourceID = requestBody.getString("id");
-    String options = requestBody.getString("options");
 
     // TODO: Use a template
     JsonObject queryJson =
@@ -124,30 +121,16 @@ public class HttpServerVerticle extends AbstractVerticle {
             });
   }
 
-  public String genRandString(int len) {
-    logger.debug("In genRandString");
-
-    // Characters for generating apikeys
-    String PASSWORD_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-";
-    String randStr =
-        RandomStringUtils.random(
-            len, 0, PASSWORD_CHARS.length(), true, true, PASSWORD_CHARS.toCharArray());
-
-    logger.debug("Generated random string = " + randStr);
-
-    return randStr;
-  }
-
   public boolean isStringSafe(String resource) {
     logger.debug("In is_string_safe");
 
     logger.debug("resource=" + resource);
 
     boolean safe =
-        (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", "")).length()) == 0;
+        (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
 
     logger.debug("Original resource name =" + resource);
-    logger.debug("Replaced resource name =" + resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", ""));
+    logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
     return safe;
   }
 
