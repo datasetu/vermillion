@@ -9,14 +9,13 @@ import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
-import java.util.List;
-
 @ProxyGen
 @VertxGen
 public interface DbService {
   @GenIgnore
-  static DbService create(Handler<AsyncResult<DbService>> resultHandler) {
-    return new DbServiceImpl(resultHandler);
+  static DbService create(
+      String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
+    return new DbServiceImpl(esHost, esPort, index, resultHandler);
   }
 
   @GenIgnore

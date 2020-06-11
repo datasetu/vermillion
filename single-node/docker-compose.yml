@@ -17,7 +17,7 @@ services:
     hostname: vertx
     restart: on-failure
     ports:
-      - "443:443"
+      - "${HTTPS_PORT}:443"
     networks:
       - vermillion-net
     volumes:
@@ -48,13 +48,13 @@ services:
 
   rabbit:
     image: rabbitmq:${RABBITMQ_VERSION}
-    container_name: rabbit
+    container_name: ${RABBITMQ_HOSTNAME}
     restart: on-failure
     hostname: rabbit
     ports:
-      - "5671:5671"
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_SSL_PORT}:5671"
+      - "${RABBITMQ_TCP_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
     networks:
       - vermillion-net
     volumes:
@@ -66,9 +66,9 @@ services:
   elasticsearch:
     image: elasticsearch:${ES_VERSION}
     container_name: elasticsearch
-    hostname: elasticsearch
+    hostname: ${ES_HOSTNAME}
     ports:
-      - "9200:9200"
+      - "${ES_PORT}:9200"
     restart: on-failure
     networks:
       - vermillion-net
@@ -97,14 +97,14 @@ services:
   redis:
     image: bitnami/redis
     container_name: redis
-    hostname: redis
+    hostname: ${REDIS_HOSTNAME}
     restart: on-failure
     networks:
       - vermillion-net
     volumes:
       - redis-data:/bitnami/redis/data
     ports:
-      - "6379:6379"
+      - "${REDIS_TCP_PORT}:6379"
     env_file:
       - vermillion.conf
     environment:

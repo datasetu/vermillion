@@ -31,8 +31,6 @@ public class HttpServerVerticle extends AbstractVerticle {
   // HTTP Codes
   public final int OK = 200;
 
-  String redisPassword;
-  String connectionStr;
   RedisOptions options;
 
   @Override
@@ -48,8 +46,18 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.get("/auth/topic").handler(this::authTopic);
     router.get("/auth/resource").handler(this::authResource);
 
-    redisPassword = config().getString("REDIS_PASSWORD");
-    connectionStr = "redis://:" + redisPassword + "@redis:6379/1";
+    String redisHost = System.getenv("REDIS_HOSTNAME");
+
+    /*Default port of redis. Port specified in the config file will
+    not affect the default port to which redis is going to bind to
+     */
+    String redisPort = "6379";
+    String redisPassword = config().getString("REDIS_PASSWORD");
+
+    // There are 16 DBs available. Using 1 as the default database number
+    String dbNumber = "1";
+    String connectionStr =
+        "redis://:" + redisPassword + "@" + redisHost + ":" + redisPort + "/" + dbNumber;
 
     options =
         new RedisOptions()

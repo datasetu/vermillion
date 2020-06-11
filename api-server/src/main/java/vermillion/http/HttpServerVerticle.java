@@ -1,6 +1,5 @@
 package vermillion.http;
 
-import io.reactivex.functions.Consumer;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
@@ -8,14 +7,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
-import io.vertx.reactivex.config.ConfigRetriever;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.http.HttpServerResponse;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.handler.BodyHandler;
-import org.apache.commons.lang3.RandomStringUtils;
-import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.reactivex.DbService;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.ConflictThrowable;
@@ -35,7 +31,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   // Service Proxies
   public DbService dbService;
-  public BrokerService brokerService;
 
   @Override
   public void start(Promise<Void> startPromise) {

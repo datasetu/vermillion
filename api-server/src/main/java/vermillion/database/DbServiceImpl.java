@@ -18,10 +18,19 @@ import org.elasticsearch.client.RestClient;
 public class DbServiceImpl implements DbService {
   private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
   RestClient client;
+  String index;
+  String endpoint;
+  String method;
 
-  public DbServiceImpl(Handler<AsyncResult<DbService>> resultHandler) {
-    // TODO: Read from config file
-    client = RestClient.builder(new HttpHost("elasticsearch", 9200, "http")).build();
+  public DbServiceImpl(
+      String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
+
+    client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
+
+    this.index = index;
+    this.endpoint = "/" + this.index + "/_search";
+    this.method = "GET";
+
     resultHandler.handle(Future.succeededFuture(this));
   }
 
@@ -34,15 +43,17 @@ public class DbServiceImpl implements DbService {
 
     Observable.create(
             observableEmitter -> {
-              // TODO: Don't hardcode this
-              Request request = new Request("GET", "/archive/_search");
+              //TODO: Does this need to be initialised everytime?
+              Request request = new Request(method, endpoint);
               request.setJsonEntity(query.encode());
               Response response = client.performRequest(request);
+
               JsonArray responseJson =
                   new JsonObject(EntityUtils.toString(response.getEntity()))
                       .getJsonObject("hits")
                       .getJsonArray("hits");
 
+              //TODO: This might be expensive for large responses
               for (int i = 0; i < responseJson.size(); i++) {
                 observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
               }

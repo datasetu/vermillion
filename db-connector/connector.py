@@ -4,12 +4,14 @@ import os
 from elasticsearch import Elasticsearch
 import logging
 
-broker_host     =   "rabbit"
-broker_port     =   5672
-broker_username =   "admin"
+broker_host     =   os.getenv("RABBITMQ_HOSTNAME")
+broker_port     =   os.getenv("RABBITMQ_TCP_PORT")
+broker_username =   os.getenv("RABBITMQ_USER")
 broker_pwd	=   os.getenv("RABBITMQ_ADMIN_PASS")
 broker_queue    =   "DATABASE"
-es_host         =   "elasticsearch"
+es_host         =   os.getenv("ES_HOSTNAME")
+es_default_index=   os.getenv("ES_DEFAULT_INDEX")
+es_latest_index =   os.getenv("ES_LATEST_INDEX")
 
 #Elastcisearch client object for inserting docs
 es              =   None
@@ -49,8 +51,8 @@ def connect_to_es():
                         }
                 }
                 
-    es.indices.create(index="archive", body=mapping, ignore=400)
-    es.indices.create(index="latest", body=mapping, ignore=400)
+    es.indices.create(index=es_default_index, body=mapping, ignore=400)
+    es.indices.create(index=es_latest_index, body=mapping, ignore=400)
 
     logging.info("Archive and latest indices are ready")
 
