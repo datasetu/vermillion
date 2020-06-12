@@ -66,6 +66,13 @@
       <artifactId>commons-lang3</artifactId>
       <version>3.10</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/commons-validator/commons-validator -->
+    <dependency>
+      <groupId>commons-validator</groupId>
+      <artifactId>commons-validator</artifactId>
+      <version>1.6</version>
+    </dependency>
+
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
     <dependency>
       <groupId>io.vertx</groupId>

@@ -12,6 +12,7 @@ import vermillion.database.DbVerticle;
 import vermillion.http.HttpServerVerticle;
 
 public class MainVerticle extends AbstractVerticle {
+
   public static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
 
   @Override
@@ -28,7 +29,8 @@ public class MainVerticle extends AbstractVerticle {
         .flatMap(
             config ->
                 vertx
-                    .rxDeployVerticle(DbVerticle.class.getName())
+                    .rxDeployVerticle(DbVerticle.class.getName(),
+                        new DeploymentOptions().setConfig(config))
                     .flatMap(
                         id ->
                             vertx.rxDeployVerticle(

@@ -16,21 +16,23 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 
 public class DbServiceImpl implements DbService {
+
   private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
   RestClient client;
   String index;
   String endpoint;
   String method;
+  Request request;
 
   public DbServiceImpl(
       String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
 
     client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
-
     this.index = index;
     this.endpoint = "/" + this.index + "/_search";
     this.method = "GET";
-
+    //TODO: Have a retry mechanism
+    request = new Request(method, endpoint);
     resultHandler.handle(Future.succeededFuture(this));
   }
 
@@ -42,23 +44,21 @@ public class DbServiceImpl implements DbService {
     logger.debug("Query=" + query.encode());
 
     Observable.create(
-            observableEmitter -> {
-              //TODO: Does this need to be initialised everytime?
-              Request request = new Request(method, endpoint);
-              request.setJsonEntity(query.encode());
-              Response response = client.performRequest(request);
+        observableEmitter -> {
+          request.setJsonEntity(query.encode());
+          Response response = client.performRequest(request);
 
-              JsonArray responseJson =
-                  new JsonObject(EntityUtils.toString(response.getEntity()))
-                      .getJsonObject("hits")
-                      .getJsonArray("hits");
+          JsonArray responseJson =
+              new JsonObject(EntityUtils.toString(response.getEntity()))
+                  .getJsonObject("hits")
+                  .getJsonArray("hits");
 
-              //TODO: This might be expensive for large responses
-              for (int i = 0; i < responseJson.size(); i++) {
-                observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
-              }
-              observableEmitter.onComplete();
-            })
+          //TODO: This might be expensive for large responses
+          for (int i = 0; i < responseJson.size(); i++) {
+            observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
+          }
+          observableEmitter.onComplete();
+        })
         .collect(JsonArray::new, JsonArray::add)
         .subscribe(SingleHelper.toObserver(resultHandler));
 

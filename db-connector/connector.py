@@ -5,7 +5,7 @@ from elasticsearch import Elasticsearch
 import logging
 
 broker_host     =   os.getenv("RABBITMQ_HOSTNAME")
-broker_port     =   os.getenv("RABBITMQ_TCP_PORT")
+broker_port     =   5672
 broker_username =   os.getenv("RABBITMQ_USER")
 broker_pwd	=   os.getenv("RABBITMQ_ADMIN_PASS")
 broker_queue    =   "DATABASE"
@@ -31,15 +31,13 @@ def connect_to_es():
     logging.info("Connected to elasticsearch")
 
     mapping =   {
+                    "settings": {
+                        "index.mapping.ignore_malformed": True
+                        },
                     "mappings": {
                         "properties": {
                             "data": {
-                                "type": "object",
-                                "properties": {
-                                    "base64": {
-                                        "type": "binary"
-                                        }
-                                    }
+                                "type": "object"
                                 },
                             "timestamp": {
                                 "type": "date"
