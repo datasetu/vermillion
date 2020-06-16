@@ -16,7 +16,7 @@ public class MainVerticle extends AbstractVerticle {
   public static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
 
   @Override
-  public void start(Promise<Void> promise) throws Exception {
+  public void start(Promise<Void> promise) {
 
     int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -29,8 +29,8 @@ public class MainVerticle extends AbstractVerticle {
         .flatMap(
             config ->
                 vertx
-                    .rxDeployVerticle(DbVerticle.class.getName(),
-                        new DeploymentOptions().setConfig(config))
+                    .rxDeployVerticle(
+                        DbVerticle.class.getName(), new DeploymentOptions().setConfig(config))
                     .flatMap(
                         id ->
                             vertx.rxDeployVerticle(

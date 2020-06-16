@@ -44,7 +44,17 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>3.8.5</version>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-web-client</artifactId>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-redis-client</artifactId>
+      <version>3.9.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -54,7 +64,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
-      <version>3.8.5</version>
+      <version>3.9.1</version>
     </dependency>
     <dependency>
       <groupId>org.elasticsearch.client</groupId>

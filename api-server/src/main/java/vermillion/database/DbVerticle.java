@@ -9,8 +9,11 @@ public class DbVerticle extends AbstractVerticle {
   @Override
   public void start(Promise<Void> promise) {
 
-    String esHost = config().getString("ES_HOSTNAME");
-    String index = config().getString("ES_DEFAULT_INDEX");
+     String esHost = config().getString("ES_HOSTNAME");
+     String index = config().getString("ES_DEFAULT_INDEX");
+
+//    String esHost = "localhost";
+//    String index = "archive";
 
     /*ES's default port is 9200. No need to read from config file
      *since config file port specifies the port to which 9200 should be forwarded
