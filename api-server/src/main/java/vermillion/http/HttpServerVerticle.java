@@ -14,6 +14,7 @@ import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
+import io.vertx.reactivex.ext.web.FileUpload;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.client.WebClient;
@@ -23,6 +24,7 @@ import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,7 +76,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     Router router = Router.router(vertx);
 
-    router.route().handler(BodyHandler.create());
+    router.route().handler(BodyHandler.create().setHandleFileUploads(true));
 
     router.post("/latest").handler(this::latest);
     router.post("/search").handler(this::search);
@@ -84,6 +86,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             StaticHandler.create().setAllowRootFileSystemAccess(false).setDirectoryListing(true));
 
     router.get("/download").handler(this::download);
+    router.post("/publish").handler(this::publish);
 
     String redisHost = System.getenv("REDIS_HOSTNAME");
 
@@ -449,10 +452,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             result -> response.putHeader("content-type", "application/json").end(result.encode()));
   }
 
+  // TODO: If Id is provided, reroute to the specific file
   public void download(RoutingContext context) {
 
     HttpServerRequest request = context.request();
-    HttpServerResponse response = context.response();
 
     String token = request.getParam("token");
 
@@ -488,6 +491,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
                 Path providerResourcePath = Paths.get(PROVIDER_PATH + resourceId);
 
+                // TODO: This could take a very long time for multiple large files
                 try {
                   Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
                 } catch (FileAlreadyExistsException ignored) {
@@ -500,6 +504,92 @@ public class HttpServerVerticle extends AbstractVerticle {
               return Completable.complete();
             })
         .subscribe(() -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+  }
+
+  public void publish(RoutingContext context) {
+    HttpServerRequest request = context.request();
+    HttpServerResponse response = context.response();
+
+    FileUpload upload = context.fileUploads().iterator().next();
+    String fileName = null;
+    String resourceId, token = null;
+    JsonObject requestBody;
+
+    if (upload != null) {
+      fileName = upload.uploadedFileName();
+      resourceId = request.getParam("id");
+      token = request.getParam("token");
+
+      if (resourceId == null) {
+        apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+        return;
+      }
+      if (token == null) {
+        apiFailure(context, new BadRequestThrowable("No access token found in request"));
+        return;
+      }
+
+      JsonArray requestedIdList = new JsonArray().add(resourceId);
+
+      String finalFileName = fileName;
+
+      // If ID = domain/sha/rs.com/category/id, then create dir structure only until category if it
+      // does not exist
+      String providerDirStructure =
+          PROVIDER_PATH + resourceId.substring(0, resourceId.lastIndexOf("/"));
+      logger.debug("Provider dir structure=" + providerDirStructure);
+
+      String providerFilePath = PROVIDER_PATH + resourceId;
+      logger.debug("Provider file path=" + providerFilePath);
+
+      logger.debug("Source=" + finalFileName);
+      logger.debug("Destination=" + providerFilePath);
+
+      checkAuthorisation(token, requestedIdList)
+          .andThen(
+              Completable.defer(
+                  () -> {
+                    new File(providerDirStructure).mkdirs();
+                    try {
+                      Files.move(Paths.get(finalFileName), Paths.get(providerFilePath));
+                    } catch (FileAlreadyExistsException e) {
+                      return Completable.error(new BadRequestThrowable("File already exists"));
+                    } catch (IOException e) {
+                      return Completable.error(
+                          new InternalErrorThrowable("Errored while moving files"));
+                    }
+                    return Completable.complete();
+                  }))
+          .subscribe(
+              () -> {
+                response.setStatusCode(200).end();
+              },
+              t -> apiFailure(context, t));
+
+    } else {
+      try {
+        requestBody = context.getBodyAsJson();
+      } catch (Exception e) {
+        apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+        return;
+      }
+
+      resourceId = request.headers().get("id");
+      token = request.headers().get("token");
+
+      if (resourceId == null) {
+        apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+        return;
+      }
+      if (token == null) {
+        apiFailure(context, new BadRequestThrowable("No access token found in request"));
+        return;
+      }
+
+      // Go on to upload data to ES
+    }
+
+    logger.debug("Filename = " + fileName);
   }
 
   // Method that makes the HTTPS request to the auth server
