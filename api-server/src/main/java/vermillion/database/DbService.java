@@ -25,5 +25,8 @@ public interface DbService {
   }
 
   @Fluent
-  DbService runQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
+  DbService searchQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
+
+  @Fluent
+  DbService insertQuery(JsonObject query, Handler<AsyncResult<Void>> resultHandler);
 }

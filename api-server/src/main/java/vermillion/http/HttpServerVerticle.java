@@ -12,6 +12,7 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
 import io.vertx.reactivex.ext.web.FileUpload;
@@ -29,7 +30,11 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -60,7 +65,7 @@ public class HttpServerVerticle extends AbstractVerticle {
   public final String AUTH_SERVER = "auth.iudx.org.in";
   public final String INTROSPECT_ENDPOINT = "/auth/v1/token/introspect";
   public final String WEBROOT = "webroot/";
-  public final String PROVIDER_PATH = "/api-server/provider/";
+  public final String PROVIDER_PATH = "/api-server/webroot/provider/";
 
   // Service Proxies
   public DbService dbService;
@@ -82,6 +87,10 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.post("/search").handler(this::search);
     router
         .routeWithRegex("\\/consumer\\/auth\\.iudx\\.org\\.in\\/[^\\/]+\\/[0-9a-f]+\\/.*")
+        .handler(
+            StaticHandler.create().setAllowRootFileSystemAccess(false).setDirectoryListing(true));
+    router
+        .routeWithRegex("\\/provider\\/public\\/.*")
         .handler(
             StaticHandler.create().setAllowRootFileSystemAccess(false).setDirectoryListing(true));
 
@@ -201,7 +210,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     logger.debug(constructedQuery.encodePrettily());
 
     dbService
-        .rxRunQuery(constructedQuery)
+        .rxSearchQuery(constructedQuery)
         .subscribe(
             result -> {
               response.putHeader("content-type", "application/json").end(result.encode());
@@ -447,7 +456,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     logger.debug(baseQuery.encodePrettily());
 
     dbService
-        .rxRunQuery(baseQuery)
+        .rxSearchQuery(baseQuery)
         .subscribe(
             result -> response.putHeader("content-type", "application/json").end(result.encode()));
   }
@@ -457,7 +466,10 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     HttpServerRequest request = context.request();
 
+    // If token is valid for resources apart from secure files then specify list of ids in the
+    // request
     String token = request.getParam("token");
+    String idParam = request.getParam("id");
 
     logger.info("token=" + token);
 
@@ -466,84 +478,241 @@ public class HttpServerVerticle extends AbstractVerticle {
       return;
     }
 
+    JsonArray requestedIds = new JsonArray();
+    String basePath = PROVIDER_PATH + "secure/";
+
+    if (idParam != null) {
+      Arrays.asList(idParam.split(",")).forEach(requestedIds::add);
+    }
+
+    for (int i = 0; i < requestedIds.size(); i++) {
+      if (requestedIds.getString(i).endsWith(".public")) {
+        apiFailure(
+            context,
+            new BadRequestThrowable(
+                "This API is for secure resources only. Use /provider/public endpoint to explore public data"));
+        return;
+      }
+    }
+
+    logger.debug("Requested IDs Json =" + requestedIds.encode());
+
     // Create consumer directory path if it does not exist
 
     new File(WEBROOT + "consumer/" + token).mkdirs();
 
     logger.debug("Created consumer subfolders");
 
-    checkAuthorisation(token)
-        .flatMapCompletable(
-            authorisedIds -> {
-              logger.debug("Authorised IDs = " + authorisedIds.encode());
-              for (int i = 0; i < authorisedIds.size(); i++) {
-                logger.debug("File=" + PROVIDER_PATH + authorisedIds.getString(i));
-                if (Files.notExists(Paths.get(PROVIDER_PATH + authorisedIds.getString(i))))
-                  return Completable.error(
-                      new UnauthorisedThrowable("Requested resource ID(s) is not present"));
-              }
-
-              for (int i = 0; i < authorisedIds.size(); i++) {
-                String resourceId = authorisedIds.getString(i);
-                String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
-
-                Path consumerResourcePath =
-                    Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
-                Path providerResourcePath = Paths.get(PROVIDER_PATH + resourceId);
-
-                // TODO: This could take a very long time for multiple large files
-                try {
-                  Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
-                } catch (FileAlreadyExistsException ignored) {
-
-                } catch (Exception e) {
-                  return Completable.error(
-                      new InternalErrorThrowable("Errored while creating symlinks"));
+    // TODO: Avoid duplication here
+    if (idParam == null) {
+      checkAuthorisation(token)
+          .flatMapCompletable(
+              authorisedIds -> {
+                logger.debug("Authorised IDs = " + authorisedIds.encode());
+                for (int i = 0; i < authorisedIds.size(); i++) {
+                  logger.debug("File=" + basePath + authorisedIds.getString(i));
+                  if (Files.notExists(Paths.get(basePath + authorisedIds.getString(i)))) {
+                    return Completable.error(
+                        new UnauthorisedThrowable("Requested resource ID(s) is not present"));
+                  }
                 }
-              }
-              return Completable.complete();
-            })
-        .subscribe(() -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+
+                for (int i = 0; i < authorisedIds.size(); i++) {
+                  String resourceId = authorisedIds.getString(i);
+                  String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
+
+                  Path consumerResourcePath =
+                      Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
+                  Path providerResourcePath = Paths.get(basePath + resourceId);
+
+                  // TODO: This could take a very long time for multiple large
+                  // files
+                  try {
+                    Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
+                  } catch (FileAlreadyExistsException ignored) {
+
+                  } catch (Exception e) {
+                    return Completable.error(
+                        new InternalErrorThrowable("Errored while creating symlinks"));
+                  }
+                }
+                return Completable.complete();
+              })
+          .subscribe(
+              () -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+    } else {
+      checkAuthorisation(token, requestedIds)
+          .andThen(
+              Completable.fromCallable(
+                  () -> {
+                    logger.debug("Requested IDs = " + requestedIds.encode());
+                    for (int i = 0; i < requestedIds.size(); i++) {
+                      logger.debug("File=" + basePath + requestedIds.getString(i));
+                      if (Files.notExists(Paths.get(basePath + requestedIds.getString(i)))) {
+                        return Completable.error(
+                            new UnauthorisedThrowable("Requested resource ID(s) is not present"));
+                      }
+                    }
+
+                    for (int i = 0; i < requestedIds.size(); i++) {
+                      String resourceId = requestedIds.getString(i);
+                      String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
+
+                      Path consumerResourcePath =
+                          Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
+                      Path providerResourcePath = Paths.get(basePath + resourceId);
+
+                      // TODO: This could take a very long time for multiple
+                      // large files
+                      try {
+                        Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
+                      } catch (FileAlreadyExistsException ignored) {
+
+                      } catch (Exception e) {
+                        return Completable.error(
+                            new InternalErrorThrowable("Errored while creating symlinks"));
+                      }
+                    }
+                    return Completable.complete();
+                  }))
+          .subscribe(
+              () -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+    }
   }
 
   public void publish(RoutingContext context) {
+
+    logger.debug("In publish API");
     HttpServerRequest request = context.request();
     HttpServerResponse response = context.response();
 
-    FileUpload upload = context.fileUploads().iterator().next();
-    String fileName = null;
-    String resourceId, token = null;
-    JsonObject requestBody;
+    FileUpload file = null, metadata = null;
+    JsonObject metaJson = null;
 
-    if (upload != null) {
-      fileName = upload.uploadedFileName();
-      resourceId = request.getParam("id");
-      token = request.getParam("token");
+    String fileName = null, resourceId, token;
+    JsonObject requestBody = null;
 
-      if (resourceId == null) {
-        apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+    // TODO: Check for invalid IDs
+    resourceId = request.getParam("id");
+    token = request.getParam("token");
+
+    if (resourceId == null) {
+      apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+      return;
+    }
+    if (token == null) {
+      apiFailure(context, new BadRequestThrowable("No access token found in request"));
+      return;
+    }
+
+    String[] splitId = resourceId.split("/");
+    String category = splitId[splitId.length - 2];
+
+    JsonArray requestedIdList = new JsonArray().add(resourceId);
+
+    HashMap<String, FileUpload> fileUploads = new HashMap<>();
+
+    logger.debug("File uploads = " + context.fileUploads().size());
+    logger.debug("Is empty = " + context.fileUploads().isEmpty());
+
+    if (!context.fileUploads().isEmpty()) {
+      context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
+      logger.debug(fileUploads.toString());
+    }
+
+    if (fileUploads.size() > 0) {
+      if (fileUploads.size() > 2 || !fileUploads.containsKey("file")) {
+        apiFailure(
+            context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
+
+        fileUploads.forEach(
+            (k, v) -> {
+              try {
+                Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+              } catch (IOException e) {
+                e.printStackTrace();
+              }
+            });
+
         return;
-      }
-      if (token == null) {
-        apiFailure(context, new BadRequestThrowable("No access token found in request"));
-        return;
-      }
+      } else {
+        file = fileUploads.get("file");
 
-      JsonArray requestedIdList = new JsonArray().add(resourceId);
+        if (fileUploads.containsKey("metadata")) {
+          metadata = fileUploads.get("metadata");
+
+          // TODO: Rxify this
+          // TODO: File size could crash server. Need to handle this
+          Buffer metaBuffer = vertx.fileSystem().readFileBlocking(metadata.uploadedFileName());
+
+          try {
+            metaJson = metaBuffer.toJsonObject();
+          } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
+            return;
+          }
+          logger.debug("Metadata = " + metaJson.encode());
+        } else {
+          fileUploads.forEach(
+              (k, v) -> {
+                if (!"file".equalsIgnoreCase(k)) {
+                  try {
+                    Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+                  } catch (IOException e) {
+                    e.printStackTrace();
+                  }
+                }
+              });
+        }
+      }
+    }
+
+    if (file != null) {
+      fileName = file.uploadedFileName();
 
       String finalFileName = fileName;
 
-      // If ID = domain/sha/rs.com/category/id, then create dir structure only until category if it
-      // does not exist
+      // If ID = domain/sha/rs.com/category/id, then create dir structure only until category
+      // if it does not already exist
+      String accessFolder =
+          PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
+
       String providerDirStructure =
-          PROVIDER_PATH + resourceId.substring(0, resourceId.lastIndexOf("/"));
+          accessFolder + resourceId.substring(0, resourceId.lastIndexOf("/"));
       logger.debug("Provider dir structure=" + providerDirStructure);
 
-      String providerFilePath = PROVIDER_PATH + resourceId;
+      String providerFilePath = accessFolder + resourceId;
       logger.debug("Provider file path=" + providerFilePath);
 
       logger.debug("Source=" + finalFileName);
       logger.debug("Destination=" + providerFilePath);
+
+      String fileLink = null;
+
+      if (resourceId.endsWith(".public")) {
+        fileLink = providerFilePath;
+      } else {
+        fileLink = "/download";
+      }
+
+      JsonObject dbJson =
+          new JsonObject()
+              .put("data", new JsonObject().put("link", fileLink))
+              .put("timestamp", Clock.systemUTC().instant().toString())
+              .put("id", resourceId)
+              .put("category", category);
+
+      if (metaJson != null) {
+        logger.debug("Metadata is not null");
+        // TODO: Cap size of metadata
+        dbJson.getJsonObject("data").put("metadata", metaJson);
+        try {
+          logger.debug("Metadata path = " + metadata.uploadedFileName());
+          Files.deleteIfExists(Paths.get(metadata.uploadedFileName()));
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
 
       checkAuthorisation(token, requestedIdList)
           .andThen(
@@ -551,21 +720,19 @@ public class HttpServerVerticle extends AbstractVerticle {
                   () -> {
                     new File(providerDirStructure).mkdirs();
                     try {
-                      Files.move(Paths.get(finalFileName), Paths.get(providerFilePath));
-                    } catch (FileAlreadyExistsException e) {
-                      return Completable.error(new BadRequestThrowable("File already exists"));
+                      Files.move(
+                          Paths.get(finalFileName),
+                          Paths.get(providerFilePath),
+                          StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException e) {
                       return Completable.error(
                           new InternalErrorThrowable("Errored while moving files"));
                     }
                     return Completable.complete();
                   }))
-          .subscribe(
-              () -> {
-                response.setStatusCode(200).end();
-              },
-              t -> apiFailure(context, t));
-
+          .andThen(dbService.rxInsertQuery(dbJson))
+          .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
+      return;
     } else {
       try {
         requestBody = context.getBodyAsJson();
@@ -574,24 +741,52 @@ public class HttpServerVerticle extends AbstractVerticle {
         return;
       }
 
-      resourceId = request.headers().get("id");
-      token = request.headers().get("token");
-
-      if (resourceId == null) {
-        apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
-        return;
-      }
-      if (token == null) {
-        apiFailure(context, new BadRequestThrowable("No access token found in request"));
+      if (requestBody == null) {
+        apiFailure(context, new BadRequestThrowable("Body is null"));
         return;
       }
 
-      // Go on to upload data to ES
+      /* Data should be of the form
+         {"data": object, "timestamp": timestamp, "coordinates": [lon, lat],
+         "id" (populated by publish API): resource-id,
+         "category"(populated by publish API): category}
+      */
+
+      Set<String> permittedFieldSet = new TreeSet<>();
+      permittedFieldSet.add("data");
+      permittedFieldSet.add("timestamp");
+      permittedFieldSet.add("coordinates");
+
+      if (!requestBody.containsKey("data")) {
+        apiFailure(context, new BadRequestThrowable("No data field in body"));
+        return;
+      }
+      if (!(requestBody.getValue("data") instanceof JsonObject)) {
+        apiFailure(context, new BadRequestThrowable("Data field is not a JSON object"));
+        return;
+      }
+      if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
+        apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
+        return;
+      }
+
+      if (!requestBody.containsKey("timestamp")) {
+        requestBody.put("timestamp", Clock.systemUTC().instant().toString());
+      }
+
+      requestBody.put("id", resourceId);
+      requestBody.put("category", category);
+      requestBody.put("mime-type", "application/json");
     }
+
+    checkAuthorisation(token, new JsonArray().add(resourceId))
+        .andThen(dbService.rxInsertQuery(requestBody))
+        .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
 
     logger.debug("Filename = " + fileName);
   }
 
+  // TODO: Handle server token
   // Method that makes the HTTPS request to the auth server
   public Completable introspect(String token) {
     logger.debug("In introspect");
@@ -603,6 +798,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             .setSsl(true)
             .setKeyStoreOptions(
                 new JksOptions()
+                    // TODO: Don't hardcode this
                     .setPath("certs/resource-server-keystore.jks")
                     .setPassword("password"));
 
@@ -615,8 +811,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         .rxSendJsonObject(body)
         .flatMapMaybe(
             response -> {
-              if (response.statusCode() == 200) return Maybe.just(response.bodyAsString());
-              else {
+              if (response.statusCode() == 200) {
+                return Maybe.just(response.bodyAsString());
+              } else {
                 logger.debug("Auth response=" + response.bodyAsString());
                 return Maybe.empty();
               }
@@ -627,7 +824,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             data ->
                 (data.isPresent())
                     ? setValue(token, data.get())
-                    : Completable.error(new Throwable("Unauthorised")));
+                    : Completable.error(new UnauthorisedThrowable("Unauthorised")));
   }
 
   // Method that uses the redis cache for authorising requests.
@@ -643,27 +840,38 @@ public class HttpServerVerticle extends AbstractVerticle {
         .flatMapCompletable(
             cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
         // TODO: Avoid reading from cache again
-        .andThen(getValue(token))
-        .map(result -> new JsonObject(result).getJsonArray("request"))
-        .map(
-            authorisedIds ->
-                (authorisedIds.getValue(0) instanceof JsonObject)
-                    ?
-                    // TODO: In this case check for methods, body, API etc
-                    // Array of Objects
-                    IntStream.range(0, authorisedIds.size())
-                        .mapToObj(i -> authorisedIds.getJsonObject(i).getString("id"))
-                        .collect(Collectors.toCollection(TreeSet::new))
-                    :
-                    // This is a simple case of array of IDs
-                    IntStream.range(0, authorisedIds.size())
-                        .mapToObj(authorisedIds::getString)
-                        .collect(Collectors.toCollection(TreeSet::new)))
+        .andThen(Single.defer(() -> getValue(token)))
+        .flatMapMaybe(
+            result ->
+                "absent".equalsIgnoreCase(result)
+                    ? Maybe.empty()
+                    : Maybe.just(new JsonObject(result).getJsonArray("request")))
+        .map(Optional::of)
+        .toSingle(Optional.empty())
+        .flatMapMaybe(
+            resultArray ->
+                resultArray
+                    .map(
+                        authorisedIds ->
+                            // TODO: In this case check for methods,
+                            // body, API etc
+                            Maybe.just(
+                                IntStream.range(0, authorisedIds.size())
+                                    .mapToObj(i -> authorisedIds.getJsonObject(i).getString("id"))
+                                    .collect(Collectors.toCollection(TreeSet::new))))
+                    .orElseGet(Maybe::empty))
+        .map(Optional::of)
+        .toSingle(Optional.empty())
         .flatMapCompletable(
-            authorisedSet ->
-                authorisedSet.containsAll(requestedSet)
-                    ? Completable.complete()
-                    : Completable.error(new UnauthorisedThrowable("ACL does not match")));
+            treeSet ->
+                treeSet
+                    .map(
+                        authorisedSet ->
+                            (authorisedSet.containsAll(requestedSet)
+                                ? Completable.complete()
+                                : Completable.error(
+                                    new UnauthorisedThrowable("ACL does not match"))))
+                    .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
   }
 
   public Single<JsonArray> checkAuthorisation(String token) {
@@ -672,33 +880,37 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     return getValue(token)
         .flatMapCompletable(
-            cache -> {
-              logger.debug("Cache = " + cache);
-              if ("absent".equalsIgnoreCase(cache)) return introspect(token);
-              else return Completable.complete();
-            })
+            cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
         // TODO: Avoid reading from cache again
-        .andThen(getValue(token))
-        .map(
-            result -> {
-              logger.debug("Result=" + result);
-              return new JsonObject(result).getJsonArray("request");
-            })
-        .map(
-            authorisedIds -> {
-              logger.debug("Authorised IDs=" + authorisedIds.encode());
-              if (authorisedIds.getValue(0) instanceof JsonObject) {
-                // TODO: In this case check for methods, body, API etc
-                // Array of Objects
-                return new JsonArray(
-                    IntStream.range(0, authorisedIds.size())
-                        .mapToObj(i -> authorisedIds.getJsonObject(i).getString("id"))
-                        .collect(Collectors.toList()));
-              } else {
-                // This is a simple case of array of IDs
-                return authorisedIds;
-              }
-            });
+        .andThen(Single.defer(() -> getValue(token)))
+        .flatMapMaybe(
+            result ->
+                "absent".equalsIgnoreCase(result)
+                    ? Maybe.empty()
+                    : Maybe.just(new JsonObject(result).getJsonArray("request")))
+        .map(Optional::of)
+        .toSingle(Optional.empty())
+        .flatMapMaybe(
+            resultArray ->
+                resultArray
+                    .map(
+                        authorisedIds ->
+                            // TODO: In this case check for methods,
+                            // body, API etc
+                            Maybe.just(
+                                new JsonArray(
+                                    IntStream.range(0, authorisedIds.size())
+                                        .mapToObj(
+                                            i -> authorisedIds.getJsonObject(i).getString("id"))
+                                        .collect(Collectors.toList()))))
+                    .orElseGet(Maybe::empty))
+        .map(Optional::of)
+        .toSingle(Optional.empty())
+        .flatMap(
+            result ->
+                result
+                    .map(Single::just)
+                    .orElseGet(() -> Single.error(new UnauthorisedThrowable("Unauthorised"))));
   }
 
   public boolean isStringSafe(String resource) {
@@ -731,14 +943,19 @@ public class HttpServerVerticle extends AbstractVerticle {
     logger.debug("Message=" + t.getMessage());
     if (t instanceof BadRequestThrowable) {
       context.response().setStatusCode(BAD_REQUEST).end(t.getMessage());
+      context.response().close();
     } else if (t instanceof UnauthorisedThrowable) {
       context.response().setStatusCode(FORBIDDEN).end(t.getMessage());
+      context.response().close();
     } else if (t instanceof ConflictThrowable) {
       context.response().setStatusCode(CONFLICT).end(t.getMessage());
+      context.response().close();
     } else if (t instanceof InternalErrorThrowable) {
       context.response().setStatusCode(INTERNAL_SERVER_ERROR).end(t.getMessage());
+      context.response().close();
     } else {
       context.fail(t);
+      context.response().close();
     }
   }
 }
