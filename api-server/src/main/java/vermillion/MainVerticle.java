@@ -13,31 +13,25 @@ import vermillion.http.HttpServerVerticle;
 
 public class MainVerticle extends AbstractVerticle {
 
-  public static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
+    public static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
 
-  @Override
-  public void start(Promise<Void> promise) {
+    @Override
+    public void start(Promise<Void> promise) {
 
-    int cpus = Runtime.getRuntime().availableProcessors();
+        int cpus = Runtime.getRuntime().availableProcessors();
 
-    ConfigRetriever retriever =
-        ConfigRetriever.create(
-            vertx, new ConfigRetrieverOptions().addStore(new ConfigStoreOptions().setType("env")));
+        ConfigRetriever retriever = ConfigRetriever.create(
+                vertx, new ConfigRetrieverOptions().addStore(new ConfigStoreOptions().setType("env")));
 
-    retriever
-        .rxGetConfig()
-        .flatMap(
-            config ->
-                vertx
-                    .rxDeployVerticle(
-                        DbVerticle.class.getName(), new DeploymentOptions().setConfig(config))
-                    .flatMap(
-                        id ->
-                            vertx.rxDeployVerticle(
+        retriever
+                .rxGetConfig()
+                .flatMap(config -> vertx.rxDeployVerticle(
+                                DbVerticle.class.getName(), new DeploymentOptions().setConfig(config))
+                        .flatMap(id -> vertx.rxDeployVerticle(
                                 HttpServerVerticle.class.getName(),
                                 new DeploymentOptions().setInstances(cpus).setConfig(config))))
-        .subscribe(id -> promise.complete(), promise::fail);
+                .subscribe(id -> promise.complete(), promise::fail);
 
-    logger.info("Deployed all verticles");
-  }
+        logger.info("Deployed all verticles");
+    }
 }
