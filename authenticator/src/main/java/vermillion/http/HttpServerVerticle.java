@@ -26,274 +26,269 @@ import java.util.ArrayList;
 import java.util.Optional;
 
 public class HttpServerVerticle extends AbstractVerticle {
-  public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+    public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
 
-  // HTTP Codes
-  public final int OK = 200;
+    // HTTP Codes
+    public final int OK = 200;
 
-  RedisOptions options;
+    // Auth server constants
+    public final String AUTH_SERVER = System.getenv("AUTH_SERVER");
+    public final String INTROSPECT_ENDPOINT = "/auth/v1/token/introspect";
+    public final String AUTH_TLS_CERT_PATH = System.getenv("AUTH_TLS_CERT_PATH");
+    public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
 
-  @Override
-  public void start(Promise<Void> promise) {
-    logger.debug("In start");
+    // Redis constants
+    public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
 
-    int port = 80;
-
-    Router router = Router.router(vertx);
-
-    router.get("/auth/user").handler(this::authUser);
-    router.get("/auth/vhost").handler(this::authVhost);
-    router.get("/auth/topic").handler(this::authTopic);
-    router.get("/auth/resource").handler(this::authResource);
-
-    String redisHost = System.getenv("REDIS_HOSTNAME");
-
-    /*Default port of redis. Port specified in the config file will
-    not affect the default port to which redis is going to bind to
-     */
-    String redisPort = "6379";
-    String redisPassword = config().getString("REDIS_PASSWORD");
+    /* Default port of redis. Port specified in the config file will
+    	 not affect the default port to which redis is going to bind to
+    */
+    public final String REDIS_PORT = "6379";
+    public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
 
     // There are 16 DBs available. Using 1 as the default database number
-    String dbNumber = "1";
-    String connectionStr =
-        "redis://:" + redisPassword + "@" + redisHost + ":" + redisPort + "/" + dbNumber;
+    public final String DB_NUMBER = "1";
+    public final String CONNECTION_STR =
+            "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + ":" + REDIS_PORT + "/" + DB_NUMBER;
+    public final int MAX_POOL_SIZE = 10;
+    public final int MAX_WAITING_HANDLERS = 32;
 
-    options =
-        new RedisOptions()
-            .setConnectionString(connectionStr)
-            .setMaxPoolSize(10)
-            .setMaxWaitingHandlers(32);
+    RedisOptions options;
 
-    vertx
-        .createHttpServer()
-        .requestHandler(router)
-        .rxListen(port)
-        .subscribe(
-            s -> {
-              logger.debug("Server started");
-              promise.complete();
-            },
-            err -> {
-              logger.debug("Could not start server. Cause=" + err.getMessage());
-              promise.fail(err.getMessage());
-            });
-  }
+    @Override
+    public void start(Promise<Void> promise) {
+        logger.debug("In start");
 
-  public Single<RedisAPI> getRedisCient() {
-    return Redis.createClient(vertx, options).rxConnect().map(RedisAPI::api);
-  }
+        int port = 80;
 
-  public Single<String> getValue(String key) {
+        Router router = Router.router(vertx);
 
-    return getRedisCient()
-        .flatMapMaybe(redisAPI -> redisAPI.rxGet(key))
-        .map(Optional::of)
-        .toSingle(Optional.empty())
-        .map(value -> value.isPresent() ? value.get().toString() : "absent");
-  }
+        router.get("/auth/user").handler(this::authUser);
+        router.get("/auth/vhost").handler(this::authVhost);
+        router.get("/auth/topic").handler(this::authTopic);
+        router.get("/auth/resource").handler(this::authResource);
 
-  public Completable setValue(String key, String value) {
-    ArrayList<String> list = new ArrayList<>();
+        options = new RedisOptions()
+                .setConnectionString(CONNECTION_STR)
+                .setMaxPoolSize(MAX_POOL_SIZE)
+                .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
-    list.add(key);
-    list.add(value);
-
-    return getRedisCient()
-        .flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
-  }
-
-  public void authUser(RoutingContext context) {
-
-    logger.debug("In auth user");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    // Ignore the password parameter. Username is the token
-    String username = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
-
-    logger.debug("Token=" + username);
-
-    if (!isStringSafe(username)) {
-      logger.debug("invalid entity name");
-      ok(resp, "deny");
-      return;
+        vertx.createHttpServer()
+                .requestHandler(router)
+                .rxListen(port)
+                .subscribe(
+                        s -> {
+                            logger.debug("Server started");
+                            promise.complete();
+                        },
+                        err -> {
+                            logger.debug("Could not start server. Cause=" + err.getMessage());
+                            promise.fail(err.getMessage());
+                        });
     }
 
-    getValue(username)
-        .flatMapCompletable(
-            cache ->
-                cache.equalsIgnoreCase("absent") ? introspect(username) : Completable.complete())
-        .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
-  }
-
-  public void authVhost(RoutingContext context) {
-
-    logger.debug("In auth vhost");
-    HttpServerResponse resp = context.response();
-    ok(resp, "allow");
-  }
-
-  public void authTopic(RoutingContext context) {
-
-    logger.debug("In auth topic");
-    HttpServerResponse resp = context.response();
-    HttpServerRequest request = context.request();
-
-    String username = request.getParam("username");
-    String resourceType = request.getParam("resource");
-    String resourceName = request.getParam("name");
-    String permission = request.getParam("permission");
-    String routingKey = request.getParam("routing_key");
-
-    logger.debug("Username=" + username);
-    logger.debug("ResourceType=" + resourceType);
-    logger.debug("ResourceName=" + resourceName);
-    logger.debug("Permission=" + permission);
-    logger.debug("RoutingKey=" + routingKey);
-
-    if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
-
-      logger.debug("Denied due to requested permission");
-      ok(resp, "deny");
-      return;
+    public Single<RedisAPI> getRedisCient() {
+        return Redis.createClient(vertx, options).rxConnect().map(RedisAPI::api);
     }
 
-    if (!"exchange".equalsIgnoreCase(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+    public Single<String> getValue(String key) {
 
-      logger.debug("Denied since resource is not an exchange");
-      ok(resp, "deny");
-      return;
+        return getRedisCient()
+                .flatMapMaybe(redisAPI -> redisAPI.rxGet(key))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .map(value -> value.isPresent() ? value.get().toString() : "absent");
     }
 
-    if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+    public Completable setValue(String key, String value) {
+        ArrayList<String> list = new ArrayList<>();
 
-      logger.debug("Denied since resource name is not EXCHANGE");
-      ok(resp, "deny");
-      return;
+        list.add(key);
+        list.add(value);
+
+        return getRedisCient().flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
     }
 
-    getValue(username)
-        .flatMapCompletable(
-            result -> {
-              JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
-              for (int i = 0; i < authorisedRequests.size(); i++) {
-                JsonObject requestObject = authorisedRequests.getJsonObject(i);
-                logger.debug("Authorised request=" + requestObject.toString());
+    public void authUser(RoutingContext context) {
 
-                /* Return if a match is found. Cannot request for multiple IDs
-                 * in a single request
-                 */
+        logger.debug("In auth user");
 
-                if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
-                  return Completable.complete();
-                }
-              }
-              return Completable.error(new Throwable("Unauthorised"));
-            })
-        .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
-  }
+        HttpServerRequest request = context.request();
+        HttpServerResponse resp = request.response();
 
-  public void authResource(RoutingContext context) {
+        // Ignore the password parameter. Username is the token
+        String username = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
 
-    logger.debug("In auth resource");
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String username = request.getParam("username");
-    String resourceType = request.getParam("resource");
-    String resourceName = request.getParam("name");
-    String permission = request.getParam("permission");
+        logger.debug("Token=" + username);
 
-    logger.debug("Username=" + username);
-    logger.debug("ResourceType=" + resourceType);
-    logger.debug("ResourceName=" + resourceName);
-    logger.debug("Permission=" + permission);
+        if (!isStringSafe(username)) {
+            logger.debug("invalid entity name");
+            ok(resp, "deny");
+            return;
+        }
 
-    if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
-
-      logger.debug("Denied due to requested permission");
-      ok(resp, "deny");
-      return;
+        getValue(username)
+                .flatMapCompletable(
+                        cache -> cache.equalsIgnoreCase("absent") ? introspect(username) : Completable.complete())
+                .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
 
-    if (!"exchange".equals(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+    public void authVhost(RoutingContext context) {
 
-      logger.debug("Denied since requested resource type is not an exchange");
-      ok(resp, "deny");
-      return;
+        logger.debug("In auth vhost");
+        HttpServerResponse resp = context.response();
+        ok(resp, "allow");
     }
 
-    if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+    public void authTopic(RoutingContext context) {
 
-      logger.debug("Denied since resource name is not EXCHANGE");
-      ok(resp, "deny");
-      return;
+        logger.debug("In auth topic");
+        HttpServerResponse resp = context.response();
+        HttpServerRequest request = context.request();
+
+        String username = request.getParam("username");
+        String resourceType = request.getParam("resource");
+        String resourceName = request.getParam("name");
+        String permission = request.getParam("permission");
+        String routingKey = request.getParam("routing_key");
+
+        logger.debug("Username=" + username);
+        logger.debug("ResourceType=" + resourceType);
+        logger.debug("ResourceName=" + resourceName);
+        logger.debug("Permission=" + permission);
+        logger.debug("RoutingKey=" + routingKey);
+
+        if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
+
+            logger.debug("Denied due to requested permission");
+            ok(resp, "deny");
+            return;
+        }
+
+        if (!"exchange".equalsIgnoreCase(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+
+            logger.debug("Denied since resource is not an exchange");
+            ok(resp, "deny");
+            return;
+        }
+
+        if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+
+            logger.debug("Denied since resource name is not EXCHANGE");
+            ok(resp, "deny");
+            return;
+        }
+
+        getValue(username)
+                .flatMapCompletable(result -> {
+                    JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
+                    for (int i = 0; i < authorisedRequests.size(); i++) {
+                        JsonObject requestObject = authorisedRequests.getJsonObject(i);
+                        logger.debug("Authorised request=" + requestObject.toString());
+
+                        /* Return if a match is found. Cannot request for multiple IDs
+                         * in a single request
+                         */
+
+                        if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
+                            return Completable.complete();
+                        }
+                    }
+                    return Completable.error(new Throwable("Unauthorised"));
+                })
+                .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
 
-    logger.debug("Allowed");
-    ok(resp, "allow");
-  }
+    public void authResource(RoutingContext context) {
 
-  public boolean isStringSafe(String resource) {
-    logger.debug("In is_string_safe");
+        logger.debug("In auth resource");
+        HttpServerRequest request = context.request();
+        HttpServerResponse resp = request.response();
+        String username = request.getParam("username");
+        String resourceType = request.getParam("resource");
+        String resourceName = request.getParam("name");
+        String permission = request.getParam("permission");
 
-    logger.debug("resource=" + resource);
+        logger.debug("Username=" + username);
+        logger.debug("ResourceType=" + resourceType);
+        logger.debug("ResourceName=" + resourceName);
+        logger.debug("Permission=" + permission);
 
-    boolean safe =
-        (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
+        if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
 
-    logger.debug("Original resource name =" + resource);
-    logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
-    return safe;
-  }
+            logger.debug("Denied due to requested permission");
+            ok(resp, "deny");
+            return;
+        }
 
-  public void ok(HttpServerResponse resp, String message) {
-    if (!resp.closed()) {
-      resp.setStatusCode(OK).end(message);
+        if (!"exchange".equals(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+
+            logger.debug("Denied since requested resource type is not an exchange");
+            ok(resp, "deny");
+            return;
+        }
+
+        if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+
+            logger.debug("Denied since resource name is not EXCHANGE");
+            ok(resp, "deny");
+            return;
+        }
+
+        logger.debug("Allowed");
+        ok(resp, "allow");
     }
-  }
 
-  private Completable introspect(String token) {
+    public boolean isStringSafe(String resource) {
+        logger.debug("In is_string_safe");
 
-    JsonObject body = new JsonObject();
-    body.put("token", token);
+        logger.debug("resource=" + resource);
 
-    WebClientOptions options =
-        new WebClientOptions()
-            .setSsl(true)
-            .setKeyStoreOptions(
-                new JksOptions()
-                    .setPath("certs/resource-server-keystore.jks")
-                    .setPassword("password"));
+        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
 
-    WebClient client = WebClient.create(vertx, options);
+        logger.debug("Original resource name =" + resource);
+        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
+        return safe;
+    }
 
-    return client
-        .post(443, "auth.iudx.org.in", "/auth/v1/token/introspect")
-        .ssl(true)
-        .putHeader("content-type", "application/json")
-        .rxSendJsonObject(body)
-        .flatMapMaybe(
-            response -> {
-              if (response.statusCode() == 200) return Maybe.just(response.bodyAsString());
-              else {
-                logger.debug(response.bodyAsString());
-                return Maybe.empty();
-              }
-            })
-        .map(Optional::of)
-        .toSingle(Optional.empty())
-        .flatMapCompletable(
-            data ->
-                (data.isPresent())
-                    ? setValue(token, data.get())
-                    : Completable.error(new Throwable("Unauthorised")));
-  }
+    public void ok(HttpServerResponse resp, String message) {
+        if (!resp.closed()) {
+            resp.setStatusCode(OK).end(message);
+        }
+    }
 
-  public void apiFailure(RoutingContext context, Throwable t) {
-    logger.debug("In apifailure");
-    logger.debug("Message=" + t.getMessage());
-    context.response().setStatusCode(OK).end("deny");
-  }
+    private Completable introspect(String token) {
+
+        JsonObject body = new JsonObject();
+        body.put("token", token);
+
+        WebClientOptions options = new WebClientOptions()
+                .setSsl(true)
+                .setKeyStoreOptions(new JksOptions().setPath(AUTH_TLS_CERT_PATH).setPassword(AUTH_TLS_CERT_PASSWORD));
+
+        WebClient client = WebClient.create(vertx, options);
+
+        return client.post(443, AUTH_SERVER, INTROSPECT_ENDPOINT)
+                .ssl(true)
+                .putHeader("content-type", "application/json")
+                .rxSendJsonObject(body)
+                .flatMapMaybe(response -> {
+                    if (response.statusCode() == 200) return Maybe.just(response.bodyAsString());
+                    else {
+                        logger.debug(response.bodyAsString());
+                        return Maybe.empty();
+                    }
+                })
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapCompletable(data -> (data.isPresent())
+                        ? setValue(token, data.get())
+                        : Completable.error(new Throwable("Unauthorised")));
+    }
+
+    public void apiFailure(RoutingContext context, Throwable t) {
+        logger.debug("In apifailure");
+        logger.debug("Message=" + t.getMessage());
+        context.response().setStatusCode(OK).end("deny");
+    }
 }

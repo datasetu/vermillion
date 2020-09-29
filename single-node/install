@@ -60,13 +60,13 @@ fi
 if [ -z $RABBITMQ_ADMIN_PASS ]; then
 	
 	RABBITMQ_ADMIN_PASS="$(eval $generate_key)"
-	sed -i'' -e "s/RABBITMQ_ADMIN_PASS=/RABBITMQ_ADMIN_PASS=$RABBITMQ_ADMIN_PASS/" $CONF_FILE
+	sed -i'.bak' -e "s/RABBITMQ_ADMIN_PASS=/RABBITMQ_ADMIN_PASS=$RABBITMQ_ADMIN_PASS/" $CONF_FILE
 fi
 
 if [ -z $REDIS_PASSWORD ]; then
 	
 	REDIS_PASSWORD="$(eval $generate_key)"
-	sed -i'' -e "s/REDIS_PASSWORD=/REDIS_PASSWORD=$REDIS_PASSWORD/" $CONF_FILE
+	sed -i'.bak' -e "s/REDIS_PASSWORD=/REDIS_PASSWORD=$REDIS_PASSWORD/" $CONF_FILE
 fi
 
 encode_password $RABBITMQ_ADMIN_PASS
@@ -101,3 +101,6 @@ if [ $USE_KIBANA == "true" ]; then
 else
 	docker-compose up --remove-orphans -d
 fi
+
+#Remove unnecessary backup files
+rm -f vermillion.conf.bak
