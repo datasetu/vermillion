@@ -40,7 +40,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-config</artifactId>
-      <version>3.9.1</version>
+      <version>3.9.3</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
     <dependency>
