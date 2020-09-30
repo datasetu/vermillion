@@ -32,7 +32,7 @@ jobs:
       run: cd authenticator && mvn clean package
 
     - name: Install jq and behave
-      run: sudo apt-get -y install jq && sudo python3 -m pip install behave
+      run: sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave
 
     - name: Install Vermillion
       run: ./single-node/install
