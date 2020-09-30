@@ -1,12 +1,7 @@
 package vermillion.http;
 
-import com.google.common.hash.Hashing;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import io.reactivex.Completable;
-import io.reactivex.Flowable;
-import io.reactivex.Observable;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
@@ -15,1985 +10,910 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
+import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
+import io.vertx.reactivex.ext.web.FileUpload;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
-import org.apache.commons.lang3.RandomStringUtils;
-import vermillion.Utils;
-import vermillion.broker.reactivex.BrokerService;
+import io.vertx.reactivex.ext.web.client.WebClient;
+import io.vertx.reactivex.ext.web.handler.BodyHandler;
+import io.vertx.reactivex.ext.web.handler.StaticHandler;
+import io.vertx.reactivex.redis.client.Redis;
+import io.vertx.reactivex.redis.client.RedisAPI;
+import io.vertx.redis.client.RedisOptions;
+import org.apache.commons.lang3.math.NumberUtils;
+import org.apache.commons.validator.GenericValidator;
+import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.ConflictThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.*;
+import java.time.Clock;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class HttpServerVerticle extends AbstractVerticle {
-  public final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
-  // HTTP Codes
-  public final int OK = 200;
-  public final int CREATED = 201;
-  public final int ACCEPTED = 202;
-  public final int BAD_REQUEST = 400;
-  public final int FORBIDDEN = 403;
-  public final int CONFLICT = 409;
-  public final int INTERNAL_SERVER_ERROR = 500;
 
-  public String schema;
-  public String message;
+    public final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+    // HTTP Codes
+    public final int OK = 200;
+    public final int CREATED = 201;
+    public final int ACCEPTED = 202;
+    public final int BAD_REQUEST = 400;
+    public final int FORBIDDEN = 403;
+    public final int CONFLICT = 409;
+    public final int INTERNAL_SERVER_ERROR = 500;
 
-  // Service Proxies
-  public DbService dbService;
-  public BrokerService brokerService;
+    // Auth server constants
+    public final String AUTH_SERVER = System.getenv("AUTH_SERVER");
+    public final String INTROSPECT_ENDPOINT = "/auth/v1/token/introspect";
+    public final String WEBROOT = "webroot/";
+    public final String PROVIDER_PATH = "/api-server/webroot/provider/";
+    public final String AUTH_TLS_CERT_PATH = System.getenv("AUTH_TLS_CERT_PATH");
+    public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
 
-  // Connection pool to speed up publish rates
-  public Map<String, Channel> pool;
+    // Redis constants
+    public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
 
-  // Flag to indicate whether an entity is autonomous
-  public boolean autonomous;
+    /* Default port of redis. Port specified in the config file will
+    	 not affect the default port to which redis is going to bind to
+    */
+    public final String REDIS_PORT = "6379";
+    public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
 
-  @Override
-  public void start(Promise<Void> startPromise) {
-    logger.debug("In start");
+    // There are 16 DBs available. Using 1 as the default database number
+    public final String DB_NUMBER = "1";
+    public final String CONNECTION_STR =
+            "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + ":" + REDIS_PORT + "/" + DB_NUMBER;
+    public final int MAX_POOL_SIZE = 10;
+    public final int MAX_WAITING_HANDLERS = 32;
 
-    int port = 8443;
-    pool = new ConcurrentHashMap<String, Channel>();
-    dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
-    brokerService =
-        vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
+    // Certificate constants
+    public final String SSL_CERT_NAME = System.getenv("SSL_CERT_NAME");
+    public final String SSL_CERT_PASSWORD = System.getenv("SSL_CERT_PASSWORD");
 
-    Router router = Router.router(vertx);
+    // HTTPS port
+    public final int HTTPS_PORT = 443;
 
-    router.post("/entity/publish").handler(this::publish);
-    router.get("/entity/subscribe").handler(this::subscribe);
-    router.get("/catalogue").handler(this::cat);
-    router.get("/owner/entities").handler(this::entities);
-    router.post("/owner/reset-apikey").handler(this::resetApikey);
-    router.post("/owner/set-autonomous").handler(this::setAutonomous);
-    router.get("/admin/owners").handler(this::getOwners);
+    // Service Proxies
+    public DbService dbService;
+    public RedisOptions options;
 
-    router.post("/admin/register-owner").handler(this::registerOwner);
-    router.post("/admin/deregister-owner").handler(this::deRegisterOwner);
+    @Override
+    public void start(Promise<Void> startPromise) {
+        logger.debug("In start");
+        logger.debug("auth server=" + AUTH_SERVER);
 
-    router.post("/admin/register-entity").handler(this::register);
-    router.post("/owner/register-entity").handler(this::register);
+        dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
 
-    router.post("/admin/deregister-entity").handler(this::deRegister);
-    router.post("/owner/deregister-entity").handler(this::deRegister);
+        Router router = Router.router(vertx);
 
-    router.post("/owner/block").handler(this::block);
-    router.post("/entity/block").handler(this::block);
+        router.route().handler(BodyHandler.create().setHandleFileUploads(true));
 
-    router.post("/entity/unblock").handler(this::block);
-    router.post("/owner/unblock").handler(this::block);
+        router.post("/latest").handler(this::latest);
+        router.post("/search").handler(this::search);
 
-    router.post("/entity/bind").handler(this::queueBind);
-    router.post("/owner/bind").handler(this::queueBind);
+        // TODO: Don't hardcode the auth server
+        router.routeWithRegex("\\/consumer\\/auth\\.datasetu\\.org\\/[^\\/]+\\/[0-9a-f]+\\/.*")
+                .handler(StaticHandler.create()
+                        .setAllowRootFileSystemAccess(false)
+                        .setDirectoryListing(true));
+        router.routeWithRegex("\\/provider\\/public\\/.*")
+                .handler(StaticHandler.create()
+                        .setAllowRootFileSystemAccess(false)
+                        .setDirectoryListing(true));
 
-    router.post("/entity/unbind").handler(this::queueBind);
-    router.post("/owner/unbind").handler(this::queueBind);
+        router.get("/download").handler(this::download);
+        router.post("/publish").handler(this::publish);
 
-    router.post("/entity/follow").handler(this::follow);
-    router.post("/owner/follow").handler(this::follow);
+        options = new RedisOptions()
+                .setConnectionString(CONNECTION_STR)
+                .setMaxPoolSize(MAX_POOL_SIZE)
+                .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
-    router.post("/entity/unfollow").handler(this::unfollow);
-    router.post("/owner/unfollow").handler(this::unfollow);
-
-    router.post("/entity/share").handler(this::share);
-    router.post("/owner/share").handler(this::share);
-
-    router.get("/entity/follow-requests").handler(this::followRequests);
-    router.get("/owner/follow-requests").handler(this::followRequests);
-
-    router.get("/entity/follow-status").handler(this::followStatus);
-    router.get("/owner/follow-status").handler(this::followStatus);
-
-    router.post("/entity/reject-follow").handler(this::rejectFollow);
-    router.post("/owner/reject-follow").handler(this::rejectFollow);
-
-    router.get("/entity/permissions").handler(this::permissions);
-    router.get("/owner/permissions").handler(this::permissions);
-
-    vertx
-        .createHttpServer(
-            new HttpServerOptions()
-                .setSsl(true)
-                .setKeyStoreOptions(
-                    new JksOptions().setPath("my-keystore.jks").setPassword("password")))
-        .requestHandler(router)
-        .rxListen(port)
-        .subscribe(
-            s -> {
-              logger.debug("Server started");
-              startPromise.complete();
-            },
-            err -> {
-              logger.debug("Could not start server. Cause=" + err.getMessage());
-              startPromise.fail(err.getMessage());
-            });
-
-    vertx.exceptionHandler(Throwable::printStackTrace);
-
-    brokerService
-        .rxCreateQueue("DATABASE")
-        .doOnError(err -> logger.error("Could not create queue. Cause=" + err.getMessage()))
-        .subscribe();
-  }
-
-  public Channel getChannel(String id, String apikey) throws Exception {
-    String token = id + ":" + apikey;
-
-    if (!pool.containsKey(token) || !pool.get(token).isOpen()) {
-      ConnectionFactory factory = new ConnectionFactory();
-
-      factory.setUsername(id);
-      factory.setPassword(apikey);
-      factory.setVirtualHost("/");
-      factory.setHost(Utils.getBrokerUrl(id));
-      factory.setPort(5672);
-      factory.setAutomaticRecoveryEnabled(true);
-      factory.setNetworkRecoveryInterval(10000);
-
-      Connection connection = factory.newConnection();
-      Channel channel = connection.createChannel();
-
-      logger.debug("Rabbitmq channel created");
-
-      pool.put(id + ":" + apikey, channel);
+        vertx.createHttpServer(new HttpServerOptions()
+                        .setSsl(true)
+                        .setCompressionSupported(true)
+                        .setKeyStoreOptions(
+                                new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
+                .requestHandler(router)
+                .rxListen(HTTPS_PORT)
+                .subscribe(
+                        s -> {
+                            logger.debug("Server started");
+                            startPromise.complete();
+                        },
+                        err -> {
+                            logger.debug("Could not start server. Cause=" + err.getMessage());
+                            startPromise.fail(err.getMessage());
+                        });
     }
 
-    return pool.get(id + ":" + apikey);
-  }
-
-  public void registerOwner(RoutingContext context) {
-    logger.debug("In register owner");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String owner_name = request.getHeader("owner");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("owner=" + owner_name);
-
-    if ((id == null) || (apikey == null) || (owner_name == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
+    public Single<RedisAPI> getRedisClient() {
+        logger.debug("In get redis client");
+        return Redis.createClient(vertx, options).rxConnect().map(RedisAPI::api);
     }
 
-    if (!"admin".equalsIgnoreCase(id)) {
-      apiFailure(context, new UnauthorisedThrowable("Only admins can invoke this API"));
-      return;
+    public Single<String> getValue(String key) {
+
+        logger.debug("In getValue");
+
+        return getRedisClient()
+                .flatMapMaybe(redisAPI -> {
+                    logger.debug("Got redis client");
+                    return redisAPI.rxGet(key);
+                })
+                .map(value -> {
+                    logger.debug("Value=" + value.toString());
+                    return Optional.of(value);
+                })
+                .toSingle(Optional.empty())
+                .map(value -> value.isPresent() ? value.get().toString() : "absent");
     }
 
-    if (!isValidOwner(owner_name)) {
-      apiFailure(context, new UnauthorisedThrowable("Owner name is invalid"));
-      return;
+    public Completable setValue(String key, String value) {
+
+        logger.debug("In set value");
+        ArrayList<String> list = new ArrayList<>();
+
+        list.add(key);
+        list.add(value);
+
+        return getRedisClient().flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
     }
 
-    JsonObject responseJson = new JsonObject().put("id", owner_name);
+    public void latest(RoutingContext context) {
+        logger.debug("In latest API");
+        HttpServerResponse response = context.response();
 
-    checkLogin(id, apikey)
-        .andThen(Completable.defer(() -> checkEntityExistence(owner_name, false)))
-        .andThen(Completable.defer(() -> brokerService.rxCreateOwnerResources(owner_name)))
-        .andThen(Completable.defer(() -> brokerService.rxCreateOwnerBindings(owner_name)))
-        .andThen(Single.defer(() -> generateCredentials(owner_name, "{}", "true")))
-        .subscribe(
-            generatedApikey -> {
-              resp.putHeader("content-type", "application/json")
-                  .setStatusCode(CREATED)
-                  .end(responseJson.put("apikey", generatedApikey).encodePrettily());
-            },
-            err -> apiFailure(context, err));
-  }
+        JsonObject requestBody;
 
-  // TODO: Allow owner deregistration only after all entities have been removed
-
-  public void deRegisterOwner(RoutingContext context) {
-    logger.debug("In deregister_owner");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String owner_name = request.getHeader("owner");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("owner=" + owner_name);
-
-    if ((id == null) || (apikey == null) || (owner_name == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (!"admin".equalsIgnoreCase(id)) {
-      apiFailure(context, new UnauthorisedThrowable("Only admin can invoke this API"));
-      return;
-    }
-
-    if (!isValidOwner(owner_name)) {
-      apiFailure(context, new BadRequestThrowable("Owner name is invalid"));
-      return;
-    }
-
-    String acl_query =
-        "DELETE FROM acl WHERE"
-            + " from_id LIKE '"
-            + owner_name
-            + "/%'"
-            + " OR exchange LIKE '"
-            + owner_name
-            + "/%'";
-
-    String entity_query = "SELECT * FROM users WHERE" + " id LIKE '" + owner_name + "/%'";
-
-    String user_query =
-        "DELETE FROM users WHERE"
-            + " id LIKE '"
-            + owner_name
-            + "/%'"
-            + " OR id LIKE '"
-            + owner_name
-            + "'";
-
-    checkLogin(id, apikey)
-        .andThen(Completable.defer(() -> checkEntityExistence(owner_name, true)))
-        .andThen(Completable.defer(() -> brokerService.rxDeleteOwnerResources(owner_name)))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(acl_query)))
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(entity_query)))
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(row -> processRow(row)[0])
-        .collect(JsonArray::new, JsonArray::add)
-        .flatMapCompletable(
-            idList -> Completable.defer(() -> brokerService.rxDeleteEntityResources(idList)))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(user_query)))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void register(RoutingContext context) {
-    logger.debug("In register entity");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String entity = request.getHeader("entity");
-    String is_autonomous = request.getHeader("is-autonomous");
-    String full_entity_name = id + "/" + entity;
-
-    if ((!"true".equals(is_autonomous))
-        && (!"false".equals(is_autonomous))
-        && (is_autonomous != null)) {
-      apiFailure(context, new BadRequestThrowable("Invalid is-autonomous header"));
-      return;
-    }
-
-    String autonomous_flag =
-        ((is_autonomous == null) || ("false".equals(is_autonomous))) ? "f" : "t";
-
-    logger.debug(
-        "id="
-            + id
-            + "\napikey="
-            + apikey
-            + "\nentity="
-            + entity
-            + "\nis-autonomous="
-            + is_autonomous);
-
-    // TODO: Check if body is null
-    request.bodyHandler(
-        body -> {
-          schema = body.toString();
-          logger.debug("schema=" + schema);
-
-          try {
-            new JsonObject(schema);
-          } catch (Exception e) {
-            apiFailure(context, new UnauthorisedThrowable("Body must be a valid JSON"));
+        try {
+            requestBody = context.getBodyAsJson();
+        } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
             return;
-          }
+        }
 
-          if ((id == null) || (apikey == null) || (entity == null)) {
-            apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
+        logger.debug("Body=" + requestBody.encode());
+
+        if (!requestBody.containsKey("id")) {
+            apiFailure(context, new BadRequestThrowable("No id found in body"));
             return;
-          }
+        }
 
-          // TODO: Add appropriate field checks. E.g. valid owner, valid entity etc.
-          // Check if ID is owner
-          if (!isValidOwner(id)) {
-            logger.debug("owner is invalid");
-            apiFailure(context, new UnauthorisedThrowable("Invalid owner"));
-            return;
-          }
+        String resourceID = requestBody.getString("id");
 
-          if (!isStringSafe(entity)) {
-            logger.debug("invalid entity name");
-            apiFailure(context, new BadRequestThrowable("Invalid entity name"));
-            return;
-          }
+        // Initialise queries object
+        Queries queries = new Queries();
 
-          JsonObject responseJson = new JsonObject().put("id", full_entity_name);
+        JsonObject baseQuery = queries.getBaseQuery();
+        JsonArray filterQuery = queries.getFilterQuery();
+        JsonObject termQuery = queries.getTermQuery();
 
-          checkLogin(id, apikey)
-              .andThen(Completable.defer(() -> checkEntityExistence(full_entity_name, false)))
-              .andThen(
-                  Completable.defer(() -> brokerService.rxCreateEntityResources(full_entity_name)))
-              .andThen(
-                  Completable.defer(() -> brokerService.rxCreateEntityBindings(full_entity_name)))
-              .andThen(
-                  Single.defer(
-                      () -> generateCredentials(full_entity_name, schema, autonomous_flag)))
-              .subscribe(
-                  generatedApikey ->
-                      resp.putHeader("content-type", "application/json")
-                          .setStatusCode(CREATED)
-                          .end(responseJson.put("apikey", generatedApikey).encodePrettily()),
-                  err -> apiFailure(context, err));
+        termQuery.getJsonObject("term").put("id.keyword", resourceID);
+        filterQuery.add(termQuery);
+        baseQuery.getJsonObject("query").getJsonObject("bool").put("filter", filterQuery);
+
+        JsonObject constructedQuery = queries.getLatestQuery(baseQuery);
+
+        logger.debug(constructedQuery.encodePrettily());
+
+        dbService.rxSearchQuery(constructedQuery).subscribe(result -> {
+            response.putHeader("content-type", "application/json").end(result.encode());
         });
-  }
-
-  public void deRegister(RoutingContext context) {
-    logger.debug("In deregister entity");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String entity = request.getHeader("entity");
-
-    logger.debug("id=" + id + "\napikey=" + apikey + "\nentity=" + entity);
-
-    // Check if ID is owner
-    if (!isValidOwner(id)) {
-      apiFailure(context, new UnauthorisedThrowable("Invalid owner"));
-      return;
     }
 
-    if (!isOwner(id, entity)) {
-      apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
-      return;
-    }
+    public void search(RoutingContext context) {
+        // TODO: Convert all types of responses to JSON
 
-    if (!isValidEntity(entity)) {
-      apiFailure(context, new UnauthorisedThrowable("Invalid entity"));
-      return;
-    }
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
 
-    JsonArray entityArray = new JsonArray();
+        JsonObject requestBody;
 
-    String acl_query =
-        "DELETE FROM acl WHERE " + "from_id = '" + entity + "' OR exchange LIKE '" + entity + ".%'";
-
-    String follow_query =
-        "DELETE FROM follow WHERE "
-            + " requested_by = '"
-            + entity
-            + "' OR exchange LIKE '"
-            + entity
-            + ".%'";
-
-    String user_query = "DELETE FROM users WHERE " + " id = '" + entity + "'";
-
-    checkLogin(id, apikey)
-        .andThen(Completable.defer(() -> checkEntityExistence(entity, true)))
-        .andThen(
-            Completable.defer(() -> brokerService.rxDeleteEntityResources(entityArray.add(entity))))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(acl_query)))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(follow_query)))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(user_query)))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void block(RoutingContext context) {
-    logger.debug("In block API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String owner = request.getHeader("owner");
-    String entity = request.getHeader("entity");
-
-    String[] currentRoute = context.normalisedPath().split("/");
-
-    String blocked = currentRoute[2].equals("block") ? "t" : "f";
-
-    if ((id == null) || (apikey == null) || (owner == null) && (entity == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if (owner != null) {
-      if (!isStringSafe(owner)) {
-        apiFailure(context, new BadRequestThrowable("Invalid owner"));
-        return;
-      }
-
-      if (!("admin".equals(id))) {
-        apiFailure(context, new UnauthorisedThrowable("Only admin can block owners"));
-        return;
-      }
-
-      if (!isValidOwner(owner)) {
-        apiFailure(context, new BadRequestThrowable("Owner is not valid"));
-        return;
-      }
-    } else if (entity != null) {
-      // TODO Verify the boolean logic here
-      if (!(isOwner(id, entity) || "admin".equals(id))) {
-        apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
-        return;
-      }
-
-      if (!isStringSafe(entity)) {
-        apiFailure(context, new BadRequestThrowable("Invalid entity"));
-        return;
-      }
-
-      if (!isValidEntity(entity)) {
-        apiFailure(context, new UnauthorisedThrowable("Entity is not valid"));
-        return;
-      }
-    }
-
-    final String username = (owner == null) ? entity : owner;
-    final String userString = (owner == null) ? entity : owner + "/%";
-
-    String query =
-        "UPDATE users SET blocked = '"
-            + blocked
-            + "' WHERE (id = '"
-            + username
-            + "' OR id LIKE '"
-            + userString
-            + "')";
-
-    checkLogin(id, apikey)
-        .andThen(Completable.defer(() -> checkEntityExistence(username, true)))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(query)))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void queueBind(RoutingContext context) {
-    logger.debug("In queue_bind");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    // Mandatory headers
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String to = request.getHeader("to");
-    String topic = request.getHeader("topic");
-    String message_type = request.getHeader("message-type");
-
-    // Optional headers
-    String is_priority = request.getHeader("is-priority");
-    String from = request.getHeader("from");
-
-    String[] currentRoute = context.normalisedPath().split("/");
-
-    logger.debug("Path=" + context.normalisedPath());
-
-    String operation = currentRoute[2].equals("bind") ? "bind" : "unbind";
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("to=" + to);
-    logger.debug("topic=" + topic);
-    logger.debug("message-type=" + message_type);
-
-    logger.debug("is-priorty=" + is_priority);
-    logger.debug("from=" + from);
-
-    if ((id == null)
-        || (apikey == null)
-        || (to == null)
-        || (topic == null)
-        || (message_type == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (isValidOwner(id) == isValidEntity(id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid id"));
-      return;
-    }
-
-    if (isValidOwner(id)) {
-      if (from == null) {
-        apiFailure(context, new BadRequestThrowable("'from value missing in headers"));
-        return;
-      }
-
-      if (!isOwner(id, from)) {
-        apiFailure(
-            context, new UnauthorisedThrowable("You are not the owner of the 'from' entity"));
-        return;
-      }
-
-      if (!isValidEntity(from)) {
-        apiFailure(context, new BadRequestThrowable("'from is not a valid entity"));
-        return;
-      }
-    } else {
-      from = id;
-    }
-
-    if ((!"public".equals(message_type))
-        && (!"private".equals(message_type))
-        && (!"protected".equals(message_type))
-        && (!"diagnostics".equals(message_type))) {
-      apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
-      return;
-    }
-
-    if (("private".equals(message_type)) && (!isOwner(id, to))) {
-      apiFailure(context, new UnauthorisedThrowable("You are not the owner of the 'to' entity"));
-      return;
-    }
-
-    if ((!isStringSafe(from)) || (!isStringSafe(to)) || (!isStringSafe(topic))) {
-      apiFailure(context, new UnauthorisedThrowable("Invalid headers"));
-      return;
-    }
-
-    String queue = from;
-
-    if (is_priority != null) {
-      if ((!"true".equals(is_priority) && (!"false".equals(is_priority)))) {
-        apiFailure(context, new UnauthorisedThrowable("Invalid 'is-priority' header"));
-        return;
-      } else if ("true".equals(is_priority)) {
-        queue = queue + ".priority";
-      }
-    }
-
-    final String from_id = from;
-    final String exchange_name = to + "." + message_type;
-    final String queue_name = queue;
-
-    String acl_query =
-        "SELECT * FROM acl WHERE"
-            + " from_id	    ='"
-            + from_id
-            + "'"
-            + " AND exchange  ='"
-            + exchange_name
-            + "'"
-            + " AND permission='read'"
-            + " AND valid_till > now()"
-            + " AND topic	=   '"
-            + topic
-            + "'";
-
-    autonomous = false;
-
-    Completable loginCheck =
-        Completable.defer(
-            () ->
-                checkLogin(id, apikey)
-                    .andThen(
-                        Completable.defer(
-                            () ->
-                                autonomous
-                                    ? Completable.complete()
-                                    : Completable.error(
-                                        new UnauthorisedThrowable("Unauthorised")))));
-
-    if ("public".equals(message_type) || isOwner(id, to)) {
-      loginCheck
-          .andThen(
-              "bind".equals(operation)
-                  ? brokerService.rxBind(queue_name, exchange_name, topic)
-                  : brokerService.rxUnbind(queue_name, exchange_name, topic))
-          .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-    } else {
-      loginCheck
-          .andThen(dbService.rxRunSelectQuery(acl_query))
-          .flatMapCompletable(
-              result ->
-                  result.size() == 1
-                      ? Completable.complete()
-                      : Completable.error(new UnauthorisedThrowable("Unauthorised")))
-          .andThen(
-              "bind".equals(operation)
-                  ? brokerService.rxBind(queue_name, exchange_name, topic)
-                  : brokerService.rxUnbind(queue_name, exchange_name, topic))
-          .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-    }
-  }
-
-  public void follow(RoutingContext context) {
-    logger.debug("In follow API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    // Mandatory Headers
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String to = request.getHeader("to");
-    String topic = request.getHeader("topic");
-    String validity = request.getHeader("validity");
-    String permission = request.getHeader("permission");
-
-    // Optional Headers
-    String from = request.getHeader("from");
-    String message_type_header = request.getHeader("message-type");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("to=" + to);
-    logger.debug("message-type=" + message_type_header);
-    logger.debug("topic=" + topic);
-    logger.debug("validity=" + validity);
-    logger.debug("permission=" + permission);
-
-    if ((id == null)
-        || (apikey == null)
-        || (to == null)
-        || (topic == null)
-        || (validity == null)
-        || (permission == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (isValidOwner(id) == isValidEntity(id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid id"));
-      return;
-    }
-
-    if (isValidOwner(id)) {
-      if (from == null) {
-        apiFailure(context, new BadRequestThrowable("'from value missing in headers"));
-        return;
-      }
-
-      if (!isOwner(id, from)) {
-        apiFailure(
-            context, new UnauthorisedThrowable("You are not the owner of the 'from' entity"));
-        return;
-      }
-
-      if (!isValidEntity(from)) {
-        apiFailure(context, new BadRequestThrowable("'from is not a valid entity"));
-        return;
-      }
-    } else {
-      from = id;
-    }
-
-    if (message_type_header != null) {
-      if ((!"protected".equals(message_type_header))
-          && (!"diagnostics".equals(message_type_header))) {
-        apiFailure(context, new BadRequestThrowable("'message-type is invalid"));
-        return;
-      }
-
-    } else {
-      message_type_header = "protected";
-    }
-
-    if (!(("read".equals(permission))
-        || ("write".equals(permission))
-        || ("read-write".equals(permission)))) {
-      apiFailure(context, new BadRequestThrowable("Invalid permission string"));
-      return;
-    }
-
-    try {
-      int validity_integer = Integer.parseInt(validity);
-
-      if ((validity_integer < 0) || (validity_integer > 10000)) {
-        apiFailure(context, new BadRequestThrowable("Invalid validity header"));
-        return;
-      }
-    } catch (Exception e) {
-      apiFailure(context, new BadRequestThrowable("Invalid validity header"));
-      return;
-    }
-
-    if ((!isStringSafe(from))
-        || (!isStringSafe(to))
-        || (!isStringSafe(topic))
-        || (!isStringSafe(validity))
-        || (!isStringSafe(permission))) {
-      apiFailure(context, new BadRequestThrowable("Invalid headers"));
-      return;
-    }
-
-    final String from_id = from;
-    final String message_type = message_type_header;
-    final String status = (isOwner(id, to)) ? "approved" : "pending";
-
-    String validity_string = "now()	+   interval	'" + validity + " hours'";
-
-    autonomous = false;
-    JsonObject responseJson = new JsonObject();
-
-    Completable loginCheck =
-        Completable.defer(
-            () ->
-                checkLogin(id, apikey)
-                    .andThen(
-                        Completable.defer(
-                            () ->
-                                autonomous
-                                    ? Completable.complete()
-                                    : Completable.error(
-                                        new UnauthorisedThrowable("Unauthorised")))));
-
-    // TODO: If follow request exists, return follow-id without processing anything
-    loginCheck
-        .andThen(Completable.defer(() -> checkEntityExistence(to, true)))
-        .andThen(Completable.defer(() -> checkEntityExistence(from_id, true)))
-        .andThen(Observable.fromIterable(Arrays.asList(permission.split("-"))))
-        .flatMapCompletable(
-            currentPermission ->
-                insertIntoFollow(
-                        id,
-                        to + ("read".equals(currentPermission) ? "." + message_type : ".command"),
-                        topic,
-                        currentPermission,
-                        validity,
-                        from_id,
-                        status)
-                    .map(
-                        followId -> {
-                          responseJson.put("follow-id-" + currentPermission, followId);
-                          return followId;
-                        })
-                    .flatMapCompletable(
-                        followId ->
-                            "approved".equals(status)
-                                ? insertIntoAcl(
-                                    from_id,
-                                    to
-                                        + ("read".equals(currentPermission)
-                                            ? "." + message_type
-                                            : ".command"),
-                                    currentPermission,
-                                    validity_string,
-                                    followId,
-                                    topic)
-                                : Completable.complete())
-                    .andThen(
-                        ("approved".equals(status)) && ("write".equals(currentPermission))
-                            ? bindToPublishExchange(from_id, to, topic)
-                            : Completable.complete()))
-        .andThen(
-            Completable.defer(() -> publishToNotification(from_id, permission, to, autonomous)))
-        .subscribe(
-            () ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(ACCEPTED)
-                    .end(responseJson.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public Completable bindToPublishExchange(String from, String to, String topic) {
-
-    String exchange = from + ".publish";
-    String queue = to + ".command";
-    String routingKey = to + ".command." + topic;
-
-    return brokerService.rxBind(queue, exchange, routingKey);
-  }
-
-  public Completable publishToNotification(
-      String from_id, String permission, String to, boolean autonomous) {
-
-    String exchange = autonomous ? to + ".notification" : to.split("/")[0] + ".notification";
-    String topic = "Request for follow";
-    String message_string = from_id + " has requested " + permission + " access on " + to;
-    JsonObject message = new JsonObject().put("message", message_string);
-
-    return Completable.defer(
-        () -> brokerService.rxAdminPublish(exchange, topic, message.toString()));
-  }
-
-  public Single<String> insertIntoFollow(
-      String id,
-      String exchange,
-      String topic,
-      String permission,
-      String validity,
-      String from,
-      String status) {
-
-    logger.debug("In insert into follow");
-    logger.debug("id=" + id);
-    logger.debug("exchange=" + exchange);
-    logger.debug("topic=" + topic);
-    logger.debug("permission=" + permission);
-    logger.debug("validity=" + validity);
-    logger.debug("from=" + from);
-    logger.debug("status=" + status);
-
-    String follow_query =
-        "INSERT INTO follow VALUES (DEFAULT, '"
-            + id
-            + "','"
-            + exchange
-            + "',"
-            + "now(), '"
-            + permission
-            + "','"
-            + topic
-            + "','"
-            + validity
-            + "','"
-            + status
-            + "','"
-            + from
-            + "')";
-
-    String follow_id_query =
-        "SELECT * FROM follow WHERE from_id	=   '" + from + "' AND exchange =	'" + exchange + "'";
-
-    return dbService
-        .rxRunQuery(follow_query)
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_id_query)))
-        .map(row -> row.get(0))
-        .map(row -> processRow(row)[0]);
-  }
-
-  public Completable insertIntoAcl(
-      String from_id,
-      String exchange,
-      String permission,
-      String valid_till,
-      String follow_id,
-      String topic) {
-    logger.debug("In insert into acl");
-
-    String acl_query =
-        "INSERT INTO acl VALUES (	'"
-            + from_id
-            + "','"
-            + exchange
-            + "','"
-            + permission
-            + "',"
-            + valid_till
-            + ",'"
-            + follow_id
-            + "','"
-            + topic
-            + "',DEFAULT)";
-
-    return dbService.rxRunQuery(acl_query);
-  }
-
-  public void unfollow(RoutingContext context) {
-    logger.debug("In unfollow API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    // Mandatory Headers
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String to = request.getHeader("to");
-    String topic = request.getHeader("topic");
-    String permission = request.getHeader("permission");
-    String message_type_header = request.getHeader("message-type");
-
-    // Optional Headers
-    String from = request.getHeader("from");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("to=" + to);
-    logger.debug("message-type=" + message_type_header);
-    logger.debug("topic=" + topic);
-    logger.debug("permission=" + permission);
-
-    if ((id == null)
-        || (apikey == null)
-        || (to == null)
-        || (topic == null)
-        || (permission == null)) {
-      logger.debug("Inputs missing in headers");
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (isValidOwner(id) == isValidEntity(id)) {
-      logger.debug("Invalid id");
-      apiFailure(context, new BadRequestThrowable("Invalid id"));
-      return;
-    }
-
-    if (isValidOwner(id)) {
-      if (from == null) {
-        logger.debug("'from' value missing in headers");
-        apiFailure(context, new BadRequestThrowable("'from' value missing in headers"));
-        return;
-      }
-
-      if (!isOwner(id, from)) {
-
-        logger.debug("You are not the owner of the 'from' entity");
-        apiFailure(
-            context, new UnauthorisedThrowable("You are not the owner of the 'from' entity"));
-        return;
-      }
-
-      if (!isValidEntity(from)) {
-        logger.debug("'from' is not a valid entity");
-        apiFailure(context, new BadRequestThrowable("'from' is not a valid entity"));
-        return;
-      }
-    } else {
-      from = id;
-    }
-
-    if (message_type_header != null) {
-      if ((!"protected".equals(message_type_header))
-          && (!"diagnostics".equals(message_type_header))) {
-        logger.debug("'message-type' is invalid");
-        apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
-        return;
-      }
-
-    } else {
-      message_type_header = "protected";
-    }
-
-    if (!(("read".equals(permission))
-        || ("write".equals(permission))
-        || ("read-write".equals(permission)))) {
-      logger.debug("Invalid permission string");
-      apiFailure(context, new BadRequestThrowable("Invalid permission string"));
-      return;
-    }
-
-    if ((!isStringSafe(from)) || (!isStringSafe(to)) || (!isStringSafe(topic))) {
-      logger.debug("Invalid headers");
-      apiFailure(context, new BadRequestThrowable("Invalid headers"));
-      return;
-    }
-
-    final String from_id = from;
-    final String message_type = message_type_header;
-    final String exchange = to + "." + message_type;
-
-    String acl_query =
-        "SELECT * FROM acl WHERE from_id  = '"
-            + from_id
-            + "' AND exchange	=	'"
-            + to
-            + "."
-            + "%1$s"
-            + "' AND topic		=	'"
-            + topic
-            + "' AND permission = '%2$s'";
-
-    String delete_query = "DELETE FROM %1$s WHERE follow_id='%2$s'";
-
-    autonomous = false;
-
-    Completable loginCheck =
-        Completable.defer(
-            () ->
-                checkLogin(id, apikey)
-                    .andThen(
-                        Completable.defer(
-                            () ->
-                                autonomous
-                                    ? Completable.complete()
-                                    : Completable.error(
-                                        new UnauthorisedThrowable("Unauthorised")))));
-
-    Completable writeUnbind =
-        Completable.defer(
-            () ->
-                brokerService.rxUnbind(
-                    to + ".command", from_id + ".publish", to + ".command." + topic));
-
-    Completable readUnbind =
-        Completable.defer(() -> brokerService.rxUnbind(from_id, exchange, topic));
-
-    Completable priorityUnbind =
-        Completable.defer(() -> brokerService.rxUnbind(from_id + ".priority", exchange, topic));
-
-    loginCheck
-        .andThen(Observable.fromIterable(Arrays.asList(permission.split("-"))))
-        .flatMapCompletable(
-            currentPermission ->
-                dbService
-                    .rxRunSelectQuery(
-                        String.format(
-                            acl_query,
-                            ("write".equals(currentPermission) ? "command" : message_type),
-                            currentPermission))
-                    .map(row -> row.size() == 1 ? row.get(0) : "")
-                    .map(
-                        queryResult ->
-                            (queryResult.length() != 0)
-                                ? processRow(queryResult.toString())[4]
-                                : "")
-                    .flatMapCompletable(
-                        followId ->
-                            (followId.length() != 0)
-                                ? dbService
-                                    .rxRunQuery(String.format(delete_query, "acl", followId))
-                                    .concatWith(
-                                        dbService.rxRunQuery(
-                                            String.format(delete_query, "follow", followId)))
-                                : Completable.error(
-                                    new UnauthorisedThrowable("No such entry in ACL")))
-                    .andThen("write".equals(currentPermission) ? writeUnbind : readUnbind)
-                    .andThen(
-                        "read".equals(currentPermission) ? priorityUnbind : Completable.complete()))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void share(RoutingContext context) {
-    logger.debug("In share API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String follow_id = request.getHeader("follow-id");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("follow-id=" + follow_id);
-
-    if ((id == null) || (apikey == null) || (follow_id == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    String exchange_string =
-        isValidOwner(id) ? (id + "/%.%") : (isValidEntity(id)) ? id + ".%" : "";
-
-    if (!isStringSafe(follow_id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid follow-id"));
-      return;
-    }
-
-    String follow_query =
-        "SELECT * FROM follow WHERE follow_id   =	"
-            + Integer.parseInt(follow_id)
-            + " AND exchange LIKE 			'"
-            + exchange_string
-            + "' AND status   =	'pending'";
-
-    String update_follow_query =
-        "UPDATE follow SET status = 'approved' WHERE follow_id = " + follow_id;
-
-    String acl_insert =
-        "INSERT INTO acl VALUES("
-            + "'"
-            + "%1$s"
-            + "','"
-            + "%2$s"
-            + "','"
-            + "%3$s"
-            + "',"
-            + "now() + interval '"
-            + "%4$s"
-            + " hours'"
-            + ",'"
-            + follow_id
-            + "','"
-            + "%5$s"
-            + "',"
-            + "DEFAULT)";
-
-    autonomous = false;
-
-    Completable loginCheck =
-        Completable.defer(
-            () ->
-                checkLogin(id, apikey)
-                    .andThen(
-                        Completable.defer(
-                            () ->
-                                autonomous
-                                    ? Completable.complete()
-                                    : Completable.error(
-                                        new UnauthorisedThrowable("Unauthorised")))));
-
-    loginCheck
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
-        .map(result -> (result.size() == 1) ? processRow(result.get(0)) : new String[0])
-        .flatMapCompletable(
-            row ->
-                (row.length != 0)
-                    ? dbService
-                        .rxRunQuery(update_follow_query)
-                        /**
-                         * from_id = row[8], exchange = row[2], permission = row[4], topic = row[5],
-                         * validity = row[6]
-                         */
-                        .concatWith(
-                            dbService.rxRunQuery(
-                                String.format(acl_insert, row[8], row[2], row[4], row[6], row[5])))
-                        .andThen(
-                            "write".equals(row[4])
-                                ? brokerService.rxBind(
-                                    row[2], row[8] + ".publish", row[2] + "." + row[5])
-                                : Completable.complete())
-                    : Completable.error(
-                        new UnauthorisedThrowable(
-                            "Follow ID is invalid or has already been approved")))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void cat(RoutingContext context) {
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    logger.debug("In cat API");
-
-    String cat_query = "SELECT id, schema FROM users WHERE id LIKE '%/%'";
-
-    dbService
-        .rxRunSelectQuery(cat_query)
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(this::processRow)
-        // id = row[0], schema = row[1]
-        .map(row -> new JsonObject().put("id", row[0]).put("schema", new JsonObject(row[1])))
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void entities(RoutingContext context) {
-    logger.debug("In entities API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if ((id == null) || (apikey == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (!isValidOwner(id)) {
-      apiFailure(context, new BadRequestThrowable("'id' is not valid"));
-      return;
-    }
-
-    String users_query = "SELECT * FROM users WHERE id LIKE '" + id + "/%'";
-
-    checkLogin(id, apikey)
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(users_query)))
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(this::processRow)
-        // id = row[0], is-autonomous = row[5]
-        .map(row -> new JsonObject().put("id", row[0]).put("is-autonomous", row[5]))
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void resetApikey(RoutingContext context) {
-    logger.debug("In reset apikey");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String owner = request.getHeader("owner");
-    String entity = request.getHeader("entity");
-
-    if ((id == null) || (apikey == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if ((owner == null) && (entity == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (owner != null) {
-      if (!isStringSafe(owner)) {
-        apiFailure(context, new BadRequestThrowable("Invalid owner"));
-        return;
-      }
-
-      if (!isValidOwner(owner)) {
-        apiFailure(context, new UnauthorisedThrowable("Invalid owner"));
-        return;
-      }
-
-      if (!("admin".equals(id))) {
-        apiFailure(context, new UnauthorisedThrowable("Only admin can reset owners' credentials"));
-        return;
-      }
-    } else if (entity != null) {
-      if (!(isOwner(id, entity) || "admin".equals(id))) {
-        apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
-        return;
-      }
-
-      if (!isStringSafe(entity)) {
-        apiFailure(context, new BadRequestThrowable("Invalid entity"));
-        return;
-      }
-
-      if (!isValidEntity(entity)) {
-        apiFailure(context, new BadRequestThrowable("Entity is not valid"));
-        return;
-      }
-    }
-
-    final String username = (owner == null) ? entity : owner;
-
-    autonomous = false;
-
-    Completable loginCheck =
-        checkLogin(id, apikey)
-            .andThen(
-                Completable.defer(
-                    () ->
-                        autonomous
-                            ? Completable.complete()
-                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
-
-    loginCheck
-        .andThen(Completable.defer(() -> checkEntityExistence(username, true)))
-        .andThen(Single.defer(() -> updateCredentials(username)))
-        .map(updatedApikey -> new JsonObject().put("id", username).put("apikey", updatedApikey))
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void setAutonomous(RoutingContext context) {
-    logger.debug("In set autonomous");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String entity = request.getHeader("entity");
-    String autonomous = request.getHeader("is-autonomous");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("entity=" + entity);
-    logger.debug("is-autonomous=" + autonomous);
-
-    if ((id == null) || (apikey == null) || (entity == null) || (autonomous == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (!isValidOwner(id)) {
-      apiFailure(context, new BadRequestThrowable("id is not valid"));
-      return;
-    }
-
-    if (!isValidEntity(entity)) {
-      apiFailure(context, new BadRequestThrowable("entity is not valid"));
-      return;
-    }
-
-    if (!(("true".equals(autonomous)) || ("false".equals(autonomous)))) {
-      apiFailure(context, new BadRequestThrowable("Invalid is-autonomous header"));
-      return;
-    }
-
-    if (!isOwner(id, entity)) {
-      apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
-      return;
-    }
-
-    String update_query =
-        "UPDATE users SET is_autonomous	= '" + autonomous + "' WHERE id	=  '" + entity + "'";
-
-    checkLogin(id, apikey)
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(update_query)))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void getOwners(RoutingContext context) {
-    logger.debug("In owners API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if (!"admin".equals(id)) {
-      apiFailure(context, new UnauthorisedThrowable("Only admin can invoke this API"));
-      return;
-    }
-
-    String user_query = "SELECT * FROM users WHERE id NOT LIKE '%/%'";
-
-    checkLogin(id, apikey)
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(user_query)))
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(this::processRow)
-        .map(row -> row[0])
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void followRequests(RoutingContext context) {
-    logger.debug("In follow-requests API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if ((id == null) || (apikey == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (isValidOwner(id) == isValidEntity(id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid id"));
-      return;
-    }
-
-    String exchange_string =
-        isValidOwner(id) ? (id + "/%.%") : (isValidEntity(id)) ? id + ".%" : "";
-
-    autonomous = false;
-
-    Completable loginCheck =
-        checkLogin(id, apikey)
-            .andThen(
-                Completable.defer(
-                    () ->
-                        autonomous
-                            ? Completable.complete()
-                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
-
-    String follow_query =
-        "SELECT * FROM follow WHERE exchange LIKE '"
-            + exchange_string
-            + "' AND status = 'pending' ORDER BY TIME";
-
-    loginCheck
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(this::processRow)
-        .map(
-            row ->
-                new JsonObject()
-                    .put("follow-id", row[0])
-                    .put("from", row[1])
-                    .put("to", row[2])
-                    .put("time", row[3])
-                    .put("permission", row[4])
-                    .put("topic", row[5])
-                    .put("validity", row[6]))
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void followStatus(RoutingContext context) {
-    logger.debug("In follow-status API");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if ((id == null) || (apikey == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (isValidOwner(id) == isValidEntity(id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid id"));
-      return;
-    }
-
-    String from_string = isValidOwner(id) ? (id + "/%") : (isValidEntity(id)) ? id : "";
-
-    Completable loginCheck =
-        checkLogin(id, apikey)
-            .andThen(
-                Completable.defer(
-                    () ->
-                        autonomous
-                            ? Completable.complete()
-                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
-
-    String follow_query =
-        "SELECT * FROM follow WHERE from_id LIKE '" + from_string + "' ORDER BY TIME";
-
-    loginCheck
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(this::processRow)
-        .map(
-            row ->
-                new JsonObject()
-                    .put("follow-id", row[0])
-                    .put("from", row[1])
-                    .put("to", row[2])
-                    .put("time", row[3])
-                    .put("permission", row[4])
-                    .put("topic", row[5])
-                    .put("validity", row[6])
-                    .put("status", row[7]))
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void rejectFollow(RoutingContext context) {
-    logger.debug("In reject follow");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String follow_id = request.getHeader("follow-id");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("follow-id=" + follow_id);
-
-    if ((id == null) || (apikey == null) || (follow_id == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (!isStringSafe(follow_id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid follow-id"));
-      return;
-    }
-
-    String exchange_string =
-        isValidOwner(id) ? (id + "/%.%") : (isValidEntity(id)) ? id + ".%" : "";
-
-    String follow_query =
-        "SELECT * FROM follow WHERE follow_id = '"
-            + follow_id
-            + "' AND exchange LIKE '"
-            + exchange_string
-            + "' AND status = 'pending'";
-
-    String update_query =
-        "UPDATE follow SET status	=   'rejected'" + "WHERE follow_id		=   '" + follow_id + "'";
-
-    Completable loginCheck =
-        checkLogin(id, apikey)
-            .andThen(
-                Completable.defer(
-                    () ->
-                        autonomous
-                            ? Completable.complete()
-                            : Completable.error(new UnauthorisedThrowable("Unauthorised"))));
-
-    loginCheck
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(follow_query)))
-        .flatMapCompletable(
-            row ->
-                (row.size() == 1)
-                    ? Completable.complete()
-                    : Completable.error(new BadRequestThrowable("Follow-id is invalid")))
-        .andThen(Completable.defer(() -> dbService.rxRunQuery(update_query)))
-        .subscribe(() -> ok(resp), err -> apiFailure(context, err));
-  }
-
-  public void permissions(RoutingContext context) {
-    logger.debug("In permissions");
-
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String entity = request.getHeader("entity");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-
-    if ((id == null) || (apikey == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    if (isValidOwner(id) == isValidEntity(id)) {
-      apiFailure(context, new BadRequestThrowable("Invalid id"));
-      return;
-    }
-
-    if (isValidOwner(id)) {
-      if (entity == null) {
-        apiFailure(context, new BadRequestThrowable("Entity value not specified in headers"));
-        return;
-      }
-
-      if (!isOwner(id, entity)) {
-        apiFailure(context, new UnauthorisedThrowable("You are not the owner of the entity"));
-        return;
-      }
-    }
-
-    String from_id = (isValidOwner(id)) ? entity : (isValidEntity(id) ? id : "");
-
-    String acl_query =
-        "SELECT * FROM acl WHERE from_id	=   '" + from_id + "' AND valid_till > now()";
-
-    checkLogin(id, apikey)
-        .andThen(Single.defer(() -> dbService.rxRunSelectQuery(acl_query)))
-        .flatMapPublisher(Flowable::fromIterable)
-        .map(this::processRow)
-        .map(row -> new JsonObject().put("entity", row[1]).put("permission", row[2]))
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
-
-  public void publish(RoutingContext context) {
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
-    String to = request.getHeader("to");
-    String subject = request.getHeader("subject");
-    String message_type = request.getHeader("message-type");
-
-    logger.debug("id=" + id);
-    logger.debug("apikey=" + apikey);
-    logger.debug("to=" + to);
-    logger.debug("subject=" + subject);
-    logger.debug("message-type=" + message_type);
-
-    if ((id == null)
-        || (apikey == null)
-        || (to == null)
-        || (subject == null)
-        || (message_type == null)) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
-    }
-
-    // TODO: Add proper validation
-    request.bodyHandler(
-        body -> {
-          message = body.toString();
-
-          logger.debug("body=" + message);
-
-          String temp_exchange = "";
-          String temp_topic = "";
-
-          if (id.equals(to)) {
-            if ((!"public".equals(message_type))
-                && (!"private".equals(message_type))
-                && (!"protected".equals(message_type))
-                && (!"diagnostics".equals(message_type))) {
-              apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
-              return;
-            }
-
-            temp_exchange = id + "." + message_type;
-            temp_topic = subject;
-          } else {
-            if (!"command".equals(message_type)) {
-              apiFailure(context, new BadRequestThrowable("'message-type can only be command"));
-              return;
-            }
-
-            temp_topic = to + "." + message_type + "." + subject;
-            temp_exchange = id + ".publish";
-          }
-
-          if (!isValidEntity(to)) {
-            apiFailure(context, new BadRequestThrowable("'to' is not a valid entity"));
+        try {
+            requestBody = context.getBodyAsJson();
+        } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
             return;
-          }
+        }
 
-          final String exchange = temp_exchange;
-          final String topic = temp_topic;
+        logger.debug("Body=" + requestBody.encode());
 
-          logger.debug("Exchange=" + exchange);
-          logger.debug("Topic=" + topic);
+        if (!requestBody.containsKey("id")) {
+            apiFailure(context, new BadRequestThrowable("No id found in body"));
+            return;
+        }
 
-          if (!pool.containsKey(id + ":" + apikey)) {
-            logger.debug("Pool does not contain key");
+        if (!requestBody.containsKey("geo_distance")
+                && !requestBody.containsKey("time")
+                && !requestBody.containsKey("attribute")) {
+            apiFailure(context, new BadRequestThrowable("Invalid request"));
+            return;
+        }
 
-            checkLogin(id, apikey)
-                .doOnComplete(
-                    () ->
-                        getChannel(id, apikey)
-                            .basicPublish(exchange, topic, null, message.getBytes()))
-                .subscribe(() -> accepted(resp), err -> apiFailure(context, err));
-          } else {
+        Object resourceIdObj = requestBody.getValue("id");
+
+        if (!(resourceIdObj instanceof String)) {
+            apiFailure(context, new BadRequestThrowable("Resource id is not a valid string"));
+            return;
+        }
+        String resourceID = requestBody.getString("id");
+
+        Queries queries = new Queries();
+
+        JsonObject geoQuery = queries.getGeoQuery();
+        JsonObject termQuery = queries.getTermQuery();
+        JsonArray filterQuery = queries.getFilterQuery();
+        JsonObject baseQuery = queries.getBaseQuery();
+
+        termQuery.getJsonObject("term").put("id.keyword", resourceID);
+
+        filterQuery.add(termQuery);
+
+        // Geo Query
+        if (requestBody.containsKey("geo_distance")) {
+            Object geoDistanceObj = requestBody.getValue("geo_distance");
+
+            if (!(geoDistanceObj instanceof JsonObject)) {
+                apiFailure(context, new BadRequestThrowable("Geo distance is not a valid Json Object"));
+                return;
+            }
+
+            JsonObject geoDistance = requestBody.getJsonObject("geo_distance");
+
+            logger.debug("geo distance=" + geoDistance.encodePrettily());
+
+            if (!geoDistance.containsKey("coordinates") || !geoDistance.containsKey("distance")) {
+                apiFailure(
+                        context, new BadRequestThrowable("Geo distance does not contain coordinates and/or distance"));
+                return;
+            }
+
+            Object distanceObj = geoDistance.getValue("distance");
+
+            if (!(distanceObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("Distance is not a string"));
+                return;
+            }
+            String distance = geoDistance.getString("distance");
+
+            if (!distance.endsWith("m") && !distance.endsWith("M")) {
+                apiFailure(
+                        context,
+                        new BadRequestThrowable(
+                                "Only metres are supported. Use the raw query interface for other units"));
+                return;
+            }
+
+            String distanceQuantity = distance.substring(0, distance.length() - 1);
+
+            logger.debug("Is a valid number ?" + NumberUtils.isCreatable(distanceQuantity));
+
+            // If the number preceding m, km, cm etc is a valid number
+            if (!NumberUtils.isCreatable(distanceQuantity)) {
+                apiFailure(context, new BadRequestThrowable("Distance is not valid."));
+                return;
+            }
+
+            Object coordinatesObj = geoDistance.getValue("coordinates");
+
+            if (!(coordinatesObj instanceof JsonArray)) {
+                apiFailure(context, new BadRequestThrowable("Coordinates is not a valid JsonArray"));
+                return;
+            }
+
+            JsonArray coordinates = geoDistance.getJsonArray("coordinates");
+            logger.debug("coordinates=" + coordinates.encodePrettily());
+
+            logger.debug("coordinates size = " + coordinates.size());
+
+            if (coordinates.size() != 2) {
+                apiFailure(context, new BadRequestThrowable("Invalid coordinates"));
+                return;
+            }
+
+            logger.debug("Coordinates lat check = "
+                    + NumberUtils.isCreatable(coordinates.getValue(0).toString()));
+            logger.debug("Coordinates lon check = "
+                    + NumberUtils.isCreatable(coordinates.getValue(0).toString()));
+
+            if (!NumberUtils.isCreatable(coordinates.getValue(0).toString())
+                    || !NumberUtils.isCreatable(coordinates.getValue(1).toString())) {
+                apiFailure(context, new BadRequestThrowable("Invalid coordinates"));
+                return;
+            }
+
+            geoQuery.getJsonObject("geo_distance").put("distance", distance).put("coordinates", coordinates);
+
+            filterQuery = queries.getFilterQuery().add(geoQuery);
+        }
+
+        // Timeseries queries
+        if (requestBody.containsKey("time")) {
+
+            Object timeObj = requestBody.getValue("time");
+
+            if (!(timeObj instanceof JsonObject)) {
+                apiFailure(context, new BadRequestThrowable("Time is not a valid Json Object"));
+                return;
+            }
+
+            JsonObject time = requestBody.getJsonObject("time");
+
+            if (!time.containsKey("start") && !time.containsKey("end")) {
+                apiFailure(context, new BadRequestThrowable("Start and end fields missing"));
+                return;
+            }
+
+            Object startObj = time.getValue("start");
+            Object endObj = time.getValue("end");
+
+            if (!(startObj instanceof String) && !(endObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("Start and end objects are not strings"));
+                return;
+            }
+
+            String start = time.getString("start");
+            String end = time.getString("end");
+            Locale locale = new Locale("English", "UK");
+
+            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+                apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
+                return;
+            }
+
+            JsonObject timeQuery = queries.getTimeQuery();
+            timeQuery
+                    .getJsonObject("range")
+                    .getJsonObject("timestamp")
+                    .put("gte", start)
+                    .put("lte", end);
+
+            filterQuery.add(timeQuery);
+        }
+
+        // Attribute query
+        if (requestBody.containsKey("attribute")) {
+
+            Object attributeObj = requestBody.getValue("attribute");
+
+            if (!(attributeObj instanceof JsonObject)) {
+                apiFailure(context, new BadRequestThrowable("Attribute is not a valid Json Object"));
+                return;
+            }
+            JsonObject attribute = requestBody.getJsonObject("attribute");
+            JsonObject attributeQuery = new JsonObject();
+
+            if (!attribute.containsKey("term")) {
+                apiFailure(context, new BadRequestThrowable("Attribute name is missing"));
+                return;
+            }
+
+            Object attributeNameObj = attribute.getValue("term");
+
+            if (!(attributeNameObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("Term is not a string"));
+                return;
+            }
+
+            String attributeName = attribute.getString("term");
+
+            if (!(attribute.containsKey("min") && attribute.containsKey("max"))
+                    == !(attribute.containsKey("term") && attribute.containsKey("value"))) {
+
+                apiFailure(context, new BadRequestThrowable("Invalid attribute query"));
+                return;
+            }
+
+            // TODO: Add a case where only min and max are provided. Not both
+            // Case 1: When the attribute query is a number
+            if (attribute.containsKey("min") && attribute.containsKey("max")) {
+
+                Object minObj = attribute.getValue("min");
+                Object maxObj = attribute.getValue("max");
+
+                if (minObj instanceof String || maxObj instanceof String) {
+                    apiFailure(context, new BadRequestThrowable("Min and max values should be numbers"));
+                    return;
+                }
+
+                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
+                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
+                    return;
+                }
+
+                Double min = attribute.getDouble("min");
+                Double max = attribute.getDouble("max");
+
+                attributeQuery = queries.getRangeQuery();
+
+                attributeQuery
+                        .getJsonObject("range")
+                        .put(
+                                "data." + attributeName,
+                                new JsonObject().put("gte", min).put("lte", max));
+                filterQuery.add(attributeQuery);
+
+            } else {
+                Object valueObj = attribute.getValue("value");
+                if (!(valueObj instanceof String)) {
+                    apiFailure(context, new BadRequestThrowable("Value is not a valid string"));
+                    return;
+                }
+
+                String value = attribute.getString("value");
+                attributeQuery = new Queries().getTermQuery();
+                attributeQuery.getJsonObject("term").put("data." + attributeName + ".keyword", value);
+                filterQuery.add(attributeQuery);
+            }
+        }
+
+        baseQuery
+                .put("size", 10000)
+                .getJsonObject("query")
+                .getJsonObject("bool")
+                .put("filter", filterQuery);
+
+        logger.debug(baseQuery.encodePrettily());
+
+        dbService.rxSearchQuery(baseQuery).subscribe(result -> response.putHeader("content-type", "application/json")
+                .end(result.encode()));
+    }
+
+    // TODO: If Id is provided, reroute to the specific file
+    public void download(RoutingContext context) {
+
+        HttpServerRequest request = context.request();
+
+        // If token is valid for resources apart from secure files then specify list of ids in the
+        // request
+        String token = request.getParam("token");
+        String idParam = request.getParam("id");
+
+        logger.info("token=" + token);
+
+        if (token == null) {
+            apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            return;
+        }
+
+        JsonArray requestedIds = new JsonArray();
+        String basePath = PROVIDER_PATH + "secure/";
+
+        if (idParam != null) {
+            Arrays.asList(idParam.split(",")).forEach(requestedIds::add);
+        }
+
+        for (int i = 0; i < requestedIds.size(); i++) {
+            if (requestedIds.getString(i).endsWith(".public")) {
+                apiFailure(
+                        context,
+                        new BadRequestThrowable(
+                                "This API is for secure resources only. Use /provider/public endpoint to explore public data"));
+                return;
+            }
+        }
+
+        logger.debug("Requested IDs Json =" + requestedIds.encode());
+
+        // Create consumer directory path if it does not exist
+
+        new File(WEBROOT + "consumer/" + token).mkdirs();
+
+        logger.debug("Created consumer subfolders");
+
+        // TODO: Avoid duplication here
+        if (idParam == null) {
+            checkAuthorisation(token)
+                    .flatMapCompletable(authorisedIds -> {
+                        logger.debug("Authorised IDs = " + authorisedIds.encode());
+                        for (int i = 0; i < authorisedIds.size(); i++) {
+                            logger.debug("File=" + basePath + authorisedIds.getString(i));
+                            if (Files.notExists(Paths.get(basePath + authorisedIds.getString(i)))) {
+                                return Completable.error(
+                                        new UnauthorisedThrowable("Requested resource ID(s) is not present"));
+                            }
+                        }
+
+                        for (int i = 0; i < authorisedIds.size(); i++) {
+                            String resourceId = authorisedIds.getString(i);
+                            String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
+
+                            Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
+                            Path providerResourcePath = Paths.get(basePath + resourceId);
+
+                            // TODO: This could take a very long time for multiple large files
+                            try {
+                                Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
+                            } catch (FileAlreadyExistsException ignored) {
+
+                            } catch (Exception e) {
+                                return Completable.error(new InternalErrorThrowable("Errored while creating symlinks"));
+                            }
+                        }
+                        return Completable.complete();
+                    })
+                    .subscribe(() -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+        } else {
+            checkAuthorisation(token, requestedIds)
+                    .andThen(Completable.fromCallable(() -> {
+                        logger.debug("Requested IDs = " + requestedIds.encode());
+                        for (int i = 0; i < requestedIds.size(); i++) {
+                            logger.debug("File=" + basePath + requestedIds.getString(i));
+                            if (Files.notExists(Paths.get(basePath + requestedIds.getString(i)))) {
+                                return Completable.error(
+                                        new UnauthorisedThrowable("Requested resource ID(s) is not present"));
+                            }
+                        }
+
+                        for (int i = 0; i < requestedIds.size(); i++) {
+                            String resourceId = requestedIds.getString(i);
+                            String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
+
+                            Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
+                            Path providerResourcePath = Paths.get(basePath + resourceId);
+
+                            // TODO: This could take a very long time for multiple large files
+                            try {
+                                Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
+                            } catch (FileAlreadyExistsException ignored) {
+
+                            } catch (Exception e) {
+                                return Completable.error(new InternalErrorThrowable("Errored while creating symlinks"));
+                            }
+                        }
+                        return Completable.complete();
+                    }))
+                    .subscribe(() -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+        }
+    }
+
+    public void publish(RoutingContext context) {
+
+        logger.debug("In publish API");
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+
+        FileUpload file = null, metadata = null;
+        JsonObject metaJson = null;
+
+        String fileName = null, resourceId, token;
+        JsonObject requestBody = null;
+
+        // TODO: Check for invalid IDs
+        resourceId = request.getParam("id");
+        token = request.getParam("token");
+
+        if (resourceId == null) {
+            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            return;
+        }
+        if (token == null) {
+            apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            return;
+        }
+
+        String[] splitId = resourceId.split("/");
+        String category = splitId[splitId.length - 2];
+
+        JsonArray requestedIdList = new JsonArray().add(resourceId);
+
+        HashMap<String, FileUpload> fileUploads = new HashMap<>();
+
+        logger.debug("File uploads = " + context.fileUploads().size());
+        logger.debug("Is empty = " + context.fileUploads().isEmpty());
+
+        if (!context.fileUploads().isEmpty()) {
+            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
+            logger.debug(fileUploads.toString());
+        }
+
+        if (fileUploads.size() > 0) {
+            if (fileUploads.size() > 2 || !fileUploads.containsKey("file")) {
+                apiFailure(context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
+
+                fileUploads.forEach((k, v) -> {
+                    try {
+                        Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+
+                return;
+            } else {
+                file = fileUploads.get("file");
+
+                if (fileUploads.containsKey("metadata")) {
+                    metadata = fileUploads.get("metadata");
+
+                    // TODO: Rxify this
+                    // TODO: File size could crash server. Need to handle this
+                    Buffer metaBuffer = vertx.fileSystem().readFileBlocking(metadata.uploadedFileName());
+
+                    try {
+                        metaJson = metaBuffer.toJsonObject();
+                    } catch (Exception e) {
+                        apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
+                        return;
+                    }
+                    logger.debug("Metadata = " + metaJson.encode());
+                } else {
+                    fileUploads.forEach((k, v) -> {
+                        if (!"file".equalsIgnoreCase(k)) {
+                            try {
+                                Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        if (file != null) {
+            fileName = file.uploadedFileName();
+
+            String finalFileName = fileName;
+
+            // If ID = domain/sha/rs.com/category/id, then create dir structure only until category
+            // if it does not already exist
+            String accessFolder = PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
+
+            String providerDirStructure = accessFolder + resourceId.substring(0, resourceId.lastIndexOf("/"));
+            logger.debug("Provider dir structure=" + providerDirStructure);
+
+            String providerFilePath = accessFolder + resourceId;
+            logger.debug("Provider file path=" + providerFilePath);
+
+            logger.debug("Source=" + finalFileName);
+            logger.debug("Destination=" + providerFilePath);
+
+            String fileLink = null;
+
+            if (resourceId.endsWith(".public")) {
+                fileLink = providerFilePath;
+            } else {
+                fileLink = "/download";
+            }
+
+            JsonObject dbJson = new JsonObject()
+                    .put("data", new JsonObject().put("link", fileLink))
+                    .put("timestamp", Clock.systemUTC().instant().toString())
+                    .put("id", resourceId)
+                    .put("category", category);
+
+            if (metaJson != null) {
+                logger.debug("Metadata is not null");
+                // TODO: Cap size of metadata
+                dbJson.getJsonObject("data").put("metadata", metaJson);
+                try {
+                    logger.debug("Metadata path = " + metadata.uploadedFileName());
+                    Files.deleteIfExists(Paths.get(metadata.uploadedFileName()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            checkAuthorisation(token, requestedIdList)
+                    .andThen(Completable.defer(() -> {
+                        new File(providerDirStructure).mkdirs();
+                        try {
+                            Files.move(
+                                    Paths.get(finalFileName),
+                                    Paths.get(providerFilePath),
+                                    StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException e) {
+                            return Completable.error(new InternalErrorThrowable("Errored while moving files"));
+                        }
+                        return Completable.complete();
+                    }))
+                    .andThen(dbService.rxInsertQuery(dbJson))
+                    .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
+            return;
+        } else {
             try {
-              getChannel(id, apikey).basicPublish(exchange, topic, null, message.getBytes());
-              accepted(resp);
+                requestBody = context.getBodyAsJson();
             } catch (Exception e) {
-              apiFailure(context, new InternalErrorThrowable("Could not publish to broker"));
+                apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+                return;
             }
-          }
-        });
-  }
 
-  public void subscribe(RoutingContext context) {
+            if (requestBody == null) {
+                apiFailure(context, new BadRequestThrowable("Body is null"));
+                return;
+            }
 
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
+            /* Data should be of the form
+               {"data": object, "timestamp": timestamp, "coordinates": [lon, lat],
+               "id" (populated by publish API): resource-id,
+               "category"(populated by publish API): category}
+            */
 
-    // Mandatory headers
-    String id = request.getHeader("id");
-    String apikey = request.getHeader("apikey");
+            Set<String> permittedFieldSet = new TreeSet<>();
+            permittedFieldSet.add("data");
+            permittedFieldSet.add("timestamp");
+            permittedFieldSet.add("coordinates");
 
-    // Optional headers
-    String message_type_header = request.getHeader("message-type");
-    String num_messages = request.getHeader("num-messages");
+            if (!requestBody.containsKey("data")) {
+                apiFailure(context, new BadRequestThrowable("No data field in body"));
+                return;
+            }
+            if (!(requestBody.getValue("data") instanceof JsonObject)) {
+                apiFailure(context, new BadRequestThrowable("Data field is not a JSON object"));
+                return;
+            }
+            if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
+                apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
+                return;
+            }
 
-    if (id == null || apikey == null) {
-      apiFailure(context, new BadRequestThrowable("Inputs missing in headers"));
-      return;
+            if (!requestBody.containsKey("timestamp")) {
+                requestBody.put("timestamp", Clock.systemUTC().instant().toString());
+            }
+
+            requestBody.put("id", resourceId);
+            requestBody.put("category", category);
+            requestBody.put("mime-type", "application/json");
+        }
+
+        checkAuthorisation(token, new JsonArray().add(resourceId))
+                .andThen(dbService.rxInsertQuery(requestBody))
+                .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
+
+        logger.debug("Filename = " + fileName);
     }
 
-    if (message_type_header != null) {
-      if ((!"priority".equals(message_type_header))
-          && (!"command".equals(message_type_header))
-          && (!"notification".equals(message_type_header))
-          && (!"private".equals(message_type_header))) {
-        apiFailure(context, new BadRequestThrowable("'message-type' is invalid"));
-        return;
-      }
+    // TODO: Handle server token
+    // Method that makes the HTTPS request to the auth server
+    public Completable introspect(String token) {
+        logger.debug("In introspect");
+        JsonObject body = new JsonObject();
+        body.put("token", token);
 
-      message_type_header = "." + message_type_header;
+        WebClientOptions options = new WebClientOptions()
+                .setSsl(true)
+                .setKeyStoreOptions(new JksOptions().setPath(AUTH_TLS_CERT_PATH).setPassword(AUTH_TLS_CERT_PASSWORD));
 
-    } else {
-      message_type_header = "";
+        WebClient client = WebClient.create(vertx, options);
+
+        return client.post(443, AUTH_SERVER, INTROSPECT_ENDPOINT)
+                .ssl(true)
+                .putHeader("content-type", "application/json")
+                .rxSendJsonObject(body)
+                .flatMapMaybe(response -> {
+                    if (response.statusCode() == 200) {
+                        return Maybe.just(response.bodyAsString());
+                    } else {
+                        logger.debug("Auth response=" + response.bodyAsString());
+                        return Maybe.empty();
+                    }
+                })
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapCompletable(data -> (data.isPresent())
+                        ? setValue(token, data.get())
+                        : Completable.error(new UnauthorisedThrowable("Unauthorised")));
     }
 
-    if (num_messages != null) {
-      int messages = 0;
+    // Method that uses the redis cache for authorising requests.
+    // Uses introspect if needed
+    public Completable checkAuthorisation(String token, JsonArray requestedIds) {
 
-      try {
-        messages = Integer.parseInt(num_messages);
-      } catch (Exception e) {
-        apiFailure(context, new BadRequestThrowable("Invalid num-messages header"));
-        return;
-      }
+        Set<String> requestedSet = IntStream.range(0, requestedIds.size())
+                .mapToObj(requestedIds::getString)
+                .collect(Collectors.toCollection(TreeSet::new));
 
-      if (messages < 0) {
-        apiFailure(context, new BadRequestThrowable("Invalid num-messages header"));
-        return;
-      }
-
-      if (messages > 1000) {
-        num_messages = "1000";
-      }
-    } else {
-      num_messages = "10";
+        return getValue(token)
+                .flatMapCompletable(
+                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
+                // TODO: Avoid reading from cache again
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getJsonArray("request")))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapMaybe(resultArray -> resultArray
+                        .map(authorisedIds ->
+                                // TODO: In this case check for methods,
+                                // body, API etc
+                                Maybe.just(IntStream.range(0, authorisedIds.size())
+                                        .mapToObj(i ->
+                                                authorisedIds.getJsonObject(i).getString("id"))
+                                        .collect(Collectors.toCollection(TreeSet::new))))
+                        .orElseGet(Maybe::empty))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapCompletable(treeSet -> treeSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
+                                ? Completable.complete()
+                                : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                        .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
-    final String message_type = message_type_header;
-    final int message_count = Integer.parseInt(num_messages);
+    public Single<JsonArray> checkAuthorisation(String token) {
 
-    checkLogin(id, apikey)
-        .andThen(
-            Single.defer(() -> brokerService.rxSubscribe(id, apikey, message_type, message_count)))
-        .subscribe(
-            response ->
-                resp.putHeader("content-type", "application/json")
-                    .setStatusCode(OK)
-                    .end(response.encodePrettily()),
-            err -> apiFailure(context, err));
-  }
+        logger.debug("In check authorisation");
 
-  public Completable checkEntityExistence(String registration_entity_id, boolean shouldExist) {
-    logger.debug("in entity does not exist");
-
-    String query = "SELECT * FROM users WHERE id = '" + registration_entity_id + "'";
-
-    return dbService
-        .rxRunSelectQuery(query)
-        .map(row -> row.size() == 1)
-        .map(size -> shouldExist == size)
-        .flatMapCompletable(
-            exists -> {
-              if (exists) return Completable.complete();
-              else if ((shouldExist) && (!exists))
-                return Completable.error(new UnauthorisedThrowable("No such owner/entity"));
-              else return Completable.error(new ConflictThrowable("Owner/Entity already present"));
-            });
-  }
-
-  public boolean isOwner(String owner, String entity) {
-    logger.debug("In is_owner");
-
-    logger.debug("Owner=" + owner);
-    logger.debug("Entity=" + entity);
-
-    return (isValidOwner(owner)) && (entity.startsWith(owner)) && (entity.contains("/"));
-  }
-
-  public Single<String> generateCredentials(String id, String schema, String autonomous) {
-    logger.debug("In generate credentials");
-
-    String apikey = genRandString(32);
-    String salt = genRandString(32);
-    String blocked = "f";
-
-    String string_to_hash = apikey + salt + id;
-    String hash = Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
-
-    logger.debug("Id=" + id);
-    logger.debug("Generated apikey=" + apikey);
-    logger.debug("Salt=" + salt);
-    logger.debug("String to hash=" + string_to_hash);
-    logger.debug("Hash=" + hash);
-
-    String query =
-        "INSERT INTO users VALUES('"
-            + id
-            + "','"
-            + hash
-            + "','"
-            + schema
-            + "','"
-            + salt
-            + "','"
-            + blocked
-            + "','"
-            + autonomous
-            + "')";
-
-    return dbService.rxRunQuery(query).andThen(Single.just(apikey));
-  }
-
-  public Single<String> updateCredentials(String id) {
-    logger.debug("In update credentials");
-
-    String apikey = genRandString(32);
-    String salt = genRandString(32);
-    String string_to_hash = apikey + salt + id;
-    String hash = Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
-
-    logger.debug("Id=" + id);
-    logger.debug("Generated apikey=" + apikey);
-    logger.debug("Salt=" + salt);
-    logger.debug("String to hash=" + string_to_hash);
-    logger.debug("Hash=" + hash);
-
-    String update_query =
-        "UPDATE users SET password_hash =	'"
-            + hash
-            + "', salt    =	'"
-            + salt
-            + "' WHERE id =	'"
-            + id
-            + "'";
-
-    return dbService.rxRunQuery(update_query).andThen(Single.just(apikey));
-  }
-
-  public String genRandString(int len) {
-    logger.debug("In genRandString");
-
-    // Characters for generating apikeys
-    String PASSWORD_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-";
-    String randStr =
-        RandomStringUtils.random(
-            len, 0, PASSWORD_CHARS.length(), true, true, PASSWORD_CHARS.toCharArray());
-
-    logger.debug("Generated random string = " + randStr);
-
-    return randStr;
-  }
-
-  public Completable checkLogin(String id, String apikey) {
-    logger.debug("In check_login");
-
-    logger.debug("ID=" + id);
-    logger.debug("Apikey=" + apikey);
-
-    if ("".equals(id) || "".equals(apikey)) {
-      return Completable.error(new BadRequestThrowable("ID or Apikey is missing"));
+        return getValue(token)
+                .flatMapCompletable(
+                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
+                // TODO: Avoid reading from cache again
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getJsonArray("request")))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapMaybe(resultArray -> resultArray
+                        .map(authorisedIds ->
+                                // TODO: In this case check for methods,
+                                // body, API etc
+                                Maybe.just(new JsonArray(IntStream.range(0, authorisedIds.size())
+                                        .mapToObj(i ->
+                                                authorisedIds.getJsonObject(i).getString("id"))
+                                        .collect(Collectors.toList()))))
+                        .orElseGet(Maybe::empty))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMap(result -> result.map(Single::just)
+                        .orElseGet(() -> Single.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
-    if (isValidOwner(id) == isValidEntity(id)) {
-      return Completable.error(new BadRequestThrowable("User is neither an owner nor an entity"));
+    public boolean isStringSafe(String resource) {
+        logger.debug("In is_string_safe");
+
+        logger.debug("resource=" + resource);
+
+        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
+
+        logger.debug("Original resource name =" + resource);
+        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
+        return safe;
     }
 
-    String query = "SELECT * FROM users WHERE id	=	'" + id + "'" + " AND blocked = 'f'";
-
-    return dbService
-        .rxRunSelectQuery(query)
-        .map(row -> row.get(0))
-        .onErrorReturnItem("")
-        .map(
-            row -> {
-              if (row.length() != 0) return Arrays.asList(processRow(row));
-              else return Collections.singletonList("");
-            })
-        .map(
-            row -> {
-              if (row.size() > 1) {
-                logger.debug("Row=" + row.toString());
-                String salt = row.get(3);
-                logger.debug("Salt=" + salt);
-                String string_to_hash = apikey + salt + id;
-                String expected_hash = row.get(1);
-                logger.debug("Expected hash=" + expected_hash);
-                String actual_hash =
-                    Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
-                logger.debug("Actual hash=" + actual_hash);
-                autonomous = "true".equals(row.get(5));
-                logger.debug("Autonomous=" + autonomous);
-                return expected_hash.equals(actual_hash);
-              } else return false;
-            })
-        .flatMapCompletable(
-            login ->
-                login
-                    ? Completable.complete()
-                    : Completable.error(new UnauthorisedThrowable("Invalid id or apikey")));
-  }
-
-  public boolean isStringSafe(String resource) {
-    logger.debug("In is_string_safe");
-
-    logger.debug("resource=" + resource);
-
-    boolean safe =
-        (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", "")).length()) == 0;
-
-    logger.debug("Original resource name =" + resource);
-    logger.debug("Replaced resource name =" + resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", ""));
-    return safe;
-  }
-
-  public boolean isValidOwner(String owner_name) {
-    logger.debug("In is_valid_owner");
-
-    // TODO simplify this
-    if ((!Character.isDigit(owner_name.charAt(0)))
-        && ((owner_name.length() - (owner_name.replaceAll("[^a-z0-9-_.]+", "")).length()) == 0)) {
-      logger.debug("Original owner name = " + owner_name);
-      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
-      return true;
-    } else {
-      logger.debug("Original owner name = " + owner_name);
-      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
-      return false;
+    public void ok(HttpServerResponse resp) {
+        if (!resp.closed()) {
+            resp.setStatusCode(OK).end();
+        }
     }
-  }
 
-  public boolean isValidEntity(String resource) {
-    // TODO: Add a length check
-    logger.debug("In is_valid_entity");
-
-    String[] entries = resource.split("/");
-
-    logger.debug("Entries = " + Arrays.asList(entries));
-
-    if (entries.length != 2) {
-      return false;
-    } else return (isValidOwner(entries[0])) && (isStringSafe(entries[1]));
-  }
-
-  public String[] processRow(String row) {
-    logger.debug("Row=" + row);
-    return row.substring(row.indexOf("[") + 1, row.indexOf("]")).trim().split(",\\s");
-  }
-
-  public void ok(HttpServerResponse resp) {
-    if (!resp.closed()) {
-      resp.setStatusCode(OK).end();
+    public void accepted(HttpServerResponse resp) {
+        if (!resp.closed()) {
+            resp.setStatusCode(ACCEPTED).end();
+        }
     }
-  }
 
-  public void accepted(HttpServerResponse resp) {
-    if (!resp.closed()) {
-      resp.setStatusCode(ACCEPTED).end();
+    private void apiFailure(RoutingContext context, Throwable t) {
+        logger.debug("In apifailure");
+        logger.debug("Message=" + t.getMessage());
+        if (t instanceof BadRequestThrowable) {
+            context.response().setStatusCode(BAD_REQUEST).end(t.getMessage());
+            context.response().close();
+        } else if (t instanceof UnauthorisedThrowable) {
+            context.response().setStatusCode(FORBIDDEN).end(t.getMessage());
+            context.response().close();
+        } else if (t instanceof ConflictThrowable) {
+            context.response().setStatusCode(CONFLICT).end(t.getMessage());
+            context.response().close();
+        } else if (t instanceof InternalErrorThrowable) {
+            context.response().setStatusCode(INTERNAL_SERVER_ERROR).end(t.getMessage());
+            context.response().close();
+        } else {
+            context.fail(t);
+            context.response().close();
+        }
     }
-  }
-
-  private void apiFailure(RoutingContext context, Throwable t) {
-    logger.debug("In apifailure");
-    logger.debug("Message=" + t.getMessage());
-    if (t instanceof BadRequestThrowable) {
-      context.response().setStatusCode(BAD_REQUEST).end(t.getMessage());
-    } else if (t instanceof UnauthorisedThrowable) {
-      context.response().setStatusCode(FORBIDDEN).end(t.getMessage());
-    } else if (t instanceof ConflictThrowable) {
-      context.response().setStatusCode(CONFLICT).end(t.getMessage());
-    } else if (t instanceof InternalErrorThrowable) {
-      context.response().setStatusCode(INTERNAL_SERVER_ERROR).end(t.getMessage());
-    } else {
-      context.fail(t);
-    }
-  }
 }

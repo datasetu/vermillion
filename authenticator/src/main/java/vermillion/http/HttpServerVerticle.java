@@ -1,317 +1,294 @@
 package vermillion.http;
 
-import com.google.common.hash.Hashing;
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
+import io.reactivex.Single;
 import io.vertx.core.Promise;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.net.JksOptions;
+import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
-import vermillion.database.reactivex.DbService;
-import vermillion.throwables.BadRequestThrowable;
-import vermillion.throwables.ConflictThrowable;
-import vermillion.throwables.InternalErrorThrowable;
-import vermillion.throwables.UnauthorisedThrowable;
+import io.vertx.reactivex.ext.web.client.WebClient;
+import io.vertx.reactivex.redis.client.Redis;
+import io.vertx.reactivex.redis.client.RedisAPI;
+import io.vertx.redis.client.RedisOptions;
 
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Optional;
 
 public class HttpServerVerticle extends AbstractVerticle {
-  public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
-  // HTTP Codes
-  public final int OK = 200;
-  public final int CREATED = 201;
-  public final int BAD_REQUEST = 400;
-  public final int FORBIDDEN = 403;
-  public final int CONFLICT = 409;
-  public final int INTERNAL_SERVER_ERROR = 500;
-  // Service proxies
-  public DbService dbService;
+    public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
 
-  @Override
-  public void start(Promise<Void> promise) {
-    logger.debug("In start");
+    // HTTP Codes
+    public final int OK = 200;
 
-    int port = 80;
+    // Auth server constants
+    public final String AUTH_SERVER = System.getenv("AUTH_SERVER");
+    public final String INTROSPECT_ENDPOINT = "/auth/v1/token/introspect";
+    public final String AUTH_TLS_CERT_PATH = System.getenv("AUTH_TLS_CERT_PATH");
+    public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
 
-    dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+    // Redis constants
+    public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
 
-    Router router = Router.router(vertx);
+    /* Default port of redis. Port specified in the config file will
+    	 not affect the default port to which redis is going to bind to
+    */
+    public final String REDIS_PORT = "6379";
+    public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
 
-    router.get("/auth/user").handler(this::authUser);
-    router.get("/auth/vhost").handler(this::authVhost);
-    router.get("/auth/topic").handler(this::authTopic);
-    router.get("/auth/resource").handler(this::authResource);
+    // There are 16 DBs available. Using 1 as the default database number
+    public final String DB_NUMBER = "1";
+    public final String CONNECTION_STR =
+            "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + ":" + REDIS_PORT + "/" + DB_NUMBER;
+    public final int MAX_POOL_SIZE = 10;
+    public final int MAX_WAITING_HANDLERS = 32;
 
-    vertx
-        .createHttpServer()
-        .requestHandler(router)
-        .rxListen(port)
-        .subscribe(
-            s -> {
-              logger.debug("Server started");
-              promise.complete();
-            },
-            err -> {
-              logger.debug("Could not start server. Cause=" + err.getMessage());
-              promise.fail(err.getMessage());
-            });
+    RedisOptions options;
 
-    vertx.exceptionHandler(
-        err -> {
-          err.printStackTrace();
-        });
-  }
+    @Override
+    public void start(Promise<Void> promise) {
+        logger.debug("In start");
 
-  public void authUser(RoutingContext context) {
+        int port = 80;
 
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String username = request.getParam("username");
-    String password = request.getParam("password");
+        Router router = Router.router(vertx);
 
-    if ((!isStringSafe(username)) || (!isStringSafe(password))) {
-      logger.debug("invalid entity name");
-      ok(resp, "deny");
-      return;
+        router.get("/auth/user").handler(this::authUser);
+        router.get("/auth/vhost").handler(this::authVhost);
+        router.get("/auth/topic").handler(this::authTopic);
+        router.get("/auth/resource").handler(this::authResource);
+
+        options = new RedisOptions()
+                .setConnectionString(CONNECTION_STR)
+                .setMaxPoolSize(MAX_POOL_SIZE)
+                .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
+
+        vertx.createHttpServer()
+                .requestHandler(router)
+                .rxListen(port)
+                .subscribe(
+                        s -> {
+                            logger.debug("Server started");
+                            promise.complete();
+                        },
+                        err -> {
+                            logger.debug("Could not start server. Cause=" + err.getMessage());
+                            promise.fail(err.getMessage());
+                        });
     }
 
-    if (username.length() >= 65) {
-      logger.debug("long username");
-      badRequest(resp);
-      return;
+    public Single<RedisAPI> getRedisCient() {
+        return Redis.createClient(vertx, options).rxConnect().map(RedisAPI::api);
     }
 
-    checkLogin(username, password)
-        .subscribe(
-            () -> {
-              if ("admin".equals(username)) ok(resp, "allow administrator management");
-              else ok(resp, "allow");
-            },
-            err -> apiFailure(context, err));
-  }
+    public Single<String> getValue(String key) {
 
-  public void authVhost(RoutingContext context) {
-    HttpServerResponse resp = context.response();
-    ok(resp, "allow");
-  }
-
-  public void authTopic(RoutingContext context) {
-    HttpServerResponse resp = context.response();
-    ok(resp, "allow");
-  }
-
-  public void authResource(RoutingContext context) {
-    HttpServerRequest request = context.request();
-    HttpServerResponse resp = request.response();
-    String username = request.getParam("username");
-    String resource = request.getParam("resource");
-    String name = request.getParam("name");
-    String permission = request.getParam("permission");
-
-    logger.debug(name);
-    logger.debug(username);
-    logger.debug(resource);
-    logger.debug(permission);
-
-    if ("admin".equals(username)) {
-      ok(resp, "allow");
-      return;
+        return getRedisCient()
+                .flatMapMaybe(redisAPI -> redisAPI.rxGet(key))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .map(value -> value.isPresent() ? value.get().toString() : "absent");
     }
 
-    if ("configure".equals(permission)) {
-      forbidden(resp, "deny");
-      return;
+    public Completable setValue(String key, String value) {
+        ArrayList<String> list = new ArrayList<>();
+
+        list.add(key);
+        list.add(value);
+
+        return getRedisCient().flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
     }
 
-    if (username.length() < 7 || username.length() > 65) {
-      forbidden(resp, "deny");
-      return;
-    }
+    public void authUser(RoutingContext context) {
 
-    if (isValidOwner(name)) {
-      forbidden(resp, "deny");
-      return;
-    }
+        logger.debug("In auth user");
 
-    if ("queue".equals(resource)) {
-      if ("write".equals(permission)) {
-        logger.debug("permission is write");
-        forbidden(resp, "deny");
-        return;
-      }
+        HttpServerRequest request = context.request();
+        HttpServerResponse resp = request.response();
 
-      if (!name.startsWith(username)) {
-        logger.debug("name does not start with username");
-        forbidden(resp, "deny");
-        return;
-      }
+        // Ignore the password parameter. Username is the token
+        String username = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
 
-      if (isValidOwner(username)) {
-        logger.debug("user is an owner");
-        if (name.equals(username + ".notification")) {
-          ok(resp, "allow");
+        logger.debug("Token=" + username);
+
+        if (!isStringSafe(username)) {
+            logger.debug("invalid entity name");
+            ok(resp, "deny");
+            return;
         }
-      } else {
-        if (name.equals(username)
-            || name.equals(username + ".priority")
-            || name.equals(username + ".command")) {
-          ok(resp, "allow");
-        }
-      }
-    } else if (("exchange".equals(resource)) || ("topic".equals(resource))) {
-      if ("read".equals(permission)) {
+
+        getValue(username)
+                .flatMapCompletable(
+                        cache -> cache.equalsIgnoreCase("absent") ? introspect(username) : Completable.complete())
+                .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
+    }
+
+    public void authVhost(RoutingContext context) {
+
+        logger.debug("In auth vhost");
+        HttpServerResponse resp = context.response();
         ok(resp, "allow");
-        return;
-      }
+    }
 
-      if (isValidOwner(username)) {
-        forbidden(resp, "deny");
-        return;
-      }
+    public void authTopic(RoutingContext context) {
 
-      if (name.startsWith(username) && name.contains(".")) {
-        if (name.endsWith(".public")
-            || name.endsWith(".private")
-            || name.endsWith(".protected")
-            || name.endsWith(".diagnostics")
-            || name.endsWith(".publish")) {
-          ok(resp, "allow");
-        } else {
-          forbidden(resp, "deny");
+        logger.debug("In auth topic");
+        HttpServerResponse resp = context.response();
+        HttpServerRequest request = context.request();
+
+        String username = request.getParam("username");
+        String resourceType = request.getParam("resource");
+        String resourceName = request.getParam("name");
+        String permission = request.getParam("permission");
+        String routingKey = request.getParam("routing_key");
+
+        logger.debug("Username=" + username);
+        logger.debug("ResourceType=" + resourceType);
+        logger.debug("ResourceName=" + resourceName);
+        logger.debug("Permission=" + permission);
+        logger.debug("RoutingKey=" + routingKey);
+
+        if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
+
+            logger.debug("Denied due to requested permission");
+            ok(resp, "deny");
+            return;
         }
-      }
+
+        if (!"exchange".equalsIgnoreCase(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+
+            logger.debug("Denied since resource is not an exchange");
+            ok(resp, "deny");
+            return;
+        }
+
+        if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+
+            logger.debug("Denied since resource name is not EXCHANGE");
+            ok(resp, "deny");
+            return;
+        }
+
+        getValue(username)
+                .flatMapCompletable(result -> {
+                    JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
+                    for (int i = 0; i < authorisedRequests.size(); i++) {
+                        JsonObject requestObject = authorisedRequests.getJsonObject(i);
+                        logger.debug("Authorised request=" + requestObject.toString());
+
+                        /* Return if a match is found. Cannot request for multiple IDs
+                         * in a single request
+                         */
+
+                        if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
+                            return Completable.complete();
+                        }
+                    }
+                    return Completable.error(new Throwable("Unauthorised"));
+                })
+                .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
-  }
 
-  public Completable checkLogin(String id, String apikey) {
-    logger.debug("In check_login");
+    public void authResource(RoutingContext context) {
 
-    logger.debug("ID=" + id);
-    logger.debug("Apikey=" + apikey);
+        logger.debug("In auth resource");
+        HttpServerRequest request = context.request();
+        HttpServerResponse resp = request.response();
+        String username = request.getParam("username");
+        String resourceType = request.getParam("resource");
+        String resourceName = request.getParam("name");
+        String permission = request.getParam("permission");
 
-    if ("".equals(id) || "".equals(apikey)) {
-      return Completable.error(new BadRequestThrowable("ID or Apikey is missing"));
+        logger.debug("Username=" + username);
+        logger.debug("ResourceType=" + resourceType);
+        logger.debug("ResourceName=" + resourceName);
+        logger.debug("Permission=" + permission);
+
+        if ("configure".equalsIgnoreCase(permission) || "read".equalsIgnoreCase(permission)) {
+
+            logger.debug("Denied due to requested permission");
+            ok(resp, "deny");
+            return;
+        }
+
+        if (!"exchange".equals(resourceType) && !"topic".equalsIgnoreCase(resourceType)) {
+
+            logger.debug("Denied since requested resource type is not an exchange");
+            ok(resp, "deny");
+            return;
+        }
+
+        if (!resourceName.equalsIgnoreCase("EXCHANGE")) {
+
+            logger.debug("Denied since resource name is not EXCHANGE");
+            ok(resp, "deny");
+            return;
+        }
+
+        logger.debug("Allowed");
+        ok(resp, "allow");
     }
 
-    if (isValidOwner(id) == isValidEntity(id)) {
-      return Completable.error(new BadRequestThrowable("User is neither an owner nor an entity"));
+    public boolean isStringSafe(String resource) {
+        logger.debug("In is_string_safe");
+
+        logger.debug("resource=" + resource);
+
+        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
+
+        logger.debug("Original resource name =" + resource);
+        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
+        return safe;
     }
 
-    String query = "SELECT * FROM users WHERE id = '" + id + "'" + " AND blocked = 'f' LIMIT 1";
-
-    return dbService
-        .rxRunSelectQuery(query)
-        .map(row -> row.get(0))
-        .onErrorReturnItem("")
-        .map(
-            row -> {
-              if (row.length() != 0) return Arrays.asList(processRow(row));
-              else return Collections.singletonList("");
-            })
-        .map(
-            row -> {
-              if (row.size() > 1) {
-                String salt = row.get(3);
-                logger.debug("Salt=" + salt);
-                String string_to_hash = apikey + salt + id;
-                String expected_hash = row.get(1);
-                logger.debug("Expected hash=" + expected_hash);
-                String actual_hash =
-                    Hashing.sha256().hashString(string_to_hash, StandardCharsets.UTF_8).toString();
-                logger.debug("Actual hash=" + actual_hash);
-                return expected_hash.equals(actual_hash);
-              } else return false;
-            })
-        .flatMapCompletable(
-            login ->
-                login
-                    ? Completable.complete()
-                    : Completable.error(new UnauthorisedThrowable("Invalid id or apikey")));
-  }
-
-  public boolean isStringSafe(String resource) {
-    logger.debug("In is_string_safe");
-
-    logger.debug("resource=" + resource);
-
-    boolean safe =
-        (resource.length() - (resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", "")).length()) == 0;
-
-    logger.debug("Original resource name =" + resource);
-    logger.debug("Replaced resource name =" + resource.replaceAll("[^#-/a-zA-Z0-9-_.]+", ""));
-    return safe;
-  }
-
-  public boolean isValidOwner(String owner_name) {
-    logger.debug("In is_valid_owner");
-
-    // TODO simplify this
-    if ((!Character.isDigit(owner_name.charAt(0)))
-        && ((owner_name.length() - (owner_name.replaceAll("[^a-z0-9-_.]+", "")).length()) == 0)) {
-      logger.debug("Original owner name = " + owner_name);
-      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
-      return true;
-    } else {
-      logger.debug("Original owner name = " + owner_name);
-      logger.debug("Replaced name = " + owner_name.replaceAll("[^a-z0-9-_.]+", ""));
-      return false;
+    public void ok(HttpServerResponse resp, String message) {
+        if (!resp.closed()) {
+            resp.setStatusCode(OK).end(message);
+        }
     }
-  }
 
-  public boolean isValidEntity(String resource) {
-    // TODO: Add a length check
-    logger.debug("In is_valid_entity");
+    private Completable introspect(String token) {
 
-    String[] entries = resource.split("/");
+        JsonObject body = new JsonObject();
+        body.put("token", token);
 
-    logger.debug("Entries = " + Arrays.asList(entries));
+        WebClientOptions options = new WebClientOptions()
+                .setSsl(true)
+                .setKeyStoreOptions(new JksOptions().setPath(AUTH_TLS_CERT_PATH).setPassword(AUTH_TLS_CERT_PASSWORD));
 
-    if (entries.length != 2) {
-      return false;
-    } else return (isValidOwner(entries[0])) && (isStringSafe(entries[1]));
-  }
+        WebClient client = WebClient.create(vertx, options);
 
-  public String[] processRow(String row) {
-    logger.debug("Row=" + row);
-    return row.substring(row.indexOf("[") + 1, row.indexOf("]")).trim().split(",\\s");
-  }
-
-  public void forbidden(HttpServerResponse resp, String message) {
-    if (!resp.closed()) {
-      resp.setStatusCode(FORBIDDEN).end(message);
+        return client.post(443, AUTH_SERVER, INTROSPECT_ENDPOINT)
+                .ssl(true)
+                .putHeader("content-type", "application/json")
+                .rxSendJsonObject(body)
+                .flatMapMaybe(response -> {
+                    if (response.statusCode() == 200) return Maybe.just(response.bodyAsString());
+                    else {
+                        logger.debug(response.bodyAsString());
+                        return Maybe.empty();
+                    }
+                })
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapCompletable(data -> (data.isPresent())
+                        ? setValue(token, data.get())
+                        : Completable.error(new Throwable("Unauthorised")));
     }
-  }
 
-  public void ok(HttpServerResponse resp, String message) {
-    if (!resp.closed()) {
-      resp.setStatusCode(OK).end(message);
+    public void apiFailure(RoutingContext context, Throwable t) {
+        logger.debug("In apifailure");
+        logger.debug("Message=" + t.getMessage());
+        context.response().setStatusCode(OK).end("deny");
     }
-  }
-
-  public void badRequest(HttpServerResponse resp) {
-    if (!resp.closed()) {
-      resp.setStatusCode(BAD_REQUEST).end();
-    }
-  }
-
-  private void apiFailure(RoutingContext context, Throwable t) {
-    logger.debug("In apifailure");
-    logger.debug("Message=" + t.getMessage());
-    if (t instanceof BadRequestThrowable) {
-      context.response().setStatusCode(BAD_REQUEST).end(t.getMessage());
-    } else if (t instanceof UnauthorisedThrowable) {
-      context.response().setStatusCode(FORBIDDEN).end(t.getMessage());
-    } else if (t instanceof ConflictThrowable) {
-      context.response().setStatusCode(CONFLICT).end(t.getMessage());
-    } else if (t instanceof InternalErrorThrowable) {
-      context.response().setStatusCode(INTERNAL_SERVER_ERROR).end(t.getMessage());
-    } else {
-      context.fail(t);
-    }
-  }
 }

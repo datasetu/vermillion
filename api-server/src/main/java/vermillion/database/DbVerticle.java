@@ -1,39 +1,36 @@
 package vermillion.database;
 
-import io.reactiverse.pgclient.PgPool;
-import io.reactiverse.pgclient.PgPoolOptions;
 import io.vertx.core.Promise;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.serviceproxy.ServiceBinder;
-import vermillion.Utils;
 
 public class DbVerticle extends AbstractVerticle {
-  public PgPool client;
 
-  @Override
-  public void start(Promise<Void> promise) throws Exception {
-    PgPoolOptions options = new PgPoolOptions();
-    options.setDatabase(Utils.psql_database_name);
-    options.setHost(Utils.psql_database_url);
-    options.setPort(Utils.psql_database_port);
-    options.setUser(Utils.psql_database_username);
-    options.setPassword(Utils.psql_database_password);
-    options.setCachePreparedStatements(true);
-    options.setMaxSize(10000);
+    @Override
+    public void start(Promise<Void> promise) {
 
-    DbService.create(
-        vertx,
-        options,
-        ready -> {
-          if (ready.succeeded()) {
-            ServiceBinder binder = new ServiceBinder(vertx.getDelegate());
+        String esHost = config().getString("ES_HOSTNAME");
+        String index = config().getString("ES_DEFAULT_INDEX");
 
-            binder.setAddress("db.queue").register(DbService.class, ready.result());
+        //    String esHost = "localhost";
+        //    String index = "archive";
 
-            promise.complete();
-          } else {
-            promise.fail(ready.cause());
-          }
+        /*ES's default port is 9200. No need to read from config file
+         *since config file port specifies the port to which 9200 should be forwarded
+         *and not the port to which ES should bind
+         */
+        int esPort = 9200;
+
+        DbService.create(esHost, esPort, index, ready -> {
+            if (ready.succeeded()) {
+                ServiceBinder binder = new ServiceBinder(vertx.getDelegate());
+
+                binder.setAddress("db.queue").register(DbService.class, ready.result());
+
+                promise.complete();
+            } else {
+                promise.fail(ready.cause());
+            }
         });
-  }
+    }
 }

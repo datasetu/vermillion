@@ -1,13 +1,13 @@
 version: "3"
 
 networks:
-  iudx-net:
+  vermillion-net:
     driver: bridge
 
 volumes:
-  pgsql-data:
   broker-data:
-  mongo-data:
+  es-data:
+  redis-data:
 
 services:
 
@@ -17,18 +17,19 @@ services:
     hostname: vertx
     restart: on-failure
     ports:
-      - "443:8443"
+      - "${HTTPS_PORT}:443"
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../api-server:/api-server/
+      - ${PROVIDER_PATH}:/api-server/provider/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
-     - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80
-     - WAIT_HOSTS_TIMEOUT=120
-     - PROJECT_DIR=api-server
-     - JAR_NAME=api-server-fat.jar
+      - WAIT_HOSTS=rabbit:5672,authenticator:80,redis:6379
+      - WAIT_HOSTS_TIMEOUT=120
+      - PROJECT_DIR=api-server
+      - JAR_NAME=api-server-fat.jar
 
   authenticator:
     image: iudx/java
@@ -36,59 +37,48 @@ services:
     hostname: authenticator
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../authenticator:/authenticator/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
-      - WAIT_HOSTS=postgres:5432
-      - WAIT_HOSTS_TIMEOUT=120
+      - WAIT_HOSTS=redis:6379
       - PROJECT_DIR=authenticator
       - JAR_NAME=authenticator-fat.jar
 
   rabbit:
-    image: rabbitmq:3.8.2
-    container_name: rabbit
+    image: rabbitmq:${RABBITMQ_VERSION}
+    container_name: ${RABBITMQ_HOSTNAME}
     restart: on-failure
     hostname: rabbit
     ports:
-      - "5671:5671"
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_SSL_PORT}:5671"
+      - "${RABBITMQ_TCP_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - broker-data:/var/lib/rabbitmq/
-      - ../conf/rabbitmq/:/etc/rabbitmq/
+      - ../conf/rabbitmq/:/etc/rabbitmq/:rw
     env_file:
-      - .env
+      - vermillion.conf
   
-  postgres:
-    image: iudx/postgres
-    container_name: postgres
-    hostname: postgres
-    restart: on-failure
-    networks:
-      - iudx-net
-    volumes:
-      - pgsql-data:/var/lib/postgresql
-    env_file:
-      - .env
-
-  mongo:
-    image: mongo
-    container_name: mongo
-    hostname: mongo
+  elasticsearch:
+    image: elasticsearch:${ES_VERSION}
+    container_name: elasticsearch
+    hostname: ${ES_HOSTNAME}
     ports:
-      - "54321:27017"
+      - "${ES_PORT}:9200"
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
-      - mongo-data:/data/db
+      - es-data:/usr/share/elasticsearch/data
     env_file:
-      - .env
+      - vermillion.conf
+    environment:
+      - discovery.type=single-node
 
   dbconnector:
     image: iudx/db-connector
@@ -96,26 +86,28 @@ services:
     hostname: connector
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
       - ../db-connector:/db-connector/
     env_file:
-      - .env
+      - vermillion.conf
     environment:
-      - WAIT_HOSTS=postgres:5432,rabbit:5672,authenticator:80,mongo:27017
-      - WAIT_HOSTS_TIMEOUT=120
+      - WAIT_HOSTS=rabbit:5672,authenticator:80,elasticsearch:9200
+      - WAIT_HOSTS_TIMEOUT=600
 
-  unbind-daemon:
-    image: iudx/unbind-daemon
-    container_name: daemon
-    hostname: daemon
+  redis:
+    image: bitnami/redis
+    container_name: redis
+    hostname: ${REDIS_HOSTNAME}
     restart: on-failure
     networks:
-      - iudx-net
+      - vermillion-net
     volumes:
-      - ../unbind-daemon:/unbind-daemon/
+      - redis-data:/bitnami/redis/data
+      - ../conf/redis/:/opt/bitnami/redis/mounted-etc/
+    ports:
+      - "${REDIS_TCP_PORT}:6379"
     env_file:
-      - .env
+      - vermillion.conf
     environment:
-      - WAIT_HOSTS=postgres:5432,authenticator:80,rabbit:5672
-      - WAIT_HOSTS_TIMEOUT=120
+      - DISABLE_COMMANDS=FLUSHDB,FLUSHALL,CONFIG

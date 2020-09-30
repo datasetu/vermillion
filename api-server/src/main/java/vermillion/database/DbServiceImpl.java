@@ -1,78 +1,97 @@
 package vermillion.database;
 
-import io.reactiverse.pgclient.PgPoolOptions;
-import io.reactiverse.reactivex.pgclient.PgClient;
-import io.reactiverse.reactivex.pgclient.PgPool;
-import io.reactiverse.reactivex.pgclient.Row;
 import io.reactivex.Completable;
-import io.reactivex.Flowable;
+import io.reactivex.Observable;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.reactivex.CompletableHelper;
 import io.vertx.reactivex.SingleHelper;
-import io.vertx.reactivex.core.Vertx;
+import org.apache.http.HttpHost;
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
 import vermillion.throwables.InternalErrorThrowable;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class DbServiceImpl implements DbService {
-  private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
-  public PgPoolOptions options;
-  public PgPool pool;
-  public Vertx vertx;
 
-  public DbServiceImpl(
-      Vertx vertx, PgPoolOptions options, Handler<AsyncResult<DbService>> resultHandler) {
-    this.vertx = vertx;
-    this.options = options;
-    pool = PgClient.pool(vertx, options);
+    private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
+    RestClient client;
+    String index;
 
-    resultHandler.handle(Future.succeededFuture(this));
-  }
+    String searchEndpoint;
+    String searchMethod;
+    Request searchRequest;
 
-  @Override
-  public DbService runSelectQuery(String query, Handler<AsyncResult<List<String>>> resultHandler) {
-    logger.debug("in run select query");
+    String insertEndpoint;
+    String insertMethod;
+    Request insertRequest;
 
-    logger.debug("Query=" + query);
+    public DbServiceImpl(String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
 
-    pool.rxGetConnection()
-        .flatMap(
-            conn ->
-                conn.rxQuery(query)
-                    .flatMapPublisher(Flowable::fromIterable)
-                    .map(Row::toString)
-                    .collect(ArrayList<String>::new, ArrayList::add)
-                    .doAfterTerminate(conn::close))
-        .subscribe(SingleHelper.toObserver(resultHandler));
+        client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
+        this.index = index;
+        this.searchEndpoint = "/" + this.index + "/_search";
+        this.searchMethod = "GET";
 
-    return this;
-  }
+        this.insertEndpoint = "/" + this.index + "/_doc";
+        this.insertMethod = "POST";
 
-  @Override
-  public DbService runQuery(String query, Handler<AsyncResult<Void>> resultHandler) {
-    logger.debug("in run query");
+        // TODO: Have a retry mechanism
+        searchRequest = new Request(searchMethod, searchEndpoint);
+        insertRequest = new Request(insertMethod, insertEndpoint);
 
-    logger.debug("Query=" + query);
+        resultHandler.handle(Future.succeededFuture(this));
+    }
 
-    pool.rxGetConnection()
-        .flatMapCompletable(
-            conn ->
-                conn.rxQuery(query)
-                    .flatMapPublisher(Flowable::fromIterable)
-                    .map(Row::size)
-                    .flatMapCompletable(
-                        size ->
-                            size == 0
-                                ? Completable.complete()
-                                : Completable.error(new InternalErrorThrowable("Query failed")))
-                    .doAfterTerminate(conn::close))
-        .subscribe(CompletableHelper.toObserver(resultHandler));
+    // TODO: Implement Scroll API
+    @Override
+    public DbService searchQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler) {
+        logger.debug("In search query");
+        logger.debug("Query=" + query.encode());
 
-    return this;
-  }
+        Observable.create(observableEmitter -> {
+                    searchRequest.setJsonEntity(query.encode());
+                    Response response = client.performRequest(searchRequest);
+
+                    JsonArray responseJson = new JsonObject(EntityUtils.toString(response.getEntity()))
+                            .getJsonObject("hits")
+                            .getJsonArray("hits");
+
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseJson.size(); i++) {
+                        observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
+                    }
+                    observableEmitter.onComplete();
+                })
+                .collect(JsonArray::new, JsonArray::add)
+                .subscribe(SingleHelper.toObserver(resultHandler));
+
+        return this;
+    }
+
+    @Override
+    public DbService insertQuery(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
+
+        logger.debug("In insert query");
+        logger.debug("Query=" + query.encode());
+
+        Completable.fromCallable(() -> {
+                    insertRequest.setJsonEntity(query.encode());
+                    Response response = client.performRequest(insertRequest);
+
+                    if (response.getStatusLine().getStatusCode() != 200)
+                        return Completable.error(new InternalErrorThrowable("Errored while inserting"));
+
+                    return Completable.complete();
+                })
+                .subscribe(CompletableHelper.toObserver(resultHandler));
+
+        return this;
+    }
 }

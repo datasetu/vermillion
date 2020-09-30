@@ -1,35 +1,30 @@
 package vermillion.database;
 
-import io.reactiverse.pgclient.PgPoolOptions;
 import io.vertx.codegen.annotations.Fluent;
 import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
-
-import java.util.List;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 @ProxyGen
 @VertxGen
 public interface DbService {
-  @GenIgnore
-  static DbService create(
-      io.vertx.reactivex.core.Vertx vertx,
-      PgPoolOptions options,
-      Handler<AsyncResult<DbService>> resultHandler) {
-    return new DbServiceImpl(vertx, options, resultHandler);
-  }
+    @GenIgnore
+    static DbService create(String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
+        return new DbServiceImpl(esHost, esPort, index, resultHandler);
+    }
 
-  @GenIgnore
-  static vermillion.database.reactivex.DbService createProxy(
-      io.vertx.core.Vertx vertx, String address) {
-    return new vermillion.database.reactivex.DbService(new DbServiceVertxEBProxy(vertx, address));
-  }
+    @GenIgnore
+    static vermillion.database.reactivex.DbService createProxy(io.vertx.core.Vertx vertx, String address) {
+        return new vermillion.database.reactivex.DbService(new DbServiceVertxEBProxy(vertx, address));
+    }
 
-  @Fluent
-  DbService runSelectQuery(String query, Handler<AsyncResult<List<String>>> resultHandler);
+    @Fluent
+    DbService searchQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
 
-  @Fluent
-  DbService runQuery(String query, Handler<AsyncResult<Void>> resultHandler);
+    @Fluent
+    DbService insertQuery(JsonObject query, Handler<AsyncResult<Void>> resultHandler);
 }

@@ -38,8 +38,23 @@
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
+      <artifactId>vertx-config</artifactId>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>3.8.5</version>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-web-client</artifactId>
+      <version>3.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-redis-client</artifactId>
+      <version>3.9.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -49,18 +64,25 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
-      <version>3.8.5</version>
+      <version>3.9.1</version>
     </dependency>
     <dependency>
-      <groupId>io.reactiverse</groupId>
-      <artifactId>reactive-pg-client</artifactId>
-      <version>0.11.4</version>
+      <groupId>org.elasticsearch.client</groupId>
+      <artifactId>elasticsearch-rest-client</artifactId>
+      <version>7.7.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
       <version>3.10</version>
     </dependency>
+    <!-- https://mvnrepository.com/artifact/commons-validator/commons-validator -->
+    <dependency>
+      <groupId>commons-validator</groupId>
+      <artifactId>commons-validator</artifactId>
+      <version>1.6</version>
+    </dependency>
+
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2 -->
     <dependency>
       <groupId>io.vertx</groupId>

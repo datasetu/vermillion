@@ -1,32 +1,106 @@
 #!/bin/bash
 
+set -a
 set -e
-YELLOW='\033[1;33m'
-NC='\033[0m'
+
+dirname=`dirname $0`
+cd $dirname
+
+#Initialise few constants
+OWNER="rbccps-iisc"
+REPO="vermillion"
+APISERVER_PATH="../api-server/target"
+APISERVER_JAR="api-server-fat.jar"
+AUTH_PATH="../authenticator/target"
+AUTH_JAR="authenticator-fat.jar"
+DEFINITIONS_FILE="../conf/rabbitmq/definitions.json"
+CONF_FILE="vermillion.conf"
+
+if ! hash "jq" &>/dev/null; then
+
+    	if [ "$(uname)" == "Darwin" ]; then
+		brew install jq
+	elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+		sudo apt -y install jq
+	else
+		echo "OS not supported"
+		exit 1
+	fi
+fi
+
+function encode_password()
+{
+	SALT=$(od -A n -t x -N 4 /dev/urandom)
+    	PASS=$SALT$(echo -n $1 | xxd -ps | tr -d '\n' | tr -d ' ')
+
+    	if [ "$(uname)" == "Darwin" ]; then
+		PASS=$(echo -n $PASS | xxd -r -p | shasum -a 256 | head -c 128)
+	elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+		PASS=$(echo -n $PASS | xxd -r -p | sha256sum | head -c 128)
+	else
+		echo "OS not supported"
+		exit 1
+	fi
+	
+    	passwd_hash=$(echo -n $SALT$PASS | xxd -r -p | base64 | tr -d '\n')
+}
+
+#Read vermillion.conf
+source vermillion.conf
 
 if [ "$(uname)" == "Darwin" ]; then
 	generate_key="head /dev/urandom | shasum | cut -f1 -d' '"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 	generate_key="head /dev/urandom | sha1sum | cut -f1 -d' '"
+else
+	echo "OS not supported"
+	exit 1
 fi
 
-admin_passwd="$(eval $generate_key)"
-postgres_passwd="$(eval $generate_key)"
-mongo_passwd="$(eval $generate_key)"
-
-
-if [ -e ".env" ]
-then
-    rm .env
+if [ -z $RABBITMQ_ADMIN_PASS ]; then
+	
+	RABBITMQ_ADMIN_PASS="$(eval $generate_key)"
+	sed -i'.bak' -e "s/RABBITMQ_ADMIN_PASS=/RABBITMQ_ADMIN_PASS=$RABBITMQ_ADMIN_PASS/" $CONF_FILE
 fi
 
-echo "ADMIN_PWD="$admin_passwd > .env
-echo "POSTGRES_PWD="$postgres_passwd >> .env
-echo "SINGLE_NODE=true" >> .env
-echo "MONGO_INITDB_ROOT_USERNAME=root" >> .env
-echo "MONGO_INITDB_ROOT_PASSWORD="$mongo_passwd >> .env
+if [ -z $REDIS_PASSWORD ]; then
+	
+	REDIS_PASSWORD="$(eval $generate_key)"
+	sed -i'.bak' -e "s/REDIS_PASSWORD=/REDIS_PASSWORD=$REDIS_PASSWORD/" $CONF_FILE
+fi
 
-docker-compose down -v
-docker-compose up -d
+encode_password $RABBITMQ_ADMIN_PASS
 
-echo -e "\n${YELLOW}Since this is a regular installation, please wait for 3-5 mins before using the middleware${NC}"
+tmp=$(mktemp)
+jq --arg a "$passwd_hash" '.users[].password_hash = $a' $DEFINITIONS_FILE > "$tmp" && mv "$tmp" $DEFINITIONS_FILE
+chmod 644 $DEFINITIONS_FILE
+
+if [ $RUN_ONLY == "true" ]; then
+
+	if  [ ! -f $APISERVER_PATH/$APISERVER_JAR ]	||  \
+	    [ ! -f $AUTH_PATH/$AUTH_JAR ]
+	then
+	    echo "Downloading jar files from the latest release..." >&2
+	    curl -s https://api.github.com/repos/$OWNER/$REPO/releases/latest \
+	    | grep browser_download_url | cut -d '"' -f 4 | xargs curl -LJ# > jars.tar.gz
+	
+	    tar -zxf jars.tar.gz
+	    mkdir -p $APISERVER_PATH
+	    mkdir -p $AUTH_PATH
+	    mv jars/$APISERVER_JAR  $APISERVER_PATH
+	    mv jars/$AUTH_JAR $AUTH_PATH
+	    rm -rf jars
+	    rm jars.tar.gz
+	fi
+fi
+
+docker-compose down --remove-orphans -v
+
+if [ $USE_KIBANA == "true" ]; then
+	docker-compose -f docker-compose.yml -f docker-compose.kibana.yml up --remove-orphans -d
+else
+	docker-compose up --remove-orphans -d
+fi
+
+#Remove unnecessary backup files
+rm -f vermillion.conf.bak

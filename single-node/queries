@@ -1,0 +1,40 @@
+Latest data
+{"query":{"term":{"resource-id.keyword":"pudx-resource-server/aqm-bosch-climo/Ambedkar society circle_29"}},"size":1,"sort":[{"time":{"order":"desc"}}]}
+
+
+Geo area=polygon covering 10 Varanasi wards (sorted)
+{"size":10000,"query":{"bool":{"filter":[{"geo_shape":{"geoJsonLocation":{"shape":{"type":"polygon","coordinates":[[[82.9735,25.3703],[83.0053,25.3567],[82.9766,25.3372],[82.95,25.3519],[82.936,25.3722],[82.9735,25.3703]]]},"relation":"within"}}},{"term":{"resource-id.keyword":"rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"}}]}}}
+
+
+Simple circle query
+{"size": 10000, "query":{"bool":{"filter":[{"geo_shape":{"geoJsonLocation":{"shape":{"type":"circle","coordinates":[82.987988,25.319768],"radius":"10km"},"relation":"within"}}},{"term":{"resource-id.keyword":"rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"}}]}}}
+
+
+One month of data (sorted)
+{"size":10000,"query":{"bool":{"filter":[{"term":{"resource-id.keyword":"rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"}},{"range":{"time":{"gte":"2020-02-29T00:00:00.000+05:30","lte":"2020-03-31T00:00:00.000+05:30"}}}]}}}
+
+
+Multi-Attribute (2 keys, sorted)
+{"size": 10000, "query":{"bool":{"filter":[{"term":{"resource-id.keyword":"rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"}},{"range":{"latitude":{"gt":25}}},{"term":{"vehicleNo.keyword":"UP65DT6128"}}]}}}
+
+
+Circle=10km rad, temporal=1 month (sorted)
+{"size":10000,"query":{"bool":{"filter":[{"geo_shape":{"geoJsonLocation":{"shape":{"type":"circle","coordinates":[82.987988,25.319768],"radius":"10km"},"relation":"within"}}},{"range":{"speed":{"gte":45}}},{"range":{"time":{"gte":"2020-02-29T00:00:00+05:30","lte":"2020-03-31T00:00:00+05:30"}}},{"term":{"resource-id.keyword":"rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"}}]}}}
+
+
+Group Query- Circle of rad=10km, temporal=1 month, single attribute search
+{"size":10000,"query":{"bool":{"filter":[{"term":{"resource-group.keyword":"varanasi-swm-vehicles"}},{"range":{"time":{"gte":"2020-02-29T00:00:00.000+05:30","lte":"2020-03-31T00:00:00.000+05:30"}}},{"range":{"speed":{"gte":45}}},{"geo_shape":{"geoJsonLocation":{"shape":{"type":"circle","coordinates":[82.987988,25.319768],"radius":"10km"},"relation":"within"}}}]}}}
+
+
+Multi-ID Query- temporal=1 month, single attribute search
+"{""size"": 10000, ""query"":{""bool"":{""filter"":[{""terms"":{""resource-id.keyword"":[""rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"",""rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live-status"",""rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-list""]}},{""range"":{""time"":{""gt"":""2020-02-29T00:00:00+05:30"",""lt"":""2020-03-31T00:00:00+05:30""}}},{""term"":{""vehicleNo.keyword"":""UP65AG1005""}}]}}}
+"
+
+
+Latest Group (GIS) query for finding any shape (Polygon, LineString, etc) intersecting with a given circle
+{"size":10000,"query":{"bool":{"filter":[{"geo_shape":{"geoJsonLocation":{"shape":{"type":"circle","radius":"5km","coordinates":[82.987988,25.319768]},"relation":"intersects"}}},{"term":{"resource-group.keyword":"varanasi-iudx-gis"}}]}}}
+
+
+Text Search
+{"query":{"match":{"vehicleType":{"query":"compact","fuzziness":3}}}}
+{"query":{"match":{"vehicleType":{"query":"compactor"}}}}

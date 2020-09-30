@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  kibana:
+    image: kibana:${KIBANA_VERSION}
+    container_name: kibana
+    hostname: ${KIBANA_HOSTNAME}
+    ports:
+      - "${KIBANA_PORT}:5601"
+    restart: on-failure
+    networks:
+      - vermillion-net
