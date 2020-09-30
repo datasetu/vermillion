@@ -2,7 +2,7 @@
 
 #TODO: Make sure paths are correct when running this file
 
-docker run --rm -ti --network single-node_vermillion-net -v ${PWD}/data:/tmp elasticdump/elasticsearch-dump \
+docker run --rm --network single-node_vermillion-net -v ${PWD}/data:/tmp elasticdump/elasticsearch-dump \
     --input=/tmp/archive.json.gz \
     --fsCompress \
     --limit=100000 \
