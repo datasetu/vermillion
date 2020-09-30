@@ -193,7 +193,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String resourceID = requestBody.getString("id");
 
-        // Intitialise queries object
+        // Initialise queries object
         Queries queries = new Queries();
 
         JsonObject baseQuery = queries.getBaseQuery();
@@ -235,7 +235,9 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if (!requestBody.containsKey("geo_distance") && !requestBody.containsKey("time")) {
+        if (!requestBody.containsKey("geo_distance")
+                && !requestBody.containsKey("time")
+                && !requestBody.containsKey("attribute")) {
             apiFailure(context, new BadRequestThrowable("Invalid request"));
             return;
         }
@@ -286,19 +288,21 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             String distance = geoDistance.getString("distance");
 
-            if (!distance.endsWith("m") || !distance.endsWith("km")) {
+            if (!distance.endsWith("m") && !distance.endsWith("M")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
-                                "Only metre and kilometre units supported. Use raw query interface for other units"));
+                                "Only metres are supported. Use the raw query interface for other units"));
                 return;
             }
 
-            logger.debug(NumberUtils.isCreatable(distance.substring(0, distance.length() - 2)));
+            String distanceQuantity = distance.substring(0, distance.length() - 1);
+
+            logger.debug("Is a valid number ?" + NumberUtils.isCreatable(distanceQuantity));
 
             // If the number preceding m, km, cm etc is a valid number
-            if (!NumberUtils.isCreatable(distance.substring(0, distance.length() - 2))) {
-                apiFailure(context, new BadRequestThrowable("Distance is not a valid number"));
+            if (!NumberUtils.isCreatable(distanceQuantity)) {
+                apiFailure(context, new BadRequestThrowable("Distance is not valid."));
                 return;
             }
 
@@ -368,12 +372,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                 apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
                 return;
             }
+
             JsonObject timeQuery = queries.getTimeQuery();
             timeQuery
                     .getJsonObject("range")
                     .getJsonObject("timestamp")
                     .put("gte", start)
                     .put("lte", end);
+
             filterQuery.add(timeQuery);
         }
 
@@ -410,11 +416,17 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
+            // TODO: Add a case where only min and max are provided. Not both
             // Case 1: When the attribute query is a number
             if (attribute.containsKey("min") && attribute.containsKey("max")) {
 
                 Object minObj = attribute.getValue("min");
                 Object maxObj = attribute.getValue("max");
+
+                if (minObj instanceof String || maxObj instanceof String) {
+                    apiFailure(context, new BadRequestThrowable("Min and max values should be numbers"));
+                    return;
+                }
 
                 if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
                     apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
@@ -447,7 +459,11 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         }
 
-        baseQuery.getJsonObject("query").getJsonObject("bool").put("filter", filterQuery);
+        baseQuery
+                .put("size", 10000)
+                .getJsonObject("query")
+                .getJsonObject("bool")
+                .put("filter", filterQuery);
 
         logger.debug(baseQuery.encodePrettily());
 
