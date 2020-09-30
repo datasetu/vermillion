@@ -40,6 +40,9 @@ jobs:
     - name: Wait for the middleware to be available
       run:  sleep 60
 
+    - name: Load sample data into ES
+      run: cd single-node && ./load_sample_data.sh
+
     - name: Run tests
       run:  cd ./tests/single-node/ && behave
 
