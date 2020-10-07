@@ -1,0 +1,27 @@
+#!/bin/sh
+
+export NODE_ENV=production
+export TZ=Asia/Kolkata
+
+telegram_apikey=`cat telegram.apikey`
+telegram_chat_id=`cat telegram.chatid`
+
+id=`id | cut -f1 -d'('`
+
+if [ $id != "uid=0" ]
+then
+	echo
+	echo "===> Usage: sudo $0"
+	echo
+	exit
+fi
+
+NODE_JS_OPTIONS="--zero-fill-buffers" 
+
+while :
+do
+	/usr/local/bin/node $NODE_JS_OPTIONS crl.js
+	/usr/local/bin/curl "https://api.telegram.org/bot$telegram_apikey/sendMessage?chat_id=$telegram_chat_id&text=[AUTH]:crl-script-crashed"
+	sleep 10
+	echo "================> Restarting ===================="
+done

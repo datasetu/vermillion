@@ -1,0 +1,28 @@
+version: "3"
+
+volumes:
+  pg-data:
+
+services:
+  auth:
+    image: pct960/auth-server
+    container_name: auth
+    hostname: auth
+    ports:
+      - "8443:443"
+    restart: on-failure
+    networks:
+      - vermillion-net
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: postgres
+    hostname: postgres
+    restart: on-failure
+    networks:
+      - vermillion-net
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ../auth-server/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    env_file:
+      - vermillion.conf

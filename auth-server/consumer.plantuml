@@ -1,0 +1,50 @@
+@startuml
+hide footbox
+
+autonumber "<b>[0]"
+
+actor "Consumer" as c
+
+
+participant "DataSetu Catalog server" as catalog
+
+participant "DataSetu Auth server" as auth
+participant "Resource server" as rs
+
+c -[#blue]> catalog : Search catalog for data-sets
+...
+
+c -[#green]> auth : HTTPS POST /auth/v1/token\nbody={"request" : list of resource IDs from catalog}
+note left: Request for an access token
+
+activate auth
+auth -[#red]> auth : Check data provider's access control policies
+
+alt Consumer is NOT authorized
+    auth -[#green]> c : HTTP 403 Forbidden
+    
+else Consumer is authorized 
+
+    auth -[#green]> c : \nHTTP 200 OK\n{\n\ttoken:<token>\n\ttoken-type:DATASETU\n\texpires-in:<expiry-in-seconds>\n}
+    note left: Token and its details
+    deactivate auth
+
+    ...
+    
+    c -[#blue]> rs : HTTPS GET <resource-server-api>\nAuthorization: DATASETU <token>
+    activate rs
+    rs -[#green]> auth : HTTPS POST /auth/v1/token/introspect\nbody={"token": <token>}
+    note right: Validate the token
+    activate auth
+    
+    auth -[#red]> auth: Verify resource-server's identity through DNS
+
+    auth -[#red]> auth: Check token validity
+
+    alt <access-token> is valid
+        auth -[#green]> rs : HTTP 200 OK\nbody = {\n\t"consumer":<consumer>,\n\t"consumer-certificate-class":<class>\n\t"expiry":<expiry-time>,\n\t"request":<request>\n}
+
+        rs -[#blue]> c : HTTP 200 OK\nbody=<requested-data>
+        
+    else Invalid <access-token>
+        auth -[#green]> rs: HTTP 403 Forbidden

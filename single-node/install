@@ -69,6 +69,12 @@ if [ -z $REDIS_PASSWORD ]; then
 	sed -i'.bak' -e "s/REDIS_PASSWORD=/REDIS_PASSWORD=$REDIS_PASSWORD/" $CONF_FILE
 fi
 
+if [ -z $POSTGRES_PASSWORD ]; then
+	
+	POSTGRES_PASSWORD="$(eval $generate_key)"
+	sed -i'.bak' -e "s/POSTGRES_PASSWORD=/POSTGRES_PASSWORD=$POSTGRES_PASSWORD/" $CONF_FILE
+fi
+
 encode_password $RABBITMQ_ADMIN_PASS
 
 tmp=$(mktemp)
@@ -96,11 +102,15 @@ fi
 
 docker-compose down --remove-orphans -v
 
+DOCKER_OPTS=""
 if [ $USE_KIBANA == "true" ]; then
-	docker-compose -f docker-compose.yml -f docker-compose.kibana.yml up --remove-orphans -d
-else
-	docker-compose up --remove-orphans -d
+	DOCKER_OPTS=$DOCKER_OPTS"-f docker-compose.kibana.yml"
 fi
+if [ $AUTH_SERVER == "auth.local" ]; then
+	DOCKER_OPTS=$DOCKER_OPTS" -f docker-compose.auth.yml"
+fi
+
+docker-compose -f docker-compose.yml $DOCKER_OPTS up --remove-orphans -d
 
 #Remove unnecessary backup files
 rm -f vermillion.conf.bak

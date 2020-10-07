@@ -1,0 +1,128 @@
+#!/bin/sh
+
+id=`id | cut -f1 -d'('`
+if [ $id != "uid=0" ]
+then
+	echo
+	echo "You must be root to run this script"
+	echo
+	exit
+fi
+
+syspatch
+
+if [ "$1" = "test" ]
+then
+	./test/setup.sh
+fi
+
+useradd -s /sbin/nologin -d /nonexistent _aaa
+useradd -s /sbin/nologin -d /nonexistent _bot
+
+pkg_add postgresql-server postgresql-client node
+rcctl enable postgresql
+
+rm -rf passwords
+mkdir passwords
+
+touch passwords/auth.db.password
+touch passwords/admin.db.password
+
+#------- Passwords for various operations -----------
+
+touch passwords/update_crl.db.password
+
+#----------------------------------------------------
+
+chmod 400 passwords/*
+
+for f in `ls passwords`
+do
+	head /dev/urandom | sha256 > passwords/$f 
+
+	password=`cat passwords/$f`
+	label=`echo $f | cut -f1 -d'.'`
+
+	sed -i "s/XXX_$label/$password/" schema.sql 
+done
+
+echo your-telegram-api-key		> telegram.apikey
+echo your-telegram-chat-id		> telegram.chatid
+
+echo your-razorpay-key-id		> rzpay.key.id
+echo your-razorpay-key-secret		> rzpay.key.secret
+
+chmod 400 telegram.*
+chmod 400 *.sql
+chmod 400 rzpay.*
+
+# setup postgresql
+
+mkdir /home/postgresql
+chown _postgresql:_postgresql /home/postgresql
+chmod 700 /home/postgresql
+
+mv passwords/admin.db.password /home/postgresql/
+chown _postgresql:_postgresql /home/postgresql/admin.db.password
+
+mv schema.sql /home/postgresql/
+chown _postgresql:_postgresql /home/postgresql/schema.sql
+
+cp setup.postgresql.openbsd /home/postgresql/
+chown _postgresql:_postgresql /home/postgresql/setup.postgresql.openbsd
+
+chmod u+x /home/postgresql/setup.postgresql.openbsd
+su -l _postgresql -c /home/postgresql/setup.postgresql.openbsd
+
+# local setup
+
+cp rc.local /etc/
+cp pf.conf /etc/
+
+touch https-key.pem
+chmod 400 https-key.pem
+
+openssl req -x509 -nodes -days 365 -subj "/CN=auth.datasetu.org" -newkey rsa:2048 -keyout https-key.pem -out https-certificate.pem
+
+git clone --depth=1 https://github.com/rbccps-iisc/node-aperture
+cd node-aperture
+npm install
+npm audit fix --force
+
+cd ..
+npm install
+npm audit fix --force
+
+echo /sbin/pfctl -t bruteforce -T expire 86400 > /etc/daily.local
+echo /usr/sbin/syspatch >> /etc/daily.local
+
+rcctl disable sndiod slaacd smtpd xenodm 
+
+echo boot > /etc/boot.conf
+
+echo ddb.panic=0		>> /etc/sysctl.conf
+echo kern.seminfo.semmsl=250	>> /etc/sysctl.conf 
+echo kern.seminfo.semmns=5000	>> /etc/sysctl.conf 
+echo kern.seminfo.semopm=100	>> /etc/sysctl.conf 
+echo kern.seminfo.semmni=128	>> /etc/sysctl.conf
+
+echo /usr/bin/pkill tmux >> /etc/rc.shutdown
+echo /usr/sbin/rcctl stop postgresql >> /etc/rc.shutdown
+
+if [ "$1" = "noreboot" ] || [ "$2" = "noreboot" ]
+then
+	sysctl kern.seminfo.semmsl=250
+	sysctl kern.seminfo.semmns=5000
+	sysctl kern.seminfo.semopm=100
+	sysctl kern.seminfo.semmni=128
+
+	until pg_isready -h 127.0.0.1
+	do
+		sleep 1
+	done
+
+	./run.tmux
+	./run.crl.tmux
+else
+	reboot
+fi

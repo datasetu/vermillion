@@ -1,0 +1,53 @@
+{
+  "name": "auth.datasetu.org",
+  "description": "This is the Auth server for DataSetu",
+  "version": "1.0.0",
+  "main": "main.js",
+  "dependencies": {
+    "base32-encode": "^1.1.1",
+    "chroot": "^1.0.10",
+    "compression": "^1.7.4",
+    "connect-timeout": "^1.9.0",
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "geoip-lite": "^1.4.0",
+    "lodash": "^4.17.15",
+    "logger": "0.0.1",
+    "negotiator": "^0.6.2",
+    "node-color-log": "^4.0.0",
+    "ocsp": "^1.2.0",
+    "otp": "^0.1.3",
+    "path": "^0.12.7",
+    "pg": "^8.0.0",
+    "pg-native": "^3.0.0",
+    "posix": "^4.1.2",
+    "qrcode": "^1.4.4",
+    "safe-regex": "^2.1.1",
+    "slimbot": "^4.9.0",
+    "sync-request": "^6.1.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "echo \"Starting Server...\" && nodejs main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datasetu/datasetu-auth-server.git"
+  },
+  "keywords": [
+    "datasetu",
+    "auth",
+    "indian",
+    "urban",
+    "data",
+    "exchange",
+    "iisc",
+    "rbccps"
+  ],
+  "author": "Arun Babu (arun-babu.com), Bryan Robert (bryanrobert at iisc.ac.in)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/datasetu/datasetu-auth-server/issues"
+  },
+  "homepage": "http://datasetu.github.io/auth"
+}
