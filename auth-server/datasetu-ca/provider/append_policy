@@ -1,0 +1,8 @@
+#!/bin/bash
+
+curl -ik -XPOST \
+	'https://localhost:8443/auth/v1/acl/append' \
+	-H 'content-type: application/json' \
+	-d '{"policy": "consumer@iisc.ac.in can access example.com/test-category/test-resource-4 for 6 months"}'    \
+	--cert provider.pem    \
+	--key provider.key.pem 

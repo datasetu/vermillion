@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+		<meta content="utf-8" http-equiv="encoding"/>
+
+		<link rel="stylesheet" href="marketplace.css"/>
+		<script src="marketplace.js"></script>
+
+		<script>
+		function do_topup()
+		{
+			const response		= document.getElementById("response");
+			const response_code	= document.getElementById("response_code");
+
+			response.style.visibility = "hidden"; 
+
+			const post_body = JSON.stringify({
+				"amount"	: document.getElementById("amount").value,
+				"fingerprint"	: document.getElementById("fingerprint").value,
+				"serial"	: document.getElementById("serial").value,
+			});
+
+			const ajax = new XMLHttpRequest();
+
+			ajax.onreadystatechange = function ()
+			{
+				if (this.readyState === 4)
+				{
+					let result;
+					try
+					{
+						result = JSON.parse(ajax.responseText);
+					}
+					catch
+					{
+						result			= {};
+						result.error		= {};
+						result.error.message	= "Response from server was not a valid JSON";
+					}
+
+					const color = "red";
+
+					if(this.status === 200)
+					{
+						response.style.visibility = "hidden";
+						window.location	= result.link;
+					}
+					else
+					{
+						jsonViewer.showJSON(result);
+
+						response_code.innerHTML = "<font color="		+
+									color +">" + this.status	+
+									" - "				+
+									error_codes[this.status]	+
+								"</font>";
+
+						response.style.visibility = "visible"; 
+					}
+				}
+			};
+
+			ajax.open("POST", "/marketplace/v1/credit/topup");
+			ajax.send(post_body);
+		}
+		</script>
+	</head>
+
+	<body onLoad="init();">
+		<div class="center-screen">
+			<h2>Topup DataSetu credits</h2>
+			<table>
+				<tr>
+					<td align=center>
+						<form id=request onsubmit="return false;">
+							<fieldset>
+								<legend><b><code>Request</code></b></legend>
+								<table>
+									<tr>
+										<td style="padding:15px" align=right>
+											<code>Amount<font color=red>*</font></code>
+										</td>
+
+										<td>
+											<input id=amount autofocus name=amount type=text placeholder=" to topup (minimum 10 INR)">
+										</td>
+									</tr>
+
+									<tr>
+										<td style="padding:15px" align=right>
+											<code>Fingerprint</code>
+										</td>
+
+										<td>
+											<input id=fingerprint name=fingerprint type=text placeholder=" of consumer's certificate">
+										</td>
+									</tr>
+
+									<tr>
+										<td style="padding:15px" align=right>
+											<code>Serial</code>
+										</td>
+
+										<td>
+											<input id=serial name=serial type=text placeholder=" of consumer's certificate">
+										</td>
+									</tr>
+
+
+									<tr>
+										<td colspan=2 align="center" style="padding:15px">
+											<button id="button" class="button" onClick="do_topup();">
+												<b><code>POST</code></b>
+											</button>
+										</td>
+									</tr>
+								</table>
+							</fieldset>
+						</form>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<form id=response style="visibility:hidden">
+							<fieldset>
+								<legend><b><code> Response : <span id="response_code"></span> </code></b></legend>
+								<div id="result" style="justify-content:left;text-align:left"></div>
+							</fieldset>
+						</form>
+					</td>
+				</tr>
+			</table>
+		</div>
+	</body>
+</html>
+

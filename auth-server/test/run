@@ -1,0 +1,34 @@
+#!/bin/sh
+
+echo "============ Tests started ===========\n" | tee /tmp/report
+
+error_code=0
+
+start_time=$(date +%s)
+
+for f in `ls test*.py`
+do
+	echo "-----> $f" | tee -a /tmp/report
+	output=`python2 $f`
+
+	if [ $? = 0 ]
+	then
+		echo | tee -a /tmp/report
+		echo Test [$f] passed | tee -a /tmp/report
+	else
+		error_code=1	
+	fi
+
+	echo $output | tee -a /tmp/report
+
+	echo | tee -a /tmp/report
+done
+
+end_time=$(date +%s)
+diff_time=$(( $end_time - $start_time))
+
+echo "============ Tests ended =============" | tee -a /tmp/report
+
+echo "Took $diff_time seconds" | tee -a /tmp/report
+
+exit $error_code

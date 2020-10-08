@@ -1,0 +1,38 @@
+@startuml
+hide footbox
+
+autonumber "<b>[0]"
+
+
+actor "Resource server administrator" as rsa
+participant "Resource server" as rs
+
+actor "Data provider" as p
+participant "DataSetu Catalog server" as catalog
+
+participant "DataSetu Auth server" as auth
+
+
+rsa -[#red]> rs: Installs resource server certificate
+
+
+p -[#red]> rs : Publishes data
+
+p -[#green]> catalog : Creates a catalog entry
+
+
+
+p -[#green]> auth : HTTPS POST /auth/v1/acl/set\nbody={"policy":<access control policy in aperture>}
+note right: Set access control policies
+
+
+...
+
+
+legend 
+<back:#red>   </back> <font color=red><b>Unspecified</b></font>
+<back:blue>   </back> <font color=blue><b>Server requires a valid certificate (TLS communication)</b></font>
+<back:green>   </back> <font color=green><b>Both parties require a valid certificate (TLS communication, mutually authenticated)</b></font>
+endlegend
+@enduml
+
