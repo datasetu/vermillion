@@ -1,0 +1,3 @@
+#!/bin/bash
+
+curl -ik -XPOST "https://localhost:8443/auth/v1/acl" --cert provider.pem --key provider.key.pem

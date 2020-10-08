@@ -5,14 +5,18 @@ volumes:
 
 services:
   auth:
-    image: pct960/auth-server
+    image: datasetu/auth-server
     container_name: auth
     hostname: auth
     ports:
       - "8443:443"
     restart: on-failure
+    volumes:
+      - ../auth-server/:/auth-server/
     networks:
       - vermillion-net
+    env_file:
+      - vermillion.conf
 
   postgres:
     image: postgres:13-alpine

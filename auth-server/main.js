@@ -282,7 +282,7 @@ const system_trusted_certs = is_openbsd ?
 					"/etc/ssl/certs/ca-certificates.crt";
 
 const trusted_CAs = [
-	fs.readFileSync("datasetu-ca/certs/ca.crt"),
+	fs.readFileSync("datasetu-ca/ca.datasetu.org.crt"),
 	fs.readFileSync(system_trusted_certs),
 	fs.readFileSync("CCAIndia2015.cer"),
 	fs.readFileSync("CCAIndia2014.cer")
@@ -754,6 +754,7 @@ function is_secure (req, res, cert, validate_email = true)
 	res.header("X-XSS-Protection",		"1; mode=block");
 	res.header("X-Content-Type-Options",	"nosniff");
 
+
 	if (req.headers.host && req.headers.host !== SERVER_NAME)
 		return "Invalid 'host' field in the header";
 
@@ -941,7 +942,8 @@ function is_string_safe (str, exceptions = "")
 	if (str.length === 0 || str.length > MAX_SAFE_STRING_LEN)
 		return false;
 
-	exceptions = exceptions + "-/.@";
+	//Add : for port number
+	exceptions = exceptions + ":-/.@";
 
 	for (const ch of str)
 	{
@@ -4401,7 +4403,7 @@ else
 {
 	https.createServer(https_options,app).listen(443,"0.0.0.0");
 
-	drop_worker_privileges();
+	//drop_worker_privileges();
 
 	log("green","Worker started with pid " + process.pid);
 }

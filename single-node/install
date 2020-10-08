@@ -100,7 +100,7 @@ if [ $RUN_ONLY == "true" ]; then
 	fi
 fi
 
-docker-compose down --remove-orphans -v
+docker-compose -f docker-compose.yml -f docker-compose.kibana.yml -f docker-compose.auth.yml down --remove-orphans -v
 
 DOCKER_OPTS=""
 if [ $USE_KIBANA == "true" ]; then

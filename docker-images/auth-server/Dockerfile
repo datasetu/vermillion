@@ -4,14 +4,9 @@ RUN	apt -y update		    &&  \
 	apt -y install libcap2-bin  && \
 	setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/node
 
-#WORKDIR /usr/src/app
-#
-#COPY	./src/package.json .
-#COPY	./conf/ ../conf/
-#COPY	./secret/ ../secret/
-#
-#RUN	npm install
+COPY	./auth-server/package.json /cache/
+COPY	./docker-images/auth-server/docker-entrypoint.sh /
 
-#CMD	["node", "main.js"]
+RUN	cd /cache && npm install
 
-CMD tail -f /dev/null
+CMD	./docker-entrypoint.sh

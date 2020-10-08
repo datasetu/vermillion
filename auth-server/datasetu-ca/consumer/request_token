@@ -1,0 +1,16 @@
+#!/bin/bash
+
+curl -ik -XPOST \
+"https://localhost:8443/auth/v1/token" \
+-H 'content-type: application/json' \
+-d '{	
+	"request":	
+		    [
+			"rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1",
+			"rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2",
+			"rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3"
+		    ]
+    }' \
+--cert consumer.pem \
+--key consumer.key.pem
+

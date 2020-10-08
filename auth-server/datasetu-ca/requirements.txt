@@ -1,3 +1,0 @@
-setuptools
-cython
-cryptography
