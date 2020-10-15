@@ -18,80 +18,141 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import vermillion.throwables.InternalErrorThrowable;
 
+import java.util.List;
+
 public class DbServiceImpl implements DbService {
 
-    private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
-    RestClient client;
-    String index;
+  private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
+  RestClient client;
+  String index;
 
-    String searchEndpoint;
-    String searchMethod;
-    Request searchRequest;
+  String searchEndpoint;
+  String searchMethod;
+  Request searchRequest;
 
-    String insertEndpoint;
-    String insertMethod;
-    Request insertRequest;
+  String insertEndpoint;
+  String insertMethod;
+  Request insertRequest;
 
-    public DbServiceImpl(String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
+  public DbServiceImpl(
+      String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
 
-        client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
-        this.index = index;
-        this.searchEndpoint = "/" + this.index + "/_search";
-        this.searchMethod = "GET";
+    client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
+    this.index = index;
+    this.searchEndpoint = "/" + this.index + "/_search";
+    this.searchMethod = "GET";
 
-        this.insertEndpoint = "/" + this.index + "/_doc";
-        this.insertMethod = "POST";
+    this.insertEndpoint = "/" + this.index + "/_doc";
+    this.insertMethod = "POST";
 
-        // TODO: Have a retry mechanism
-        searchRequest = new Request(searchMethod, searchEndpoint);
-        insertRequest = new Request(insertMethod, insertEndpoint);
+    // TODO: Have a retry mechanism
+    searchRequest = new Request(searchMethod, searchEndpoint);
+    insertRequest = new Request(insertMethod, insertEndpoint);
 
-        resultHandler.handle(Future.succeededFuture(this));
-    }
+    resultHandler.handle(Future.succeededFuture(this));
+  }
 
-    // TODO: Implement Scroll API
-    @Override
-    public DbService searchQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler) {
-        logger.debug("In search query");
-        logger.debug("Query=" + query.encode());
+  // TODO: Implement Scroll API
+  @Override
+  public DbService search(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler) {
+    logger.debug("In regular search");
+    logger.debug("Query=" + query.encode());
 
-        Observable.create(observableEmitter -> {
-                    searchRequest.setJsonEntity(query.encode());
-                    Response response = client.performRequest(searchRequest);
+    Observable.create(
+            observableEmitter -> {
+              searchRequest.setJsonEntity(query.encode());
+              Response response = client.performRequest(searchRequest);
 
-                    JsonArray responseJson = new JsonObject(EntityUtils.toString(response.getEntity()))
-                            .getJsonObject("hits")
-                            .getJsonArray("hits");
+              JsonArray responseJson =
+                  new JsonObject(EntityUtils.toString(response.getEntity()))
+                      .getJsonObject("hits")
+                      .getJsonArray("hits");
 
-                    // TODO: This might be expensive for large responses
-                    for (int i = 0; i < responseJson.size(); i++) {
-                        observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
-                    }
-                    observableEmitter.onComplete();
-                })
-                .collect(JsonArray::new, JsonArray::add)
-                .subscribe(SingleHelper.toObserver(resultHandler));
+              // TODO: This might be expensive for large responses
+              for (int i = 0; i < responseJson.size(); i++) {
+                observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
+              }
+              observableEmitter.onComplete();
+            })
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(SingleHelper.toObserver(resultHandler));
 
-        return this;
-    }
+    return this;
+  }
 
-    @Override
-    public DbService insertQuery(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
+  @Override
+  public DbService secureSearch(
+      JsonObject query,
+      String token,
+      List<String> authorisedIDs,
+      Handler<AsyncResult<JsonArray>> resultHandler) {
+    logger.debug("In secure search");
+    logger.debug("Query=" + query.encode());
 
-        logger.debug("In insert query");
-        logger.debug("Query=" + query.encode());
+    String serverName = System.getenv("SERVER_NAME");
 
-        Completable.fromCallable(() -> {
-                    insertRequest.setJsonEntity(query.encode());
-                    Response response = client.performRequest(insertRequest);
+    Observable.create(
+            observableEmitter -> {
+              searchRequest.setJsonEntity(query.encode());
+              Response response = client.performRequest(searchRequest);
 
-                    if (response.getStatusLine().getStatusCode() != 200)
-                        return Completable.error(new InternalErrorThrowable("Errored while inserting"));
+              JsonArray dbResponse =
+                  new JsonObject(EntityUtils.toString(response.getEntity()))
+                      .getJsonObject("hits")
+                      .getJsonArray("hits");
 
-                    return Completable.complete();
-                })
-                .subscribe(CompletableHelper.toObserver(resultHandler));
+              // TODO: This might be expensive for large responses
+              for (int i = 0; i < dbResponse.size(); i++) {
 
-        return this;
-    }
+                JsonObject responseJson = dbResponse.getJsonObject(i).getJsonObject("_source");
+
+                String resourceID = responseJson.getString("id");
+                if (!authorisedIDs.contains(resourceID) && !resourceID.endsWith(".public")) {
+                  continue;
+                }
+
+                if (responseJson.getJsonObject("data").containsKey("link")
+                    && "/download"
+                        .equalsIgnoreCase(responseJson.getJsonObject("data").getString("link"))) {
+
+                  String downloadLink =
+                      "https://"
+                          + serverName
+                          + "/download?token="
+                          + token
+                          + "&id="
+                          + responseJson.getString("id");
+
+                  responseJson.getJsonObject("data").put("link", downloadLink);
+                }
+                observableEmitter.onNext(responseJson);
+              }
+              observableEmitter.onComplete();
+            })
+        .collect(JsonArray::new, JsonArray::add)
+        .subscribe(SingleHelper.toObserver(resultHandler));
+
+    return this;
+  }
+
+  @Override
+  public DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
+
+    logger.debug("In insert query");
+    logger.debug("Query=" + query.encode());
+
+    Completable.fromCallable(
+            () -> {
+              insertRequest.setJsonEntity(query.encode());
+              Response response = client.performRequest(insertRequest);
+
+              if (response.getStatusLine().getStatusCode() != 200)
+                return Completable.error(new InternalErrorThrowable("Errored while inserting"));
+
+              return Completable.complete();
+            })
+        .subscribe(CompletableHelper.toObserver(resultHandler));
+
+    return this;
+  }
 }

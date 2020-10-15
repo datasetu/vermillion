@@ -75,6 +75,21 @@ if [ -z $POSTGRES_PASSWORD ]; then
 	sed -i'.bak' -e "s/POSTGRES_PASSWORD=/POSTGRES_PASSWORD=$POSTGRES_PASSWORD/" $CONF_FILE
 fi
 
+if [ -z $SERVER_NAME ]; then
+	
+	#TODO: Think of another way to do this
+	#Get the IP address of the first network interface
+	#On production systems, give the domain name as the server name 
+	SERVER_NAME="$(ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1') | head -n 1"
+
+	#If the machine is not connected to any network interface
+	if [ -z $SERVER_NAME ];then
+	    SERVER_NAME="127.0.0.1"
+	fi
+
+	sed -i'.bak' -e "s/SERVER_NAME=/SERVER_NAME=$SERVER_NAME/" $CONF_FILE
+fi
+
 encode_password $RABBITMQ_ADMIN_PASS
 
 tmp=$(mktemp)
