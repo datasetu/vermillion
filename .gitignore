@@ -20,4 +20,7 @@ api-server/src/main/generated/vermillion/broker/*
 api-server/src/main/generated/vermillion/database/*
 authenticator/src/main/generated/vermillion/broker/*
 authenticator/src/main/generated/vermillion/database/*
-
+auth-server/node_modules/
+api-server/file-uploads/
+api-server/webroot/
+single-node/provider/
