@@ -54,7 +54,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-redis-client</artifactId>
-      <version>3.9.3</version>
+      <version>3.9.4</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
