@@ -108,7 +108,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.post("/latest").handler(this::latest);
     router.post("/search").handler(this::search);
 
-    // TODO: Don't hardcode the auth server
     router
         .routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[^\\/]+\\/[0-9a-f]+\\/?.*")
         .handler(
@@ -185,7 +184,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         .flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
   }
 
-  // TODO: This can be a simple get request
   public void latest(RoutingContext context) {
     logger.debug("In latest API");
     HttpServerResponse response = context.response();
@@ -232,7 +230,6 @@ public class HttpServerVerticle extends AbstractVerticle {
   }
 
   public void search(RoutingContext context) {
-    // TODO: Convert all types of responses to JSON
 
     HttpServerRequest request = context.request();
     HttpServerResponse response = context.response();
@@ -460,7 +457,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         return;
       }
 
-      // TODO: Add a case where only min or max are provided. Not both
       // Case 1: When the attribute query is a number
       if (attribute.containsKey("min") && attribute.containsKey("max")) {
 
@@ -550,7 +546,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     }
   }
 
-  // TODO: If Id is provided, reroute to the specific file
   public void download(RoutingContext context) {
 
     HttpServerRequest request = context.request();
@@ -592,10 +587,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     logger.debug("Created consumer subfolders");
 
-    // TODO: Avoid duplication here
     if (idParam == null) {
       checkAuthorisation(token)
-          // TODO: Rxify this further
           .flatMapCompletable(
               authorisedIds -> {
                 logger.debug("Authorised IDs = " + authorisedIds.encode());
@@ -619,7 +612,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                       Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
                   Path providerResourcePath = Paths.get(basePath + resourceId);
 
-                  // TODO: This could take a very long time for multiple large files
                   try {
                     Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
                   } catch (FileAlreadyExistsException ignored) {
@@ -655,7 +647,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                           Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
                       Path providerResourcePath = Paths.get(basePath + resourceId);
 
-                      // TODO: This could take a very long time for multiple large files
                       try {
                         Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
                       } catch (FileAlreadyExistsException ignored) {
@@ -675,7 +666,6 @@ public class HttpServerVerticle extends AbstractVerticle {
   // Publish API for timeseries data as well as static files
   public void publish(RoutingContext context) {
 
-    // TODO: Check scope before allowing publish - very imp
     logger.debug("In publish API");
     HttpServerRequest request = context.request();
     HttpServerResponse response = context.response();
@@ -686,7 +676,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     String fileName = null, resourceId, token;
     JsonObject requestBody = null;
 
-    // TODO: Check for invalid IDs
     resourceId = request.getParam("id");
     token = request.getParam("token");
 
@@ -700,8 +689,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     }
 
     String[] splitId = resourceId.split("/");
-    // TODO: Will this create problems if entire folders are shared?
-    // TODO: What happens when there are nested folders? - better to accept catgeory as a field?
     String category = splitId[splitId.length - 2];
 
     JsonArray requestedIdList = new JsonArray().add(resourceId);
@@ -738,8 +725,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         if (fileUploads.containsKey("metadata")) {
           metadata = fileUploads.get("metadata");
 
-          // TODO: Rxify this
-          // TODO: File size could crash server. Need to handle this
           Buffer metaBuffer = vertx.fileSystem().readFileBlocking(metadata.uploadedFileName());
 
           try {
@@ -802,7 +787,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
       if (metaJson != null) {
         logger.debug("Metadata is not null");
-        // TODO: Cap size of metadata
         dbJson.getJsonObject("data").put("metadata", metaJson);
         try {
           logger.debug("Metadata path = " + metadata.uploadedFileName());
@@ -887,8 +871,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     logger.debug("Filename = " + fileName);
   }
 
-  // TODO: Handle server token
-  // TODO: Handle regexes
   // Method that makes the HTTPS request to the auth server
   public Completable introspect(String token) {
     logger.debug("In introspect");
@@ -942,7 +924,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     return getValue(token)
         .flatMapCompletable(
             cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
-        // TODO: Avoid reading from cache again
         .andThen(Single.defer(() -> getValue(token)))
         .flatMapMaybe(
             result ->
@@ -956,7 +937,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                 resultArray
                     .map(
                         authorisedIds ->
-                            // TODO: In this case check for methods,
                             // body, API etc
                             Maybe.just(
                                 IntStream.range(0, authorisedIds.size())
@@ -984,7 +964,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     return getValue(token)
         .flatMapCompletable(
             cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
-        // TODO: Avoid reading from cache again
         .andThen(Single.defer(() -> getValue(token)))
         .flatMapMaybe(
             result ->
@@ -998,8 +977,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                 resultArray
                     .map(
                         authorisedIds ->
-                            // TODO: In this case check for methods,
-                            // body, API etc
                             Maybe.just(
                                 new JsonArray(
                                     IntStream.range(0, authorisedIds.size())
