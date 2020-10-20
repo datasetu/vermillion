@@ -22,7 +22,7 @@ services:
       - vermillion-net
     volumes:
       - ../api-server:/api-server/
-      - ${PROVIDER_PATH}:/api-server/provider/
+      - ${PROVIDER_PATH}:/api-server/webroot/provider/
     env_file:
       - vermillion.conf
     environment:
@@ -104,7 +104,7 @@ services:
       - vermillion-net
     volumes:
       - redis-data:/bitnami/redis/data
-      - ../conf/redis/:/opt/bitnami/redis/mounted-etc/
+        #- ../conf/redis/:/opt/bitnami/redis/mounted-etc/
     ports:
       - "${REDIS_TCP_PORT}:6379"
     env_file:

@@ -6,8 +6,8 @@ volumes:
 services:
   auth:
     image: datasetu/auth-server
-    container_name: auth
-    hostname: auth
+    container_name: auth.local
+    hostname: auth.local
     ports:
       - "8443:443"
     restart: on-failure

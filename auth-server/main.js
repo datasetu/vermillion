@@ -58,6 +58,7 @@ const unveil			= is_openbsd ? require("openbsd-unveil"): null;
 
 const NUM_CPUS			= os.cpus().length;
 const SERVER_NAME		= fs.readFileSync ("server.name","ascii").trim();
+const ALLOWED_SERVER_NAMES	= ["localhost", "localhost:8443", "auth.local", "127.0.0.1", "127.0.0.1:8443"]
 const DOCUMENTATION_LINK	= fs.readFileSync ("documentation.link","ascii").trim();
 
 const MAX_TOKEN_TIME		= 31536000; // in seconds (1 year)
@@ -362,7 +363,7 @@ function is_valid_token (token, user = null)
 	const issued_to		= split[1];
 	const random_hex	= split[2];
 
-	if (issued_by !== SERVER_NAME)
+	if (!ALLOWED_SERVER_NAMES.includes(issued_by))
 		return false;
 
 	if (random_hex.length !== TOKEN_LEN_HEX)
@@ -755,7 +756,7 @@ function is_secure (req, res, cert, validate_email = true)
 	res.header("X-Content-Type-Options",	"nosniff");
 
 
-	if (req.headers.host && req.headers.host !== SERVER_NAME)
+	if (req.headers.host && !ALLOWED_SERVER_NAMES.includes(req.headers.host))
 		return "Invalid 'host' field in the header";
 
 	if (req.headers.origin)

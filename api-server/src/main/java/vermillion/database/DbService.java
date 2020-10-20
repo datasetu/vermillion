@@ -9,22 +9,32 @@ import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
+import java.util.List;
+
 @ProxyGen
 @VertxGen
 public interface DbService {
-    @GenIgnore
-    static DbService create(String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
-        return new DbServiceImpl(esHost, esPort, index, resultHandler);
-    }
+  @GenIgnore
+  static DbService create(
+      String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
+    return new DbServiceImpl(esHost, esPort, index, resultHandler);
+  }
 
-    @GenIgnore
-    static vermillion.database.reactivex.DbService createProxy(io.vertx.core.Vertx vertx, String address) {
-        return new vermillion.database.reactivex.DbService(new DbServiceVertxEBProxy(vertx, address));
-    }
+  @GenIgnore
+  static vermillion.database.reactivex.DbService createProxy(
+      io.vertx.core.Vertx vertx, String address) {
+    return new vermillion.database.reactivex.DbService(new DbServiceVertxEBProxy(vertx, address));
+  }
 
-    @Fluent
-    DbService searchQuery(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
+  @Fluent
+  DbService search(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
 
-    @Fluent
-    DbService insertQuery(JsonObject query, Handler<AsyncResult<Void>> resultHandler);
+  @Fluent
+  DbService secureSearch(
+      JsonObject query,
+      String token,
+      Handler<AsyncResult<JsonArray>> resultHandler);
+
+  @Fluent
+  DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler);
 }
