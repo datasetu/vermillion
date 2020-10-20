@@ -18,8 +18,6 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import vermillion.throwables.InternalErrorThrowable;
 
-import java.util.List;
-
 public class DbServiceImpl implements DbService {
 
   private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
@@ -82,10 +80,7 @@ public class DbServiceImpl implements DbService {
 
   @Override
   public DbService secureSearch(
-      JsonObject query,
-      String token,
-      List<String> authorisedIDs,
-      Handler<AsyncResult<JsonArray>> resultHandler) {
+      JsonObject query, String token, Handler<AsyncResult<JsonArray>> resultHandler) {
     logger.debug("In secure search");
     logger.debug("Query=" + query.encode());
 
@@ -106,14 +101,10 @@ public class DbServiceImpl implements DbService {
 
                 JsonObject responseJson = dbResponse.getJsonObject(i).getJsonObject("_source");
 
-                String resourceID = responseJson.getString("id");
-                if (!authorisedIDs.contains(resourceID) && !resourceID.endsWith(".public")) {
-                  continue;
-                }
+                JsonObject responseData = responseJson.getJsonObject("data");
 
-                if (responseJson.getJsonObject("data").containsKey("link")
-                    && "/download"
-                        .equalsIgnoreCase(responseJson.getJsonObject("data").getString("link"))) {
+                if (responseData.containsKey("link")
+                    && "/download".equalsIgnoreCase(responseData.getString("link"))) {
 
                   String downloadLink =
                       "https://"

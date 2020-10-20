@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
 import java.util.*;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -183,7 +184,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         .flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
   }
 
-  //TODO: This can be a simple get request
+  // TODO: This can be a simple get request
   public void latest(RoutingContext context) {
     logger.debug("In latest API");
     HttpServerResponse response = context.response();
@@ -247,8 +248,8 @@ public class HttpServerVerticle extends AbstractVerticle {
     JsonArray filterQuery = queries.getFilterQuery();
     JsonObject baseQuery = queries.getBaseQuery();
 
-    String resourceIDstr;
-    JsonArray resourceIDList;
+    String resourceIDstr = null;
+    JsonArray resourceIDArray = null;
 
     try {
       requestBody = context.getBodyAsJson();
@@ -278,8 +279,8 @@ public class HttpServerVerticle extends AbstractVerticle {
       return;
     }
     if (resourceIdObj instanceof JsonArray) {
-      resourceIDList = requestBody.getJsonArray("id");
-      for (Object o : resourceIDList) {
+      resourceIDArray = requestBody.getJsonArray("id");
+      for (Object o : resourceIDArray) {
         if (!(o instanceof String)) {
           apiFailure(
               context, new BadRequestThrowable("Resource ID list should be a list of strings"));
@@ -290,7 +291,7 @@ public class HttpServerVerticle extends AbstractVerticle {
           return;
         }
       }
-      termsQuery.getJsonObject("terms").put("id.keyword", resourceIDList);
+      termsQuery.getJsonObject("terms").put("id.keyword", resourceIDArray);
       filterQuery.add(termsQuery);
     } else {
       resourceIDstr = requestBody.getString("id");
@@ -508,26 +509,43 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     logger.debug(baseQuery.encodePrettily());
 
-    if (token == null) {
+    // Trigger regular search function in three cases
+    // 1. When the token provided is null: This is perfectly safe to do at this stage since secure
+    // IDs are checked beforehand
+    // 2. When token is provided but ID is a public ID
+    // 3. When token is provided but ID is a list of public IDs
+    // Don't know why anyone would do 2 & 3, but you never know
+    if ((token == null)
+        || (resourceIDstr != null && resourceIDstr.endsWith(".public"))
+        || (resourceIDArray != null
+            && resourceIDArray.stream()
+                .map(Object::toString)
+                .allMatch(s -> s.endsWith(".public")))) {
       dbService
           .rxSearch(baseQuery)
           .subscribe(
-              result ->
-                  response.putHeader("content-type", "application/json").end(result.encode()));
+              result -> response.putHeader("content-type", "application/json").end(result.encode()),
+              t -> apiFailure(context, t));
     } else {
-      // TODO: Don't go to DB if requested ID is outside authorised ID set
-      checkAuthorisation(token)
-          .flatMap(
-              authorisedIDs ->
-                  dbService.rxSecureSearch(
-                      baseQuery,
-                      token,
-                      IntStream.range(0, authorisedIDs.size())
-                          .mapToObj(authorisedIDs::getString)
-                          .collect(Collectors.toList())))
+      JsonArray requestedIDs = new JsonArray();
+
+      if (resourceIDstr != null) {
+        requestedIDs.add(resourceIDstr);
+      } else {
+        // Get only the secure IDs from the list of all IDs provided
+        requestedIDs =
+            resourceIDArray.stream()
+                .map(Object::toString)
+                .filter(s -> !s.endsWith(".public"))
+                .collect(Collector.of(JsonArray::new, JsonArray::add, JsonArray::add));
+        logger.debug("Requested IDs=" + requestedIDs.encodePrettily());
+      }
+
+      checkAuthorisation(token, requestedIDs)
+          .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token)))
           .subscribe(
-              result ->
-                  response.putHeader("content-type", "application/json").end(result.encode()));
+              result -> response.putHeader("content-type", "application/json").end(result.encode()),
+              t -> apiFailure(context, t));
     }
   }
 
@@ -536,7 +554,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     HttpServerRequest request = context.request();
 
-    // If token is valid for resources apart from secure files then specify list of ids in the
+    // If token is valid for resources apart from secure 'files' then specify list of ids in the
     // request
     String token = request.getParam("token");
     String idParam = request.getParam("id");
@@ -576,6 +594,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     // TODO: Avoid duplication here
     if (idParam == null) {
       checkAuthorisation(token)
+          // TODO: Rxify this further
           .flatMapCompletable(
               authorisedIds -> {
                 logger.debug("Authorised IDs = " + authorisedIds.encode());
@@ -592,6 +611,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 for (int i = 0; i < authorisedIds.size(); i++) {
 
                   String resourceId = authorisedIds.getString(i);
+                  // Get the actual file name on disk
                   String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
 
                   Path consumerResourcePath =
@@ -654,6 +674,7 @@ public class HttpServerVerticle extends AbstractVerticle {
   // Publish API for timeseries data as well as static files
   public void publish(RoutingContext context) {
 
+    // TODO: Check scope before allowing publish - very imp
     logger.debug("In publish API");
     HttpServerRequest request = context.request();
     HttpServerResponse response = context.response();
@@ -679,6 +700,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     String[] splitId = resourceId.split("/");
     // TODO: Will this create problems if entire folders are shared?
+    // TODO: What happens when there are nested folders? - better to accept catgeory as a field?
     String category = splitId[splitId.length - 2];
 
     JsonArray requestedIdList = new JsonArray().add(resourceId);
@@ -727,6 +749,7 @@ public class HttpServerVerticle extends AbstractVerticle {
           }
           logger.debug("Metadata = " + metaJson.encode());
         } else {
+          // Delete all other files except 'file' and 'metadata'
           fileUploads.forEach(
               (k, v) -> {
                 if (!"file".equalsIgnoreCase(k)) {
@@ -807,7 +830,9 @@ public class HttpServerVerticle extends AbstractVerticle {
           .subscribe(() -> response.setStatusCode(201).end("Ok"), Throwable::printStackTrace);
       // .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
       return;
-    } else {
+    }
+    // For timeseries data
+    else {
       try {
         requestBody = context.getBodyAsJson();
       } catch (Exception e) {
@@ -853,14 +878,17 @@ public class HttpServerVerticle extends AbstractVerticle {
       requestBody.put("mime-type", "application/json");
     }
 
+    JsonObject finalRequestBody = requestBody;
+
     checkAuthorisation(token, new JsonArray().add(resourceId))
-        .andThen(dbService.rxInsert(requestBody))
+        .andThen(Completable.defer(() -> dbService.rxInsert(finalRequestBody)))
         .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
 
     logger.debug("Filename = " + fileName);
   }
 
   // TODO: Handle server token
+  // TODO: Handle regexes
   // Method that makes the HTTPS request to the auth server
   public Completable introspect(String token) {
     logger.debug("In introspect");

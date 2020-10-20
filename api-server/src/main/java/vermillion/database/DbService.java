@@ -33,7 +33,6 @@ public interface DbService {
   DbService secureSearch(
       JsonObject query,
       String token,
-      List<String> authorisedIDs,
       Handler<AsyncResult<JsonArray>> resultHandler);
 
   @Fluent
