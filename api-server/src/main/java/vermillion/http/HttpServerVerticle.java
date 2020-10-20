@@ -147,6 +147,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             });
   }
 
+  // TODO: Check why using a custom conf file fails here
   public Single<RedisAPI> getRedisClient() {
     logger.debug("In get redis client");
     logger.debug("options=" + options.toJson().encodePrettily());
@@ -827,8 +828,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return Completable.complete();
                   }))
           .andThen(dbService.rxInsert(dbJson))
-          .subscribe(() -> response.setStatusCode(201).end("Ok"), Throwable::printStackTrace);
-      // .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
+          .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
       return;
     }
     // For timeseries data
