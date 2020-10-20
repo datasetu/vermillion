@@ -87,7 +87,7 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-rx-java2</artifactId>
-      <version>3.9.1</version>
+      <version>3.9.4</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/io.vertx/vertx-rx-java2-gen -->
     <dependency>
