@@ -27,6 +27,19 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
+
+@when('The payload id is wrong')
+def step_impl(context):
+    context.type = 'nopayload'
+    
+    payload='{"id":"jhkvsbhvdjhbfd","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
 @when('The payload is random')
 def step_impl(context):
 
@@ -95,6 +108,71 @@ def step_impl(context):
     r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
 
     context.response = r.json()
+
+@when('Timeseries payload is empty')
+def step_impl(context):
+
+    payload='{}'
+#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public","time":{"start":"2020-03-01","end":"2020-03-27"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('Timeseries payload is random')
+def step_impl(context):
+
+    payload='{hbahbcbhaadhdhkdhbkhdb1334234124}'
+#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public","time":{"start":"2020-03-01","end":"2020-03-27"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+@when('Timeseries start date is random')
+def step_impl(context):
+
+    
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public","time":{"start":"fxxg","end":"2020-03-27"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('Timeseries end date is random')
+def step_impl(context):
+
+    
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public","time":{"start":"fxxg","end":"jhvjv"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('Timeseries date is empty')
+def step_impl(context):
+
+    
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public","time":{"start":"","end":""}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('Timeseries id is wrong')
+def step_impl(context):
+
+    payload='{"id":"hssbfisbfibs","time":{"start":"2020-03-01","end":"2020-03-27"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
 
 
 @when('A timeseries query is initiated')
