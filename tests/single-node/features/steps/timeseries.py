@@ -27,6 +27,63 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
+@when('The payload is random')
+def step_impl(context):
+
+    context.type = 'randompayload'
+    payload='{hsbdsbdbsdfkhbsfhk}'
+#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+@when('The coordinates are changed')
+def step_impl(context):
+
+    
+    
+    
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[xyz,abc],"distance":"10000m"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('The coordinates are empty')
+def step_impl(context):
+
+      
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[],"distance":"10000m"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('The distance is changed')
+def step_impl(context):
+
+      
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"xyz"}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('The distance is empty')
+def step_impl(context):
+
+      
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":""}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
 
 @when('A geo-spatial query is initiated')
 def step_impl(context):
@@ -50,7 +107,6 @@ def step_impl(context):
     r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
 
     context.response = r.json()
-
 
 @when('An attribute value query is initiated')
 def step_impl(context):
@@ -94,10 +150,19 @@ def step_impl(context):
         assert True == True
     if context.type == 'complex':
         assert len(context.response) == 305
-@then('Return the status as Bad request 400')
-def step_impl(context):
-    assert context.failed is False
-    
-    if context.type == 'nopayload':
-        assert context.status_code == 400
-
+#@then('Return the status as Bad request 400')
+#def step_impl(context):
+#    assert context.failed is False
+#    
+#    if context.type == 'nopayload':
+#        assert context.status_code == 400
+#    if context.type == 'randompayload':
+#        assert context.status_code == 400
+#    if context.type == 'coordinateschange':
+#        assert context.status_code == 200
+#    
+@then('The response will have "{text}"')
+def step_impl(context, text):
+    if text not in context.response:
+       assert('%r not in %r' % (text, context.response))
+       assert context.status_code == 400
