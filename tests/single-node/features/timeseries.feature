@@ -67,14 +67,10 @@ Feature: Vermillion is able to handle timeseries data
 		When Timeseries date is empty
 		Then The response will have "error"
 	
-	Scenario: Timeseries query for wrong id
+	Scenario: Timeseries query for wrong payload id
 		Given Vermillion is running
 		When Timeseries id is wrong
 		Then The response will have "error"
-
-
-
-
 
 	
 	Scenario: Timeseries query
@@ -86,6 +82,29 @@ Feature: Vermillion is able to handle timeseries data
 		Given Vermillion is running
 		When An attribute term query is initiated
 		Then All matching records are returned
+
+	Scenario: Attribute value query with empty payload
+		Given Vermillion is running
+		When The attribute value query payload is empty
+		Then The response will have "error"
+	
+	Scenario: Attribute value query with random payload
+		Given Vermillion is running
+		When The attribute value query payload is random
+		Then The response will have "error"
+	
+	Scenario: Attribute value query with wrong payload id
+		Given Vermillion is running
+		When The attribute value query payload id is wrong
+		Then The response will have "error"
+	
+	Scenario: Attribute value query with wrong payload attribute
+		Given Vermillion is running
+		When The attribute value query payload attributes are wrong
+		Then The response will have "error"
+
+
+
 
 	Scenario: Attribute value query
 		Given Vermillion is running

@@ -186,6 +186,55 @@ def step_impl(context):
 
     context.response = r.json()
 
+@when('The attribute value query payload is empty')
+def step_impl(context):
+
+    payload='{}'
+
+#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code=r.status_code
+
+@when('The attribute value query payload is random')
+def step_impl(context):
+
+    payload='{jsdbfksbfsbfjhwve24r24iyr29r}'
+
+#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code=r.status_code
+
+@when('The attribute value query payload id is wrong')
+def step_impl(context):
+
+    
+
+    payload='{"id":"hjsbdvhjsbvkhjsvskhdvkshbv378748242468246","attribute":{"term":"speed","min":30,"max":50}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code=r.status_code
+
+@when('The attribute value query payload attributes are wrong')
+def step_impl(context):
+
+    
+
+    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"^^","min":$$$,"max":%#%#%#%}}'
+
+    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
+
+    context.response = r.json()
+    context.status_code=r.status_code
+
+
 @when('An attribute value query is initiated')
 def step_impl(context):
 
