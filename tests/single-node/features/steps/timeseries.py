@@ -17,110 +17,6 @@ def step_impl(context):
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         context.failed = True
 
-@when('The payload is empty')
-def step_impl(context):
-    context.type = 'nopayload'
-    payload='{}'   
-#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The payload id is empty')
-def step_impl(context):
-    context.type = 'nopayload'
-    
-    payload='{"id":"","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The payload id is wrong')
-def step_impl(context):
-    context.type = 'nopayload'
-    
-    payload='{"id":"jhkvsbhvdjhbfd","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The payload is random')
-def step_impl(context):
-
-    context.type = 'randompayload'
-    payload='{hsbdsbdbsdfkhbsfhk}'
-#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-@when('The coordinates are changed')
-def step_impl(context):
-
-    
-    
-    
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[xyz,abc],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The coordinates are empty')
-def step_impl(context):
-
-      
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The distance is changed')
-def step_impl(context):
-
-      
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"xyz"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The distance is empty')
-def step_impl(context):
-
-      
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":""}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('A geo-spatial query is initiated')
-def step_impl(context):
-
-    context.type = 'geospatial'
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","geo_distance":{"coordinates":[82.9739,25.3176],"distance":"10000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-
 @when('Timeseries payload is empty')
 def step_impl(context):
 
@@ -132,7 +28,7 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
-@when('Timeseries payload is random')
+@when('Timeseries payload is invalid')
 def step_impl(context):
 
     payload='{hbahbcbhaadhdhkdhbkhdb1334234124}'
@@ -142,7 +38,7 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
-@when('Timeseries start date is random')
+@when('Timeseries start date is invalid')
 def step_impl(context):
 
     
@@ -153,7 +49,7 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
-@when('Timeseries end date is random')
+@when('Timeseries end date is invalid')
 def step_impl(context):
 
     
@@ -186,7 +82,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries id is wrong')
+@when('Timeseries id is invalid')
 def step_impl(context):
 
     payload='{"id":"hssbfisbfibs","time":{"start":"2020-03-01","end":"2020-03-27"}}'
@@ -196,261 +92,12 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
-
-
 @when('A timeseries query is initiated')
 def step_impl(context):
 
     context.type = 'timeseries'
 
     payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public","time":{"start":"2020-03-01","end":"2020-03-27"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-
-@when('The attribute value query payload is empty')
-def step_impl(context):
-
-    payload='{}'
-
-#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code=r.status_code
-
-@when('The attribute value query payload is random')
-def step_impl(context):
-
-    payload='{jsdbfksbfsbfjhwve24r24iyr29r}'
-
-#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code=r.status_code
-
-@when('The attribute value query payload id is empty')
-def step_impl(context):
-
-    
-
-    payload='{"id":"","attribute":{"term":"speed","min":30,"max":50}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code=r.status_code
-
-
-@when('The attribute value query payload id is wrong')
-def step_impl(context):
-
-    
-
-    payload='{"id":"hjsbdvhjsbvkhjsvskhdvkshbv378748242468246","attribute":{"term":"speed","min":30,"max":50}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code=r.status_code
-
-@when('The attribute value query payload attributes are empty')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"","min":,"max":}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code=r.status_code
-
-
-@when('The attribute value query payload attributes are wrong')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"^^","min":$$$,"max":%#%#%#%}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code=r.status_code
-
-
-@when('An attribute value query is initiated')
-def step_impl(context):
-
-    context.type = 'attribute-value'
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-
-@when('The complex query payload is empty')
-def step_impl(context):
-
-    payload='{}'
-
-#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The complex query payload is random')
-def step_impl(context):
-
-    payload='{uhsdvjhyuwuyfywhfiy2487y7924yr7}'
-
-#    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The complex query payload id is empty')
-def step_impl(context):
-
-    
-
-    payload='{"id":"","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The complex query payload id is wrong')
-def step_impl(context):
-
-    
-
-    payload='{"id":"hbjsdvhjbsvbsvbsvjbsjfbwy3747","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The complex query payload attributes are empty')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"","min":,"max":},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The complex query payload attributes are wrong')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"&#&*#&*","min":^#^&#,"max":hjbdsbhjcds},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The complex query payload time is empty')
-def step_impl(context):
-
-
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"","end":""},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The complex query payload time is wrong')
-def step_impl(context):
-
-
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"jhbsdjbhdsbhj","end":""},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The complex query payload coordinates are empty')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[,],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The complex query payload coordinates are wrong')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[hbsddhjbs,hbdhdfhb],"distance":"5000m"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-@when('The complex query payload distance is empty')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":""}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('The complex query payload distance is wrong')
-def step_impl(context):
-
-    
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"^&#^&#^&#"}}'
-
-    r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('A complex query is initiated')
-def step_impl(context):
-
-    context.type = 'complex'
-
-    payload='{"id":"rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","attribute":{"term":"speed","min":30,"max":50},"time":{"start":"2020-01-01","end":"2020-06-01"},"geo_distance":{"coordinates":[82.9739,25.3176],"distance":"5000m"}}'
 
     r = requests.post(url=VERMILLION_URL+SEARCH_ENDPOINT, headers = {'content-type': 'application/json'}, data=payload, verify=False)
 
@@ -465,29 +112,18 @@ def step_impl(context):
 def step_impl(context):
     assert context.failed is False
 
-    if context.type == 'geospatial':
-        assert len(context.response) == 5705
     if context.type == 'timeseries':
         assert len(context.response) == 2000
-    if context.type == 'attribute-value':
-        assert len(context.response) == 634
     if context.type == 'attribute-term':
         assert True == True
-    if context.type == 'complex':
+    if context.type == 'geospatial':
+        assert len(context.response) == 5705
+    if  context.type == 'attribute-value':
+        assert len(context.response) == 634
+    if  context.type == 'complex':
         assert len(context.response) == 305
-#@then('Return the status as Bad request 400')
-#def step_impl(context):
-#    assert context.failed is False
-#    
-#    if context.type == 'nopayload':
-#        assert context.status_code == 400
-#    if context.type == 'randompayload':
-#        assert context.status_code == 400
-#    if context.type == 'coordinateschange':
-#        assert context.status_code == 200
-#    
-@then('The response will have "{text}"')
+@then('The response status should be "{text}"')
 def step_impl(context, text):
     if text not in context.response:
        assert('%r not in %r' % (text, context.response))
-       assert context.status_code == 400
+       assert context.status_code ==  400
