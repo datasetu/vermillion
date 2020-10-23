@@ -110,6 +110,42 @@ Feature: Vermillion is able to handle timeseries data
 		Given Vermillion is running
 		When An attribute value query is initiated
 		Then All matching records are returned
+	
+	Scenario: Complex query with empty payload
+		Given Vermillion is running
+		When The complex query payload is empty
+		Then The response will have "error"
+	
+	Scenario: Complex query with random payload
+		Given Vermillion is running
+		When The complex query payload is random
+		Then The response will have "error"
+
+	Scenario: Complex query with wrong payload id
+		Given Vermillion is running
+		When The complex query payload id is wrong
+		Then The response will have "error"
+	
+	Scenario: Complex query with wrong payload attributes
+		Given Vermillion is running
+		When The complex query payload attributes are wrong
+		Then The response will have "error"
+	
+	Scenario: Complex query with wrong payload time
+		Given Vermillion is running
+		When The complex query payload time is wrong
+		Then The response will have "error"
+
+	Scenario: Complex query with wrong payload coordinates
+		Given Vermillion is running
+		When The complex query payload coordinates are wrong
+		Then The response will have "error"
+	
+	Scenario: Complex query with wrong payload distance
+		Given Vermillion is running
+		When The complex query payload distance is wrong
+		Then The response will have "error"
+	
 
 	Scenario: Complex query
 		Given Vermillion is running
