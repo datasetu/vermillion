@@ -20,6 +20,12 @@ Feature: Vermillion is able to handle timeseries data
                 Given Vermillion is running
                 When The payload id is invalid
                 Then The response status should be "400"
+	
+	Scenario: Geo-spatial query with just id as payload
+                Given Vermillion is running
+                When The payload has only id
+                Then The response status should be "400"
+
 
         Scenario: Geo-spatial query for invalid coordinates
                 Given Vermillion is running
@@ -30,6 +36,17 @@ Feature: Vermillion is able to handle timeseries data
                 Given Vermillion is running
                 When The coordinates are empty
                 Then The response status should be "400"
+	
+	Scenario: Geo-spatial query for coordinates not present
+                Given Vermillion is running
+                When The coordinates are not present
+                Then The response status should be "400"
+
+	Scenario: Geo-spatial query for distance not present
+                Given Vermillion is running
+                When The distance is not present
+                Then The response status should be "400"
+
 
 	Scenario: Geo-spatial query for invalid distance
                 Given Vermillion is running

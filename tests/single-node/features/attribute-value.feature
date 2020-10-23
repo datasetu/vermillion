@@ -14,6 +14,12 @@ Feature: Vermillion is able to handle timeseries data
                 Given Vermillion is running
                 When The attribute value query payload id is invalid
                 Then The response status should be "400"
+	
+	Scenario: Attribute value query with just id as payload
+                Given Vermillion is running
+                When The attribute value query payload has only id
+                Then The response status should be "400"
+
 
         Scenario: Attribute value query with empty payload id
                 Given Vermillion is running
