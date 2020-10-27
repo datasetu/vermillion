@@ -1658,7 +1658,29 @@ app.post("/auth/v[1-2]/token", (req, res) => {
 			return ERROR (res, 400, error_response);
 		}
 
-		if (r.api && typeof r.api === "string")
+        if (typeof r.scopes === "string")
+        			r.scopes = [r.scopes];
+
+        if (typeof r.scope === "string")
+            r.scopes = [r.scope];
+
+        if (! r.scopes)
+            r.scopes = ["read"];
+
+        if (! (r.scopes instanceof Array))
+        {
+            const error_response = {
+                "message"	: "'scopes' must be a valid JSON array",
+                "invalid-input"	: {
+                    "id"		: xss_safe(resource),
+                    "scopes"	: xss_safe(r.scopes)
+                }
+            };
+
+            return ERROR (res, 400, error_response);
+        }
+
+        if (typeof r.api === "string")
 			r.apis = [r.api];
 
 		if (! r.apis)
@@ -1844,22 +1866,43 @@ app.post("/auth/v[1-2]/token", (req, res) => {
 				CTX.conditions["body." + key] = r.body[key];
 		}
 
-		for (const api of r.apis)
+		CTX.conditions.apis	= r.apis;
+		CTX.conditions.scopes	= r.scopes;
+		CTX.conditions.methods	= r.methods;
+
+		for (const scope of r.scopes)
 		{
-			if (typeof api !== "string")
+			if (typeof scope !== "string")
 			{
 				const error_response = {
-					"message"	: "'api' must be a string",
+					"message"	: "'scope' must be a string",
 					"invalid-input"	: {
 						"id"	: xss_safe(resource),
-						"api"	: xss_safe(api)
+						"scope"	: xss_safe(scope)
 					}
 				};
 
 				return ERROR (res, 400, error_response);
 			}
 
-			CTX.conditions.api = api;
+			CTX.conditions.scope = r.scope;
+
+			for (const api of r.apis)
+			{
+				if (typeof api !== "string")
+				{
+					const error_response = {
+						"message"	: "'api' must be a string",
+						"invalid-input"	: {
+							"id"	: xss_safe(resource),
+							"api"	: xss_safe(api)
+						}
+					};
+
+					return ERROR (res, 400, error_response);
+				}
+
+				CTX.conditions.api = api;
 
 			for (const method of r.methods)
 			{
@@ -1894,12 +1937,42 @@ app.post("/auth/v[1-2]/token", (req, res) => {
 					requires_manual_authorization	= requires_manual_authorization	||
 										result["manual-authorization"];
 
-					if (token_time_in_policy < 1 || payment_amount < 0.0)
+						if (token_time_in_policy < 1 || payment_amount < 0.0)
+						{
+							const error_response = {
+								"message"	: "Unauthorized",
+								"invalid-input"	: {
+									"id"		: xss_safe(resource),
+									"scope"		: xss_safe(scope),
+									"api"		: xss_safe(api),
+									"method"	: xss_safe(method)
+								}
+							};
+
+							return ERROR (res, 403, error_response);
+						}
+
+						const cost_per_second		= payment_amount / token_time_in_policy;
+
+						total_data_cost_per_second	+= cost_per_second;
+
+						if (! payment_info.providers[provider_id_hash])
+							payment_info.providers[provider_id_hash] = 0.0;
+
+						payment_info.providers[provider_id_hash] += cost_per_second;
+
+						token_time = Math.min (
+							token_time,
+							token_time_in_policy
+						);
+					}
+					catch (x)
 					{
 						const error_response = {
 							"message"	: "Unauthorized",
 							"invalid-input"	: {
 								"id"		: xss_safe(resource),
+								"scope"		: xss_safe(scope),
 								"api"		: xss_safe(api),
 								"method"	: xss_safe(method)
 							}
@@ -1907,33 +1980,6 @@ app.post("/auth/v[1-2]/token", (req, res) => {
 
 						return ERROR (res, 403, error_response);
 					}
-
-					const cost_per_second		= payment_amount / token_time_in_policy;
-
-					total_data_cost_per_second	+= cost_per_second;
-
-					if (! payment_info.providers[provider_id_hash])
-						payment_info.providers[provider_id_hash] = 0.0;
-
-					payment_info.providers[provider_id_hash] += cost_per_second;
-
-					token_time = Math.min (
-						token_time,
-						token_time_in_policy
-					);
-				}
-				catch (x)
-				{
-					const error_response = {
-						"message"	: "Unauthorized",
-						"invalid-input"	: {
-							"id"		: xss_safe(resource),
-							"api"		: xss_safe(api),
-							"method"	: xss_safe(method)
-						}
-					};
-
-					return ERROR (res, 403, error_response);
 				}
 			}
 		}
@@ -1956,6 +2002,7 @@ app.post("/auth/v[1-2]/token", (req, res) => {
 				"id"			: resource,
 				"methods"		: r.methods,
 				"apis"			: r.apis,
+				"scopes"		: r.scopes,
 				"body"			: r.body,
 				"manual-authorization"	: requires_manual_authorization,
 			});
@@ -1966,6 +2013,7 @@ app.post("/auth/v[1-2]/token", (req, res) => {
 				"id"			: resource,
 				"methods"		: r.methods,
 				"apis"			: r.apis,
+				"scopes"		: r.scopes,
 				"body"			: r.body,
 			});
 		}
@@ -2356,6 +2404,9 @@ app.post("/auth/v[1-2]/token/introspect", (req, res) => {
 
 					if (! r1.apis)
 						r1.apis = ["/*"];
+
+                    if (! r1.scopes)
+                    	r1.scopes = ["read"];
 
 					if (! r1.body)
 						r1.body = null;
