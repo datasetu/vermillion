@@ -286,6 +286,10 @@ public class HttpServerVerticle extends AbstractVerticle {
               context, new BadRequestThrowable("Resource ID list should be a list of strings"));
           return;
         }
+        if ("".equalsIgnoreCase(o.toString())) {
+          apiFailure(context, new BadRequestThrowable("Resource ID is empty"));
+          return;
+        }
         if (!(((String) o).endsWith(".public")) && token == null) {
           apiFailure(context, new BadRequestThrowable("No token found in request"));
           return;
@@ -295,6 +299,10 @@ public class HttpServerVerticle extends AbstractVerticle {
       filterQuery.add(termsQuery);
     } else {
       resourceIDstr = requestBody.getString("id");
+      if ("".equalsIgnoreCase(resourceIDstr)) {
+        apiFailure(context, new BadRequestThrowable("Resource ID is empty"));
+        return;
+      }
       if (!resourceIDstr.endsWith(".public") && token == null) {
         apiFailure(context, new BadRequestThrowable("No token found in request"));
         return;
@@ -369,10 +377,18 @@ public class HttpServerVerticle extends AbstractVerticle {
       logger.debug(
           "Coordinates lat check = " + NumberUtils.isCreatable(coordinates.getValue(0).toString()));
       logger.debug(
-          "Coordinates lon check = " + NumberUtils.isCreatable(coordinates.getValue(0).toString()));
+          "Coordinates lon check = " + NumberUtils.isCreatable(coordinates.getValue(1).toString()));
 
       if (!NumberUtils.isCreatable(coordinates.getValue(0).toString())
           || !NumberUtils.isCreatable(coordinates.getValue(1).toString())) {
+        apiFailure(context, new BadRequestThrowable("Coordinates should be valid numbers"));
+        return;
+      }
+
+      double lat = coordinates.getDouble(0);
+      double lon = coordinates.getDouble(1);
+
+      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
         apiFailure(context, new BadRequestThrowable("Invalid coordinates"));
         return;
       }
