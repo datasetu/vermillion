@@ -11,9 +11,9 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-@when('Timeseries payload is empty')
+@when('The payload is empty')
 def step_impl(context):
-
+    context.type = 'nopayload'
     payload = {}
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
@@ -25,29 +25,15 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload is invalid')
+@when('The payload id is empty')
 def step_impl(context):
-
-    payload = '{hbahbcbhaadhdhkdhbkhdb1334234124}'
-
-    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
-                      headers={'content-type': 'application/json'},
-                      data=json.dumps(payload),
-                      verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('Timeseries payload start date is invalid')
-def step_impl(context):
+    context.type = 'nopayload'
 
     payload = {
-        "id":
-            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
-        "time": {
-            "start": "fxxg",
-            "end": "2020-03-27"
+        "id": "",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m"
         }
     }
 
@@ -60,15 +46,33 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload end date is invalid')
+@when('The payload has only id')
 def step_impl(context):
+    context.type = 'nopayload'
 
     payload = {
         "id":
-            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
-        "time": {
-            "start": "fxxg",
-            "end": "jhvjv"
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
+@when('The payload id is invalid')
+def step_impl(context):
+    context.type = 'nopayload'
+
+    payload = {
+        "id": "jhkvsbhvdjhbfd",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m"
         }
     }
 
@@ -81,15 +85,30 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload date is empty')
+@when('The payload is random')
+def step_impl(context):
+
+    context.type = 'randompayload'
+    payload = '{hsbdsbdbsdfkhbsfhk}'
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
+@when('The coordinates are not present')
 def step_impl(context):
 
     payload = {
         "id":
-            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
-        "time": {
-            "start": "",
-            "end": ""
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [515155653, 77172626],
+            "distance": "10000m"
         }
     }
 
@@ -102,15 +121,15 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload date is not present')
+@when('The coordinates are invalid')
 def step_impl(context):
 
     payload = {
         "id":
-            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
-        "time": {
-            "start": "0000-00-00",
-            "end": "0000-00-00"
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": ["xyz", "abc"],
+            "distance": "10000m"
         }
     }
 
@@ -123,45 +142,15 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload has only id')
+@when('The coordinates are empty')
 def step_impl(context):
 
     payload = {
         "id":
-            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public"
-    }
-
-    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
-                      headers={'content-type': 'application/json'},
-                      data=json.dumps(payload),
-                      verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('Timeseries payload id is empty')
-def step_impl(context):
-
-    payload = {"id": "", "time": {"start": "2020-03-01", "end": "2020-03-27"}}
-
-    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
-                      headers={'content-type': 'application/json'},
-                      data=json.dumps(payload),
-                      verify=False)
-
-    context.response = r.json()
-    context.status_code = r.status_code
-
-
-@when('Timeseries payload id is invalid')
-def step_impl(context):
-
-    payload = {
-        "id": "hssbfisbfibs",
-        "time": {
-            "start": "2020-03-01",
-            "end": "2020-03-27"
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [],
+            "distance": "10000m"
         }
     }
 
@@ -174,17 +163,15 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('A timeseries query is initiated')
+@when('The distance is invalid')
 def step_impl(context):
-
-    context.type = 'timeseries'
 
     payload = {
         "id":
-            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
-        "time": {
-            "start": "2020-03-01",
-            "end": "2020-03-27"
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "xyz"
         }
     }
 
@@ -194,9 +181,68 @@ def step_impl(context):
                       verify=False)
 
     context.response = r.json()
+    context.status_code = r.status_code
 
 
-@when('An attribute term query is initiated')
+@when('The distance is not present')
 def step_impl(context):
-    context.type = 'attribute-term'
-    pass
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "234"
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
+@when('The distance is empty')
+def step_impl(context):
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": ""
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
+@when('A geo-spatial query is initiated')
+def step_impl(context):
+
+    context.type = 'geospatial'
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m"
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
