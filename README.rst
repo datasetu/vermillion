@@ -42,8 +42,34 @@ If the OS is Ubuntu or debian based
   
   .. code-block:: shell
 
-    curl -LJ# https://vermillion-install.herokuapp.com/ | bash
+    curl -LJ# https://vermillion-install.herokuapp.com/ | bash  
+    
+    docker ps (check if the containers are up and running)
+    
+    sudo apt install maven
 
+* Clone the repository
+
+    git clone https://github.com/rbccps-iisc/vermillion
+    cd vermillion
+
+* Clean package and install 
+
+    mvn clean package (on both /api-server & /authenticator)
+    
+    cd /single-node
+    ./install
+
+* Check if the port is working
+
+    docker logs -f vertx
+    docker logs -f elasticsearch
+    curl localhost:9200
+
+* Load sample data( to execute tests)
+
+    ./load_sample_data.sh
+    
 
 For other operating systems
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
