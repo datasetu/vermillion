@@ -1,8 +1,0 @@
-set(binary_resolution).
-clear(print_initial_clauses).
-clear(print_kept).
-clear(print_given).
-assign(max_seconds,1).
-assign(stats,none).
-
-formulas(sos).

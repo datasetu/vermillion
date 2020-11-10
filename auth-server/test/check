@@ -1,2 +1,0 @@
-pylint -E auth.py
-pylint -E test*.py
