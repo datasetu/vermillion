@@ -46,11 +46,14 @@ keytool -importkeystore						    \
 
 #Generate a self signed SSL certificate
 keytool -genkey -noprompt \
- -alias alias1 \
+ -alias selfsigned \
+ -keyalg RSA \
  -dname "CN=localhost, OU=Datasetu, O=ARTPark, L=Bangalore, S=Karnataka, C=IN" \
  -keystore ssl-keystore.jks \
  -storepass password \
- -keypass password
+ -keypass password \
+ -validity 30 \
+ -keysize 2048
 
 #Move certificates to appropriate directories
 mv https-key.pem ../datasetu-auth-server/

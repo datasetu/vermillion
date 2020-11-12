@@ -12,9 +12,12 @@ services:
       - "8443:443"
     restart: on-failure
     volumes:
-      - ../auth-server/:/auth-server/
+      - ../datasetu-auth-server/:/home/datasetu-auth-server/
+      - ../node-aperture/:/home/datasetu-auth-server/node-aperture/
     networks:
       - vermillion-net
+    environment:
+      - NODE_ENV=development
     env_file:
       - vermillion.conf
 
