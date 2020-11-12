@@ -24,3 +24,10 @@ auth-server/node_modules/
 api-server/file-uploads/
 api-server/webroot/
 single-node/provider/
+api-server/api-server.iml
+authenticator/authenticator.iml
+api-server/src/main/resources/
+authenticator/src/main/resources/
+datasetu-ca/resource-server/*.pem
+datasetu-ca/provider/*.pem
+datasetu-ca/consumer/*.pem

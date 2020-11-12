@@ -62,13 +62,13 @@ mv https-certificate.pem ../datasetu-auth-server/
 mv ca.key ../datasetu-auth-server/
 mv ca.datasetu.org.crt ../datasetu-auth-server/
 
-cp resource-server/resource-server-keystore.jks ../api-server/certs/auth/
-cp resource-server/resource-server-keystore.jks ../authenticator/certs/auth/
+mkdir -p ../api-server/certs/auth && cp resource-server/resource-server-keystore.jks ../api-server/certs/auth/
+mkdir -p ../authenticator/certs/auth && cp resource-server/resource-server-keystore.jks ../authenticator/certs/auth/
 
 cp resource-server/resource-server.pem ../api-server/certs/auth/
 cp resource-server/resource-server.key.pem ../api-server/certs/auth/
 
-mv ssl-keystore.jks ../api-server/certs/ssl/
+mkdir ../api-server/certs/ssl/ && mv ssl-keystore.jks ../api-server/certs/ssl/
 
 #Remove unwanted files
 rm ca.srl cert.p12 combined.pem
