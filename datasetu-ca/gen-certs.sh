@@ -71,4 +71,4 @@ cp resource-server/resource-server.key.pem ../api-server/certs/auth/
 mkdir ../api-server/certs/ssl/ && mv ssl-keystore.jks ../api-server/certs/ssl/
 
 #Remove unwanted files
-rm ca.srl cert.p12 combined.pem
+rm ca.srl cert.p12 combined.pem 2>/dev/null

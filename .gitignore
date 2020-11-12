@@ -29,5 +29,16 @@ authenticator/authenticator.iml
 api-server/src/main/resources/
 authenticator/src/main/resources/
 datasetu-ca/resource-server/*.pem
+datasetu-ca/resource-server/*.csr
+datasetu-ca/resource-server/*.jks
 datasetu-ca/provider/*.pem
+datasetu-ca/provider/*.csr
+datasetu-ca/provider/*.jks
 datasetu-ca/consumer/*.pem
+datasetu-ca/consumer/*.csr
+datasetu-ca/consumer/*.jks
+conf/rabbitmq/definitions.json
+api-server/certs/
+authenticator/certs/
+.DS_Store
+.properties
