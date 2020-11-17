@@ -12,6 +12,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 @given('Vermillion is running')
 def step_impl(context):
+    context.type = 'running_server'
 
     try:
         r = requests.get(VERMILLION_URL, verify=False)

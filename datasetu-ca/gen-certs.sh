@@ -68,7 +68,7 @@ mkdir -p ../authenticator/certs/auth && cp resource-server/resource-server-keyst
 cp resource-server/resource-server.pem ../api-server/certs/auth/
 cp resource-server/resource-server.key.pem ../api-server/certs/auth/
 
-mkdir ../api-server/certs/ssl/ && mv ssl-keystore.jks ../api-server/certs/ssl/
+mkdir -p ../api-server/certs/ssl/ && mv ssl-keystore.jks ../api-server/certs/ssl/
 
 #Remove unwanted files
 rm -f ca.srl cert.p12 combined.pem
