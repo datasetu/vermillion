@@ -1,3 +1,0 @@
-formulas(goals).
-        has_class_3_certificate(user,certificate) -> can_call_token_api(user,certificate).
-end_of_list.

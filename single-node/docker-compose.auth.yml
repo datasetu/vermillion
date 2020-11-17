@@ -12,9 +12,13 @@ services:
       - "8443:443"
     restart: on-failure
     volumes:
-      - ../auth-server/:/auth-server/
+      - ../datasetu-auth-server/:/home/datasetu-auth-server/
+      - ../node-aperture/:/home/datasetu-auth-server/node-aperture/
     networks:
       - vermillion-net
+    environment:
+      - NODE_ENV=development
+      - WAIT_HOSTS=postgres:5432
     env_file:
       - vermillion.conf
 
@@ -27,6 +31,6 @@ services:
       - vermillion-net
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ../auth-server/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ../datasetu-auth-server/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     env_file:
       - vermillion.conf

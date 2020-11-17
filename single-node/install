@@ -115,6 +115,9 @@ if [ $RUN_ONLY == "true" ]; then
 	fi
 fi
 
+#Generate all necessary certificates
+(cd ../datasetu-ca && ./gen-certs.sh)
+
 docker-compose -f docker-compose.yml -f docker-compose.kibana.yml -f docker-compose.auth.yml down --remove-orphans -v
 
 DOCKER_OPTS=""
