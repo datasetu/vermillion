@@ -18,6 +18,7 @@ services:
       - vermillion-net
     environment:
       - NODE_ENV=development
+      - WAIT_HOSTS=postgres:5432
     env_file:
       - vermillion.conf
 

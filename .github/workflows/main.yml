@@ -38,7 +38,7 @@ jobs:
       run: ./single-node/install
 
     - name: Wait for the middleware to be available
-      run:  sleep 60
+      run:  ./single-node/wait.sh
 
     - name: Load sample data into ES
       run: cd single-node && ./load_sample_data.sh
