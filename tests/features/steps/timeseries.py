@@ -1,6 +1,6 @@
 import json
 import requests
-from behave import given, when, then, step
+from behave import when
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -199,4 +199,3 @@ def step_impl(context):
 @when('An attribute term query is initiated')
 def step_impl(context):
     context.type = 'attribute-term'
-    pass

@@ -9,8 +9,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
-import java.util.List;
-
 @ProxyGen
 @VertxGen
 public interface DbService {
@@ -31,9 +29,7 @@ public interface DbService {
 
   @Fluent
   DbService secureSearch(
-      JsonObject query,
-      String token,
-      Handler<AsyncResult<JsonArray>> resultHandler);
+      JsonObject query, String token, Handler<AsyncResult<JsonArray>> resultHandler);
 
   @Fluent
   DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler);

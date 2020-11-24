@@ -1,5 +1,5 @@
 import requests
-from behave import given, when, then, step
+from behave import given 
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
