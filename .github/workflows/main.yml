@@ -37,16 +37,16 @@ jobs:
       run: sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave
 
     - name: Install Vermillion
-      run: ./single-node/install
+      run: ./setup/install
 
     - name: Wait for the middleware to be available
-      run:  cd single-node && ./wait.sh
+      run:  cd setup && ./wait.sh
 
     - name: Load sample data into ES
-      run: cd single-node && ./load_sample_data.sh
+      run: cd setup && ./load_sample_data.sh
 
     - name: Run tests
-      run:  cd ./tests/single-node/ && behave
+      run:  cd ./tests/ && behave
 
     - name: Export docker logs to a file
       if: always()

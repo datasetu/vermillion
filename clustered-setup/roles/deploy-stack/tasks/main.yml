@@ -1,8 +1,0 @@
-- name: Remove the vermillion stack if it already exists
-  shell: docker stack rm vermillion
-  ignore_errors: true
-
-- name: Deploy stack
-  shell:     
-    cmd: docker stack deploy -c docker-compose.json vermillion
-    chdir: ~/vermillion/cluster/

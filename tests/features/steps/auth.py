@@ -11,14 +11,14 @@ SET_POLICY_ENDPOINT = '/auth/v1/acl/set'
 REQUEST_TOKEN_ENDPOINT = '/auth/v1/token'
 INTROSPECT_ENDPOINT = '/auth/v1/token/introspect'
 
-PROVIDER_CERT_PATH = '../../datasetu-ca/provider/provider.pem'
-PROVIDER_KEY_PATH = '../../datasetu-ca/provider/provider.key.pem'
+PROVIDER_CERT_PATH = '../datasetu-ca/provider/provider.pem'
+PROVIDER_KEY_PATH = '../datasetu-ca/provider/provider.key.pem'
 
-CONSUMER_CERT_PATH = '../../datasetu-ca/consumer/consumer.pem'
-CONSUMER_KEY_PATH = '../../datasetu-ca/consumer/consumer.key.pem'
+CONSUMER_CERT_PATH = '../datasetu-ca/consumer/consumer.pem'
+CONSUMER_KEY_PATH = '../datasetu-ca/consumer/consumer.key.pem'
 
-RESOURCE_SERVER_CERT_PATH = '../../datasetu-ca/resource-server/resource-server.pem'
-RESOURCE_SERVER_KEY_PATH = '../../datasetu-ca/resource-server/resource-server.key.pem'
+RESOURCE_SERVER_CERT_PATH = '../datasetu-ca/resource-server/resource-server.pem'
+RESOURCE_SERVER_KEY_PATH = '../datasetu-ca/resource-server/resource-server.key.pem'
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
