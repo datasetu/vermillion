@@ -70,6 +70,7 @@ Quickstart
 #. To run tests
 
    .. code-block:: shell
+    
     cd tests
     behave
 
