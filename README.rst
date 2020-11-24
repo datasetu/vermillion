@@ -27,80 +27,51 @@ Performance
 
 Performance has been *the* key consideration while developing Vermillion. Initial results show that the middleware was able to handle at least ``130,000`` HTTPS requests/sec across ``18`` compute nodes. Computing Vermillion's performance under various conditions is still ongoing. 
 
-A detailed white paper on this project published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_. The following is a graph depicting results from the 12-node test:
+A detailed white paper on this project published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_. The code for this setup and tests can be found in release 0.2.0. The following is a graph depicting results from the 18-node test:
 
 .. image:: images/12-nodes.png
    :align: center
 
-Single-node Quickstart
-====================== 
+Quickstart
+==========
 
-If the OS is Ubuntu or debian based
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* Simply run
+#. Install the following dependencies:
   
-  .. code-block:: shell
+     - docker
+     - docker-compose
+     - maven
+  
+   To run tests
+  
+     - python3
+     - behave
 
-    curl -LJ# https://vermillion-install.herokuapp.com/ | bash  
+#. Package the API server into a fat jar:
+
+   .. code-block:: shell
+   
+    cd vermillion/api-server
+    mvn clean package
+
+#. Similarly package the authenticator
+
+   .. code-block:: shell
     
-    docker ps (check if the containers are up and running)
-    
-    sudo apt install maven
+    cd authenticator
+    mvn clean package
+  
+#. Once the jar files are ready
 
-* Clone the repository
-
-    git clone https://github.com/rbccps-iisc/vermillion
-    cd vermillion
-
-* Clean package and install 
-
-    mvn clean package (on both /api-server & /authenticator)
-    
-    cd /single-node
+   .. code-block:: shell
+   
+    cd setup
     ./install
-
-* Check if the port is working
-
-    docker logs -f vertx
-    docker logs -f elasticsearch
-    curl localhost:9200
-
-* Load sample data( to execute tests)
-
-    ./load_sample_data.sh
-    
-
-For other operating systems
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-#. Clone the repository
-   
-   .. code-block:: shell
-
-    git clone https://github.com/rbccps-iisc/vermillion
-    cd vermillion
-    
-#. Install the following dependencies manually
-
-   - docker
-   - docker-compose
-	
-#. Also install the following dependencies if the tests need to be run
-   
-   - requests
-   - urllib3
-   - pika==0.13.0
-    
-#. Start the installation
+     
+#. To run tests
 
    .. code-block:: shell
+    cd tests
+    behave
 
-     ./single-node/quick_install
-
-#. Test the middleware using
-
-   .. code-block:: shell
-   
-     ./tests/single-node functional -d 1 -a 1
+Work on API documentation, developer docs and a stable release is ongoing
 
