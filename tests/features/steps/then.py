@@ -2,6 +2,7 @@ import requests
 from behave import given, when, then, step
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from utils import ResponseCountMismatchError, UnexpectedStatusCodeError
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
@@ -12,23 +13,29 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 @then('All matching records are returned')
 def step_impl(context):
-    assert context.failed is False
 
     if context.type == 'timeseries':
-        assert len(context.response) == 2000
+        if len(context.response) != 2000:
+            raise ResponseCountMismatchError(2000, len(context.response))
 
     #TODO: Add attribute term tests
     if context.type == 'attribute-term':
-        assert True == True
+        pass
 
     if context.type == 'geospatial':
-        assert len(context.response) == 5705
+        if len(context.response) != 5705:
+            raise ResponseCountMismatchError(5705, len(context.response))
+
     if context.type == 'attribute-value':
-        assert len(context.response) == 634
+        if len(context.response) != 634:
+            raise ResponseCountMismatchError(634, len(context.response))
+
     if context.type == 'complex':
-        assert len(context.response) == 305
+        if len(context.response) != 305:
+            raise ResponseCountMismatchError(305, len(context.response))
 
 
 @then('The response status should be {expected_code}')
 def step_impl(context, expected_code):
-    assert context.status_code == int(expected_code)
+    if context.status_code != int(expected_code):
+        raise UnexpectedStatusCodeError(int(expected_code), context.status_code, context.response)
