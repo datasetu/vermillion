@@ -2,7 +2,7 @@ iudx-authenticator/target/*
 iudx-api-server/target/*
 swarm/.env
 cluster/.env
-single-node/.env
+setup/.env
 swarm/docker-compose.json
 cluster/docker-compose.json
 tests/multi-node/out.xml
@@ -23,7 +23,7 @@ authenticator/src/main/generated/vermillion/database/*
 auth-server/node_modules/
 api-server/file-uploads/
 api-server/webroot/
-single-node/provider/
+setup/provider/
 api-server/api-server.iml
 authenticator/authenticator.iml
 api-server/src/main/resources/
