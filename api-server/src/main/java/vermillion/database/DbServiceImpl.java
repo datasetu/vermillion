@@ -21,16 +21,17 @@ import vermillion.throwables.InternalErrorThrowable;
 public class DbServiceImpl implements DbService {
 
   private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
-  RestClient client;
-  String index;
 
-  String searchEndpoint;
-  String searchMethod;
-  Request searchRequest;
+  private RestClient client;
+  private String index;
 
-  String insertEndpoint;
-  String insertMethod;
-  Request insertRequest;
+  private String searchEndpoint;
+  private String searchMethod;
+  private Request searchRequest;
+
+  private String insertEndpoint;
+  private String insertMethod;
+  private Request insertRequest;
 
   public DbServiceImpl(
       String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {

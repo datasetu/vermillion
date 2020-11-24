@@ -84,7 +84,8 @@ def step_impl(context):
 
 @then('The response should contain an auth token')
 def step_impl(context):
-    assert context.response['token']
+    if not context.response['token']:
+        raise ValueError('Auth token not found in response')
 
 @then('Introspect should succeed')
 def step_impl(context):
@@ -147,7 +148,8 @@ def step_impl(context):
 
     context.response.pop('expiry', None)
 
-    assert ordered(expected_response) == ordered(context.response)
+    if ordered(expected_response) != ordered(context.response):
+        raise ValueError('Introspect Response is not as expected')
 
 
 def ordered(obj):

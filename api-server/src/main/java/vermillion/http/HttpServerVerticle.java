@@ -695,7 +695,8 @@ public class HttpServerVerticle extends AbstractVerticle {
     HttpServerRequest request = context.request();
     HttpServerResponse response = context.response();
 
-    FileUpload file = null, metadata = null;
+    FileUpload file = null;
+    FileUpload metadata = null;
     JsonObject metaJson = null;
 
     String fileName = null, resourceId, token;
