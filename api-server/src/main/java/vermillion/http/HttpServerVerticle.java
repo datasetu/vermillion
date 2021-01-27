@@ -157,6 +157,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     logger.debug("In getValue");
 
+    //TODO: Initiate introspect here instead of calling the API twice
     return getRedisClient()
         .flatMapMaybe(
             redisAPI -> {
@@ -717,7 +718,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     String[] splitId = resourceId.split("/");
     // TODO: Will this create problems if entire folders are shared?
-    // TODO: What happens when there are nested folders? - better to accept catgeory as a field?
+    // TODO: What happens when there are nested folders? - better to accept category as a field?
     String category = splitId[splitId.length - 2];
 
     JsonArray requestedIdList = new JsonArray().add(resourceId);
