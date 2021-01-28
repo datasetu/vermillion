@@ -1,3 +1,4 @@
+#TODO: setup automated build for this
 FROM	node:latest
 
 ADD	https://github.com/ufoscout/docker-compose-wait/releases/download/2.7.3/wait /wait
@@ -10,6 +11,8 @@ RUN	apt -y update						&&  \
 
 COPY	./datasetu-auth-server/package.json /auth-cache/
 COPY	./node-aperture/package.json /aperture-cache/
+COPY	./node-aperture/lib/ /aperture-cache/lib/
+COPY	./node-aperture/gen/ /aperture-cache/gen/
 COPY	./docker-images/auth-server/docker-entrypoint.sh /
 
 RUN	cd /auth-cache && npm install				&&  \
