@@ -12,6 +12,9 @@ PUBLISH_ENDPOINT= '/publish'
 FilePath1='../datasetu-ca/consumer/sample.txt'
 FilePath2='../datasetu-ca/consumer/meta.json'
 
+FilePath3='../datasetu-ca/consumer/samplecsv.csv'
+FilePath4='../datasetu-ca/consumer/samplepdf.pdf'
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -22,12 +25,12 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public" 
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/291f28ecbc779160d32eb49c7081f952'),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
 
 )
     files = {
-    'file': ('sample.txt', open(FilePath1, 'rb')),
-    'metadata': ('meta.json', open(FilePath2, 'rb')),
+    'file': ('sample1.txt', open(FilePath1, 'rb')),
+    'metadata': ('meta1.json', open(FilePath2, 'rb')),
     }
 
 
@@ -47,7 +50,7 @@ def step_imp(context):
     payload= (
            ("id","kjghiushoi soishgoishogi hsoh oioi soighoishg"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/291f28ecbc779160d32eb49c7081f952'),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
 
 )
     files = {
@@ -73,7 +76,7 @@ def step_imp(context):
     payload= (
            ("id",""
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/291f28ecbc779160d32eb49c7081f952'),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
 
 )
     files = {
@@ -193,7 +196,7 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/291f28ecbc779160d32eb49c7081f952'),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
 
 )
     files = {
@@ -217,7 +220,7 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/291f28ecbc779160d32eb49c7081f952'),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
 
 )
     files = {
@@ -237,12 +240,38 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 
+@when('The consumer requests by using extraneous form parameter')
+def step_imp(context):
+    payload= (
+           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+            ),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
+
+)
+    files = {
+    'abc': ('samplecsv.csv', open(FilePath3, 'rb')),
+    'efg': ('samplepdf.pdf', open(FilePath4, 'rb')),
+    }
+
+
+
+    r=requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
+                    data=payload,
+                    files=files,
+                    verify=False)
+
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+
+
 @when('The consumer requests with empty form parameter')
 def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/291f28ecbc779160d32eb49c7081f952'),
+    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
 
 )
     files = {

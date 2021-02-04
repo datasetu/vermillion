@@ -48,11 +48,18 @@ Feature: Vermillion is able to handle static files
                 Given Vermillion is running
                 When The consumer requests by removing metadata form parameter  
                 Then The response status should be 201
+	
+	
+	Scenario: Consumer requests for tokens
+                Given Vermillion is running
+                When The consumer requests by using extraneous form parameter
+                Then The response status should be 400
+	
 
+		
 	 Scenario: Consumer requests for tokens
                 Given Vermillion is running
                 When The consumer requests with empty form parameter  
                 Then The response status should be 400
 
-		#TODO: Extraneous form paramters.
-		#Check if files are getting deleted
+		
