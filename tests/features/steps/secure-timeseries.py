@@ -3,7 +3,7 @@ import requests
 from behave import when
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
+from savetoken import *
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
 PUBLISH_ENDPOINT = '/publish'
@@ -32,7 +32,7 @@ def step_imp(context):
     
     params = (
     ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1'),
-    ('token', 'auth.local/consumer@iisc.ac.in/0c24770faaeaf547f0f370cd3254ab90'),
+    ('token', t),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -102,7 +102,7 @@ def step_imp(context):
 
     params = (
     ('id', 'rbccps.orghh/elpij096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1'),
-    ('token', 'auth.local/consumer@iisc.ac.in/0c24770faaeaf547f0f370cd3254ab90'),
+    ('token', t),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -125,7 +125,7 @@ def step_imp(context):
 
     params = (
     ('id', ''),
-    ('token', 'auth.local/consumer@iisc.ac.in/0c24770faaeaf547f0f370cd3254ab90'),
+    ('token', t),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -147,7 +147,7 @@ def step_imp(context):
 
     params = (
     ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts11'),
-    ('token', 'auth.local/consumer@iisc.ac.in/0c24770faaeaf547f0f370cd3254ab90'),
+    ('token', t),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -169,7 +169,7 @@ def step_imp(context):
 }
 
     params = (
-    ('token', 'auth.local/consumer@iisc.ac.in/f87977f35b5ca85ced0c530ff7cba655'),
+    ('token', t),
 
     )
     data =  {
@@ -200,7 +200,7 @@ def step_imp(context):
 }
 
     params = (
-    ('token', 'auth.local/consumer@iisc.ac.in/f87977f35b5ca85ced0c530ff7cba655'),
+    ('token', t),
 
     )
     data =  {
@@ -230,7 +230,7 @@ def step_imp(context):
 }
 
     params = (
-    ('token', 'auth.local/consumer@iisc.ac.in/f87977f35b5ca85ced0c530ff7cba655'),
+    ('token', t),
 
     )
     data =  {
