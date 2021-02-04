@@ -108,4 +108,67 @@ def step_imp(context):
 
 
 
+@when('The consumer requests along with a valid token')
+def step_imp(context):
+    params = (
+    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
+    ('token', t),
+)
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+
+
+
+@when('The consumer requests along with an invalid token')
+def step_imp(context):
+    params = (
+    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
+    ('token', 'dvdfdf'),
+)
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer requests along with an empty token')
+def step_imp(context):
+    params = (
+    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
+    ('token', ''),
+)
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer requests along with an invalid id')
+def step_imp(context):
+    params = (
+    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c8dvdfdfdf9cfd50be0b/example.com/test-category/secure-file'),
+    ('token', t),
+)
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer requests along with an empty id')
+def step_imp(context):
+    params = (
+    ('id', ''),
+    ('token', t),
+)
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
 
