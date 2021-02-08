@@ -1,10 +1,11 @@
 import json
 import requests
 from behave import when
-import re
+import os
+import glob
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from savetoken import *
+from auth_vars import *
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
 PUBLISH_ENDPOINT= '/publish'
@@ -146,7 +147,7 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
+    ('token', t),
 
 )
     files = {
@@ -170,7 +171,7 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
+    ('token', t),
 
 )
     files = {
@@ -195,7 +196,7 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
+    ('token', t),
 
 )
     files = {
@@ -203,7 +204,12 @@ def step_imp(context):
     'efg': ('samplepdf.pdf', open('samplepdf.pdf', 'rb')),
     }
 
-
+    
+    fil=glob.glob('../api-server/file-uploads/*')
+    
+    for f in fil:
+        os.remove(f)
+    
 
     r=requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
                     data=payload,
@@ -214,6 +220,16 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
+@when('The consumer requests by checking if the extraneous file is deleted')
+def step_imp(context):
+    dirl= os.listdir('../api-server/file-uploads/')
+    if(len(dirl)==0):
+        context.response=200
+    else:
+        context.response=400
+        
+    context.status_code=context.response
+    print(context.status_code,context.response)
 
 
 @when('The consumer requests with empty form parameter')
@@ -221,7 +237,7 @@ def step_imp(context):
     payload= (
            ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
             ),
-    ('token', 'auth.local/consumer@iisc.ac.in/b3760ba7bef7b69ff7a8725ace94debd'),
+    ('token', t),
 
 )
     files = {
@@ -240,5 +256,4 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-
-                    
+                   

@@ -3,7 +3,7 @@ import requests
 from behave import when
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from savetoken import *
+from auth_vars import *
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
 PUBLISH_ENDPOINT = '/publish'

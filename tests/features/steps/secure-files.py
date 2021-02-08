@@ -2,7 +2,7 @@ import json
 import requests
 from behave import when
 import urllib3
-from savetoken import *
+from auth_vars import *
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 VERMILLION_URL = 'https://localhost'
