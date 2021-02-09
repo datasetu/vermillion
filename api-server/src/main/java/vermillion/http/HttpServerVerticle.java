@@ -109,7 +109,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.post("/search").handler(this::search);
 
     router
-        .routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[^\\/]+\\/[0-9a-f]+\\/?.*")
+        .routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[0-9a-f]+\\/?.*")
         .handler(
             StaticHandler.create().setAllowRootFileSystemAccess(false).setDirectoryListing(true));
     router
@@ -675,8 +675,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                       try {
                         Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
                       } catch (FileAlreadyExistsException ignored) {
-
-                      } catch (Exception e) {
+                     
+		      } catch (Exception e) {
                         return Completable.error(
                             new InternalErrorThrowable("Could not create symlinks"));
                       }
@@ -690,7 +690,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   // Publish API for timeseries data as well as static files
   public void publish(RoutingContext context) {
-
     // TODO: Check scope before allowing publish - very imp
     logger.debug("In publish API");
     HttpServerRequest request = context.request();
@@ -737,7 +736,6 @@ public class HttpServerVerticle extends AbstractVerticle {
       if (fileUploads.size() > 2 || !fileUploads.containsKey("file")) {
         apiFailure(
             context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
-
         // Delete uploaded files if inputs are not as required
         fileUploads.forEach(
             (k, v) -> {
