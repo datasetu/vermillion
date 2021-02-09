@@ -109,7 +109,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     router.post("/search").handler(this::search);
 
     router
-        .routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[^\\/]+\\/[0-9a-f]+\\/?.*")
+        .routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[0-9a-f]+\\/?.*")
         .handler(
             StaticHandler.create().setAllowRootFileSystemAccess(false).setDirectoryListing(true));
     router
@@ -602,12 +602,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     logger.debug("Requested IDs Json =" + requestedIds.encode());
 
-    // Create consumer directory path if it does not exist
-
-    new File(WEBROOT + "consumer/" + token).mkdirs();
-
-    logger.debug("Created consumer subfolders");
-
     // TODO: Avoid duplication here
     if (idParam == null) {
       checkAuthorisation(token)
@@ -629,10 +623,15 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                   String resourceId = authorisedIds.getString(i);
                   // Get the actual file name on disk
-                  String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
+
+                  String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId.substring(0,resourceId.lastIndexOf('/'));
+
+                  // Create consumer directory path if it does not exist
+                  new File(consumerResourceDir).mkdirs();
+                  logger.debug("Created consumer subdirectory");
 
                   Path consumerResourcePath =
-                      Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
+                      Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                   Path providerResourcePath = Paths.get(basePath + resourceId);
 
                   // TODO: This could take a very long time for multiple large files
@@ -665,10 +664,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                     for (int i = 0; i < requestedIds.size(); i++) {
                       String resourceId = requestedIds.getString(i);
-                      String nakedId = resourceId.substring(resourceId.lastIndexOf('/') + 1);
+                      String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId.substring(0,resourceId.lastIndexOf('/'));
+
+                      // Create consumer directory path if it does not exist
+                      new File(consumerResourceDir).mkdirs();
+                      logger.debug("Created consumer subdirectory");
 
                       Path consumerResourcePath =
-                          Paths.get(WEBROOT + "consumer/" + token + "/" + nakedId);
+                          Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                       Path providerResourcePath = Paths.get(basePath + resourceId);
 
                       // TODO: This could take a very long time for multiple large files
