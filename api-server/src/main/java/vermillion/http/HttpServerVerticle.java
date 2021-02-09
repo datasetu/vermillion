@@ -59,6 +59,9 @@ public class HttpServerVerticle extends AbstractVerticle {
   public final String INTROSPECT_ENDPOINT = "/auth/v1/token/introspect";
   public final String WEBROOT = "webroot/";
   public final String PROVIDER_PATH = "/api-server/webroot/provider/";
+
+  //TODO: Make it final
+  public String CONSUMER_PATH = "/consumer/";
   public final String AUTH_TLS_CERT_PATH = System.getenv("AUTH_TLS_CERT_PATH");
   public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
 
@@ -602,12 +605,33 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     logger.debug("Requested IDs Json =" + requestedIds.encode());
 
+    CONSUMER_PATH = "/consumer/" + token + "/";
+
     // TODO: Avoid duplication here
     if (idParam == null) {
       checkAuthorisation(token)
           // TODO: Rxify this further
           .flatMapCompletable(
               authorisedIds -> {
+
+                // Checking if all Ids have same category.
+                if(!authorisedIds.isEmpty()) {
+                  if (!authorisedIds
+                          .stream()
+                          .map(Object::toString)
+                          .allMatch(
+                                  authorisedId ->
+                                          authorisedId.substring(0, authorisedId.lastIndexOf('/')).equals(
+                                                  authorisedIds.getString(0)
+                                                          .substring(0, authorisedIds
+                                                                  .getString(0).lastIndexOf('/')))))
+                    return Completable.error(new BadRequestThrowable("All RequestIds have different Caterogy"));
+
+                  CONSUMER_PATH += (authorisedIds.size() == 1)
+                          ? authorisedIds.getString(0) + "/"
+                          : authorisedIds.getString(0).substring(0, authorisedIds.getString(0).lastIndexOf('/') + 1);
+                }
+
                 logger.debug("Authorised IDs = " + authorisedIds.encode());
 
                 for (int i = 0; i < authorisedIds.size(); i++) {
@@ -624,7 +648,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                   String resourceId = authorisedIds.getString(i);
                   // Get the actual file name on disk
 
-                  String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId.substring(0,resourceId.lastIndexOf('/'));
+                  String consumerResourceDir = WEBROOT + "consumer/" + token + "/"
+                          + resourceId.substring(0,resourceId.lastIndexOf('/'));
 
                   // Create consumer directory path if it does not exist
                   new File(consumerResourceDir).mkdirs();
@@ -647,12 +672,30 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return Completable.complete();
               })
           .subscribe(
-              () -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+              () -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
     } else {
       checkAuthorisation(token, requestedIds)
           .andThen(
               Completable.fromCallable(
                   () -> {
+
+                    // Checking if all Ids have same category.
+                    if(!requestedIds.isEmpty()) {
+                      if (!requestedIds
+                              .stream()
+                              .map(Object::toString)
+                              .allMatch(
+                                      requestedId ->
+                                              requestedId.substring(0, requestedId.lastIndexOf('/')).equals(
+                                                      requestedIds.getString(0).substring(0, requestedIds
+                                                              .getString(0).lastIndexOf('/')))))
+                        return Completable.error(new BadRequestThrowable("All RequestIds have different Caterogy"));
+
+                      CONSUMER_PATH += (requestedIds.size() == 1)
+                              ? requestedIds.getString(0) + "/"
+                              : requestedIds.getString(0).substring(0, requestedIds.getString(0).lastIndexOf('/') + 1);
+                    }
+
                     logger.debug("Requested IDs = " + requestedIds.encode());
                     for (int i = 0; i < requestedIds.size(); i++) {
                       logger.debug("File=" + basePath + requestedIds.getString(i));
@@ -664,7 +707,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                     for (int i = 0; i < requestedIds.size(); i++) {
                       String resourceId = requestedIds.getString(i);
-                      String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId.substring(0,resourceId.lastIndexOf('/'));
+                      String consumerResourceDir = WEBROOT + "consumer/" + token + "/"
+                              + resourceId.substring(0,resourceId.lastIndexOf('/'));
 
                       // Create consumer directory path if it does not exist
                       new File(consumerResourceDir).mkdirs();
@@ -687,7 +731,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return Completable.complete();
                   }))
           .subscribe(
-              () -> context.reroute("/consumer/" + token + "/"), t -> apiFailure(context, t));
+              () -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
     }
   }
 
