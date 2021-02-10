@@ -620,24 +620,6 @@ public class HttpServerVerticle extends AbstractVerticle {
           .flatMapCompletable(
               authorisedIds -> {
 
-                // Checking if all Ids have same category.
-                if(!authorisedIds.isEmpty()) {
-                  if (!authorisedIds
-                          .stream()
-                          .map(Object::toString)
-                          .allMatch(
-                                  authorisedId ->
-                                          authorisedId.substring(0, authorisedId.lastIndexOf('/')).equals(
-                                                  authorisedIds.getString(0)
-                                                          .substring(0, authorisedIds
-                                                                  .getString(0).lastIndexOf('/')))))
-                    return Completable.error(new BadRequestThrowable("All RequestIds have different Caterogy"));
-
-                  CONSUMER_PATH += (authorisedIds.size() == 1)
-                          ? authorisedIds.getString(0) + "/"
-                          : authorisedIds.getString(0).substring(0, authorisedIds.getString(0).lastIndexOf('/') + 1);
-                }
-
                 logger.debug("Authorised IDs = " + authorisedIds.encode());
 
                 for (int i = 0; i < authorisedIds.size(); i++) {
@@ -675,6 +657,20 @@ public class HttpServerVerticle extends AbstractVerticle {
                         new InternalErrorThrowable("Could not create symlinks"));
                   }
                 }
+                
+                if(!authorisedIds.isEmpty()){
+                  if(authorisedIds.size() == 1){
+                    CONSUMER_PATH += authorisedIds.getString(0) + "/";
+                  }
+                  else {
+                    String authorisedIdPrefix = commonPrefix(authorisedIds);
+                    int lastDirIndex = authorisedIdPrefix.lastIndexOf('/');
+                    if (lastDirIndex != -1) {
+                     CONSUMER_PATH += authorisedIdPrefix.substring(0, lastDirIndex + 1); 
+                    }
+                  }
+                }
+                
                 return Completable.complete();
               })
           .subscribe(
@@ -684,23 +680,6 @@ public class HttpServerVerticle extends AbstractVerticle {
           .andThen(
               Completable.fromCallable(
                   () -> {
-
-                    // Checking if all Ids have same category.
-                    if(!requestedIds.isEmpty()) {
-                      if (!requestedIds
-                              .stream()
-                              .map(Object::toString)
-                              .allMatch(
-                                      requestedId ->
-                                              requestedId.substring(0, requestedId.lastIndexOf('/')).equals(
-                                                      requestedIds.getString(0).substring(0, requestedIds
-                                                              .getString(0).lastIndexOf('/')))))
-                        return Completable.error(new BadRequestThrowable("All RequestIds have different Caterogy"));
-
-                      CONSUMER_PATH += (requestedIds.size() == 1)
-                              ? requestedIds.getString(0) + "/"
-                              : requestedIds.getString(0).substring(0, requestedIds.getString(0).lastIndexOf('/') + 1);
-                    }
 
                     logger.debug("Requested IDs = " + requestedIds.encode());
                     for (int i = 0; i < requestedIds.size(); i++) {
@@ -734,6 +713,21 @@ public class HttpServerVerticle extends AbstractVerticle {
                             new InternalErrorThrowable("Could not create symlinks"));
                       }
                     }
+                    
+                    // Appending Consumer Path
+                    if(!requestedIds.isEmpty()){
+                      if(requestedIds.size() == 1){
+                        CONSUMER_PATH += requestedIds.getString(0) + "/";
+                      }
+                      else {
+                        String requestedIdPrefix = commonPrefix(requestedIds);
+                        int lastDirIndex = requestedIdPrefix.lastIndexOf('/');
+                        if (lastDirIndex != -1) {
+                          CONSUMER_PATH += requestedIdPrefix.substring(0, lastDirIndex + 1);
+                        }
+                      }
+                    }
+
                     return Completable.complete();
                   }))
           .subscribe(
@@ -1139,5 +1133,30 @@ public class HttpServerVerticle extends AbstractVerticle {
     } else {
       context.fail(t);
     }
+  }
+
+  private String commonPrefix(JsonArray resourceIds){
+    int minLength = resourceIds
+            .stream()
+            .map(Object::toString)
+            .mapToInt(String::length)
+            .min()
+            .orElse(0);
+
+    String commonPrefix = "";
+    char current;
+
+    for(int i = 0; i < minLength; i++){
+
+      current = resourceIds.getString(0).charAt(i);
+
+      for(int j = 1; j < resourceIds.size(); j++){
+        if(resourceIds.getString(j).charAt(i) != current){
+          return commonPrefix;
+        }
+      }
+      commonPrefix += current;
+    }
+    return commonPrefix;
   }
 }
