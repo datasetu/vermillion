@@ -736,13 +736,17 @@ public class HttpServerVerticle extends AbstractVerticle {
     logger.debug("File uploads = " + context.fileUploads().size());
     logger.debug("Is empty = " + context.fileUploads().isEmpty());
     if (!context.fileUploads().isEmpty()) {
+      logger.debug("Im here");
 	    context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
       logger.debug(fileUploads.toString());
     }
 
-    if (context.fileUploads().size() > 0) {
+    if (fileUploads().size() > 0) {
+	    logger.debug("Im here now");
 
-      if (context.fileUploads().size() > 2 || !fileUploads.containsKey("file")) {
+      if (fileUploads().size() > 2 || !fileUploads().containsKey("file")) {
+        logger.debug("The number of file uploads is here");
+	      logger.debug(fileUploads.size());
 	      apiFailure(
             context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
         // Delete uploaded files if inputs are not as required
