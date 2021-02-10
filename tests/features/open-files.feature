@@ -46,7 +46,7 @@ Feature: Vermillion is able to handle static files
                 Then The response status should be 400
 	
 
- 	Scenario: Consumer requests by using extraneous form parameter
+ 	Scenario: Consumer checks if the extraneous file is deleted
                 Given Vermillion is running
                 When The consumer requests by checking if the extraneous file is deleted
                 Then The response status should be 200
@@ -56,4 +56,14 @@ Feature: Vermillion is able to handle static files
                 When The consumer requests with empty form parameter  
                 Then The response status should be 400
 
-       
+        Scenario: Consumer requests with more than 2 form parameters
+                Given Vermillion is running
+                When The consumer requests with more than 2 form parameter
+                Then The response status should be 400
+	
+	Scenario: Consumer requests to download the file
+                Given Vermillion is running
+                When The consumer requests to download the file
+                Then The response status should be 200
+
+		

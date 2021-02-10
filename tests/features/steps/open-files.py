@@ -256,4 +256,38 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-                   
+@when('The consumer requests with more than 2 form parameter')
+def step_imp(context):
+    payload= (
+           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+            ),
+    ('token', t),
+
+)
+    files = {
+    'file': ('sample.txt', open('sample.txt', 'rb')),
+    'metadata': ('meta.json', open('meta.json', 'rb')),
+    'fille': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
+    'fie': ('samplepdf.pdf', open('samplepdf.pdf', 'rb'))
+
+    }
+
+
+
+    r=requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
+                    data=payload,
+                    files=files,
+                    verify=False)
+
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer requests to download the file')
+def step_imp(context):
+   
+    r = requests.get("https://localhost/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public", verify=False)                  
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
