@@ -64,6 +64,8 @@ public class HttpServerVerticle extends AbstractVerticle {
   public String CONSUMER_PATH = "/consumer/";
   public final String AUTH_TLS_CERT_PATH = System.getenv("AUTH_TLS_CERT_PATH");
   public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
+  public final String WRITE_SCOPE = "write";
+  public final String READ_SCOPE = "read";
 
   // Redis constants
   public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
@@ -561,7 +563,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Requested IDs=" + requestedIDs.encodePrettily());
       }
 
-      checkAuthorisation(token, requestedIDs)
+      checkAuthorisation(token, READ_SCOPE, requestedIDs)
           .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token)))
           .subscribe(
               result -> response.putHeader("content-type", "application/json").end(result.encode()),
@@ -593,12 +595,6 @@ public class HttpServerVerticle extends AbstractVerticle {
       Arrays.asList(idParam.split(",")).forEach(requestedIds::add);
     }
 
-   // TODO: When there are more than 1 ids, then they should have the same category
-   // TODO: When there is only 1 id specified, directly download the file
-   // TODO: When there many ids with same category, redirect only till category
-   // TODO: If categories are not the same for many ids then throw a bad request
-   // TODO: Test out all the above!
-
     for (int i = 0; i < requestedIds.size(); i++) {
       if (requestedIds.getString(i).endsWith(".public")) {
         apiFailure(
@@ -615,7 +611,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     // TODO: Avoid duplication here
     if (idParam == null) {
-      checkAuthorisation(token)
+      checkAuthorisation(token, READ_SCOPE)
           // TODO: Rxify this further
           .flatMapCompletable(
               authorisedIds -> {
@@ -676,7 +672,7 @@ public class HttpServerVerticle extends AbstractVerticle {
           .subscribe(
               () -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
     } else {
-      checkAuthorisation(token, requestedIds)
+      checkAuthorisation(token, READ_SCOPE, requestedIds)
           .andThen(
               Completable.fromCallable(
                   () -> {
@@ -874,7 +870,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
       }
 
-      checkAuthorisation(token, requestedIdList)
+      checkAuthorisation(token, WRITE_SCOPE, requestedIdList)
           .andThen(
               Completable.defer(
                   () -> {
@@ -913,7 +909,7 @@ public class HttpServerVerticle extends AbstractVerticle {
          "category"(populated by publish API): category}
       */
 
-      Set<String> permittedFieldSet = new TreeSet<>();
+      Set<String> permittedFieldSet = new HashSet<>();
       permittedFieldSet.add("data");
       permittedFieldSet.add("timestamp");
       permittedFieldSet.add("coordinates");
@@ -942,7 +938,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     JsonObject finalRequestBody = requestBody;
 
-    checkAuthorisation(token, new JsonArray().add(resourceId))
+    checkAuthorisation(token, WRITE_SCOPE, new JsonArray().add(resourceId))
         .andThen(Completable.defer(() -> dbService.rxInsert(finalRequestBody)))
         .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
 
@@ -994,12 +990,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   // Method that uses the redis cache for authorising requests.
   // Uses introspect if needed
-  public Completable checkAuthorisation(String token, JsonArray requestedIds) {
+  public Completable checkAuthorisation(String token, String scope, JsonArray requestedIds) {
 
     Set<String> requestedSet =
         IntStream.range(0, requestedIds.size())
             .mapToObj(requestedIds::getString)
-            .collect(Collectors.toCollection(TreeSet::new));
+            .collect(Collectors.toCollection(HashSet::new));
 
     return getValue(token)
         .flatMapCompletable(
@@ -1022,14 +1018,15 @@ public class HttpServerVerticle extends AbstractVerticle {
                             // body, API etc
                             Maybe.just(
                                 IntStream.range(0, authorisedIds.size())
+                                    .filter(i -> authorisedIds.getJsonObject(i).getJsonArray("scopes").contains(scope))
                                     .mapToObj(i -> authorisedIds.getJsonObject(i).getString("id"))
-                                    .collect(Collectors.toCollection(TreeSet::new))))
+                                    .collect(Collectors.toCollection(HashSet::new))))
                     .orElseGet(Maybe::empty))
         .map(Optional::of)
         .toSingle(Optional.empty())
         .flatMapCompletable(
-            treeSet ->
-                treeSet
+            hashSet ->
+                hashSet
                     .map(
                         authorisedSet ->
                             (authorisedSet.containsAll(requestedSet)
@@ -1039,7 +1036,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
   }
 
-  public Single<JsonArray> checkAuthorisation(String token) {
+  public Single<JsonArray> checkAuthorisation(String token, String scope) {
 
     logger.debug("In check authorisation");
 
@@ -1065,6 +1062,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                             Maybe.just(
                                 new JsonArray(
                                     IntStream.range(0, authorisedIds.size())
+                                        .filter(
+                                            i -> authorisedIds.getJsonObject(i).getJsonArray("scopes").contains(scope))
                                         .mapToObj(
                                             i -> authorisedIds.getJsonObject(i).getString("id"))
                                         .collect(Collectors.toList()))))
@@ -1135,6 +1134,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     }
   }
 
+  // TODO: Add adequate comments everywhere
   private String commonPrefix(JsonArray resourceIds){
     int minLength = resourceIds
             .stream()
