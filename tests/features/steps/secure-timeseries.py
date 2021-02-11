@@ -21,7 +21,7 @@ def step_imp(context):
     'Content-Type': 'application/json',
 }
     params =( 
-    ('id', res[i]),
+    ('id', res[3]),
     ('token', tokens["master"]),
 )
 
@@ -44,7 +44,7 @@ def step_imp(context):
     'Content-Type': 'application/json',
 }
     params = (
-    ('id', res[i]),
+    ('id', res[3]),
             ('token', generate_random_chars()),
 )
 
@@ -68,7 +68,7 @@ def step_imp(context):
 }
 
     params = (
-    ('id', res[i]),
+    ('id', res[3]),
             ('token', ''),
 )
 
@@ -90,7 +90,7 @@ def step_imp(context):
 }
 
     params = (
-    ('id', res[i]),
+    ('id', res[3]),
             ('token', tokens["master"]),
 )
 
@@ -111,7 +111,7 @@ def step_imp(context):
 }
 
     params = (
-    ('id', res[i]),
+    ('id', res[3]),
             ('token', tokens["master"]),
 )
 
@@ -182,7 +182,7 @@ def step_imp(context):
     )
     data =  {
                 "id": 
-                        res[i],
+                        res[3],
                     
                 "time": {
                     "start": "2021-01-01",
@@ -301,7 +301,7 @@ def step_imp(context):
     )
     data =  {
                 "id": [
-                    res[i],
+                    res[3],
                     generate_random_chars()
                     ],
                 "time": {
@@ -325,9 +325,8 @@ def step_impl(context):
     if context.type =='authorised_id':
         dat = {"hello": "world"}
         
-        
         re=context.response.json()
-        #print(re[0]['data'])
+        print(re)
         if dat !=re[0]['data']:
     
             raise ValueError('Secure Timeseries data not found in response')
