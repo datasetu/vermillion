@@ -653,12 +653,17 @@ public class HttpServerVerticle extends AbstractVerticle {
                         new InternalErrorThrowable("Could not create symlinks"));
                   }
                 }
-                
+
+                // Appending Consumer Path
                 if(!authorisedIds.isEmpty()){
+
+                  // If only one id is there return the file.
                   if(authorisedIds.size() == 1){
                     CONSUMER_PATH += authorisedIds.getString(0) + "/";
                   }
                   else {
+
+                    // Getting common directory for all ids
                     String authorisedIdPrefix = commonPrefix(authorisedIds);
                     int lastDirIndex = authorisedIdPrefix.lastIndexOf('/');
                     if (lastDirIndex != -1) {
@@ -755,6 +760,11 @@ public class HttpServerVerticle extends AbstractVerticle {
     }
     if (token == null) {
       apiFailure(context, new BadRequestThrowable("No access token found in request"));
+      return;
+    }
+
+    if (resourceId.length() == 0) {
+      apiFailure(context, new UnauthorisedThrowable("No resource id found in request"));
       return;
     }
 
@@ -1136,6 +1146,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
   // TODO: Add adequate comments everywhere
   private String commonPrefix(JsonArray resourceIds){
+
+    // Getting length of shortest resourceId
     int minLength = resourceIds
             .stream()
             .map(Object::toString)
@@ -1148,13 +1160,18 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     for(int i = 0; i < minLength; i++){
 
+      // using reference character from 1st string to match
       current = resourceIds.getString(0).charAt(i);
 
       for(int j = 1; j < resourceIds.size(); j++){
+
+        // If the i th character is not same in all the string simply return the commonPrefix till last character.
         if(resourceIds.getString(j).charAt(i) != current){
           return commonPrefix;
         }
       }
+
+      // else till i th character all strings are same.
       commonPrefix += current;
     }
     return commonPrefix;
