@@ -209,6 +209,7 @@ def step_imp(context):
     
     fil=glob.glob('../api-server/file-uploads/*')
     for f in fil:
+        os.chmod(f, 0o777)
         os.remove(f)
     
 
