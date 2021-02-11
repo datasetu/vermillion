@@ -35,14 +35,13 @@ Feature: Vermillion is able to handle secure timeseries datasets
            
             Given Vermillion is running
             When The consumer publishes data with an invalid resource id
-	    Then The response status should be 403
+	    Then The response status should be 400
 	
-	# TODO: Investigate this issue
 	Scenario: Consumer publishes data with an empty resource id
            
             Given Vermillion is running
             When The consumer publishes data with an empty resource id
-            Then The response status should be 500
+            Then The response status should be 400
 
 	Scenario: Authorised ID - single
 		

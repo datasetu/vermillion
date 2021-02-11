@@ -323,10 +323,11 @@ def step_imp(context):
 @then('The response should contain the secure timeseries data')
 def step_impl(context):
     if context.type =='authorised_id':
-        dat = '{"hello": "world"}'
+        dat = {"hello": "world"}
         
         
         re=context.response.json()
-        if dat !=re['data']:
+        #print(re[0]['data'])
+        if dat !=re[0]['data']:
     
             raise ValueError('Secure Timeseries data not found in response')

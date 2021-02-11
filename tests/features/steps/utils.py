@@ -13,3 +13,9 @@ class ResponseCountMismatchError(Exception):
         self.actual = actual
         self.message = "Expecting {0} responses from API call got {1}".format(expected, actual)
         super().__init__(self.message)
+
+class UnexpectedBehaviourError(Exception):
+
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)

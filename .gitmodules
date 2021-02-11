@@ -1,6 +1,6 @@
 [submodule "datasetu-auth-server"]
 	path = datasetu-auth-server
-	url = git@github.com:datasetu/datasetu-auth-server.git
+	url = https://github.com/datasetu/datasetu-auth-server.git
 [submodule "node-aperture"]
 	path = node-aperture
-	url = git@github.com:rbccps-iisc/node-aperture.git
+	url = https://github.com/rbccps-iisc/node-aperture.git

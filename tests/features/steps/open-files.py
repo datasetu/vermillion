@@ -1,7 +1,9 @@
 import json
 import requests
 from behave import when
+import time
 import os
+from utils import *
 import glob
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -206,7 +208,6 @@ def step_imp(context):
 
     
     fil=glob.glob('../api-server/file-uploads/*')
-    
     for f in fil:
         os.remove(f)
     
@@ -221,10 +222,16 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @then('The uploaded files are deleted')
-def step_imp(context):
-    dirl= os.listdir('../api-server/file-uploads/')
-    if(len(dirl)!=0):
-        raise ValueError('Files are not deleted')
+def step_imp(context): 
+    DIR = '../api-server/file-uploads'
+    number_of_files = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
+    counter = 0
+    while( number_of_files > 0 and counter < 60):
+        number_of_files = len([name for name in os.listdir(DIR) if os.path.isfile(os.path.join(DIR, name))])
+        time.sleep(1)
+    print(number_of_files)
+    if(number_of_files > 0):
+       raise UnexpectedBehaviourError('Files havent been deleted')
         
    
 @when('The consumer publishes with empty form parameter')
@@ -281,16 +288,13 @@ def step_imp(context):
 @when('The consumer downloads the file')
 def step_imp(context):
     urd='https://localhost/provider/public/'
-    r = requests.get(url=urd+res[0], verify=False)                  
+    r = requests.get(url=urd+res[0], verify=False)
+    open('test-resource.public', 'wb').write(r.content)
     context.response= r
     context.status_code=r.status_code
     print(context.status_code,context.response)
 @then('The expected file is returned')
 def step_imp(context):
-    with open('download_open_file','wb') as f:
-        f.write(r.content)
-
-    if not os.path.exists("download_open_file"):
-        raise ValueError("File doesnt exist")
     
-        
+   if not os.path.exists('test-resource.public'):
+      raise UnexpectedBehaviourError('Files havent been downloaded')     

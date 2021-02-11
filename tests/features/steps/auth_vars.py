@@ -54,6 +54,7 @@ response = requests.post(
     data=json.dumps(data),
     cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
     verify=False)
+#print(response)
 res={}
 request_ids = []
 tokens = {}
@@ -62,13 +63,13 @@ for i in range(1, 6):
     res[i] = id_prefix + resource_ids[i]
     #print(res[i])
     request_ids.append({
-        "id": id_prefix + resource_ids[i]
+        "id": id_prefix + resource_ids[i],
+        "scopes": ["read","write"]
     })
 request_ids.append({
     "id":
     id_prefix + resource_ids[0] + ".public",
-    "scope":
-    "write"
+    "scopes": ["read","write"]
 })
 
 data = {"request": request_ids}
@@ -137,5 +138,8 @@ response = requests.post(
 #print(response.json())
 r = response.json()
 tokens["2_5_write"] = r['token']
+#print(tokens)
 res[0]=id_prefix + resource_ids[0]+".public"
-res[i] = id_prefix + resource_ids[i]
+for i in range(1,6):
+    res[i] = id_prefix + resource_ids[i]
+#print(res)

@@ -42,3 +42,6 @@ api-server/certs/
 authenticator/certs/
 .DS_Store
 .properties
+tests/*.pem
+tests/*.csr
+tests/*.jks
