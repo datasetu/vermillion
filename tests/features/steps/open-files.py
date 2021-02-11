@@ -2,7 +2,7 @@ import json
 import requests
 from behave import when
 import time
-import os
+import os, stat
 from utils import *
 import glob
 import urllib3
@@ -192,6 +192,24 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
+def get_umask():
+    umask = os.umask(0)
+    os.umask(umask)
+    return umask
+
+def chmod_plus_x(path):
+    os.chmod(
+        path,
+        os.stat(path).st_mode |
+        (
+            (
+                stat.S_IXUSR |
+                stat.S_IXGRP |
+                stat.S_IXOTH
+            )
+            & ~get_umask()
+        )
+    )
 
 @when('The consumer publishes by using extraneous form parameter')
 def step_imp(context):
@@ -206,10 +224,9 @@ def step_imp(context):
     'efg': ('samplepdf.pdf', open('samplepdf.pdf', 'rb')),
     }
 
-    
+
     fil=glob.glob('../api-server/file-uploads/*')
     for f in fil:
-        os.chmod(f, 0o777)
         os.remove(f)
     
 
