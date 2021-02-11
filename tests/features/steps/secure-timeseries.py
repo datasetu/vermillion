@@ -13,26 +13,16 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 #XXX Secure-timeseries tests need definition here
 
-@when('The consumer requests for a standalone authorised ID')
+@when('The consumer publishes data with a valid token')
 def step_imp(context):
  
     
     headers = {
     'Content-Type': 'application/json',
 }
-
-#    params = (
-#    ('token', 'auth.local/consumer@iisc.ac.in/d5435c4d8a136674085218bffb8dca93'),
-
-#    )
-
- #   data = '{ "id": "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts", "time": { "start": "2021-01-01", "end": "2021-11-01" } }'
-
-  #  r = requests.post(VERMILLION_URL+SEARCH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
-    
-    params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1'),
-    ('token', t),
+    params =( 
+    ('id', res[i]),
+    ('token', tokens["master"]),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -46,7 +36,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests for a standalone authorised ID with invalid token')
+@when('The consumer publishes data with an invalid token')
 def step_imp(context):
 
 
@@ -54,8 +44,8 @@ def step_imp(context):
     'Content-Type': 'application/json',
 }
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1'),
-    ('token', 'auth.local/consumer@iisc.ac.in/i0c24770faaeaf547f0f370cd3254ab90'),
+    ('id', res[i]),
+            ('token', generate_random_chars()),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -69,7 +59,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 
-@when('The consumer requests for a standalone authorised ID with empty token')
+@when('The consumer publishes data with an empty token')
 def step_imp(context):
 
 
@@ -78,8 +68,8 @@ def step_imp(context):
 }
 
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1'),
-    ('token', ''),
+    ('id', res[i]),
+            ('token', ''),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -91,8 +81,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-
-@when('The consumer requests for a standalone authorised ID with invalid resource id')
+@when('The consumer publishes data without a body')
 def step_imp(context):
 
 
@@ -101,8 +90,51 @@ def step_imp(context):
 }
 
     params = (
-    ('id', 'rbccps.orghh/elpij096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1'),
-    ('token', t),
+    ('id', res[i]),
+            ('token', tokens["master"]),
+)
+
+    #data = '{"data": {"hello": "world"}}'
+
+    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
+
+
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+@when('The consumer publishes data when body is null')
+def step_imp(context):
+
+
+    headers = {
+    'Content-Type': 'application/json',
+}
+
+    params = (
+    ('id', res[i]),
+            ('token', tokens["master"]),
+)
+
+    data = ''
+
+    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
+
+
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer publishes data with an invalid resource id')
+def step_imp(context):
+
+
+    headers = {
+    'Content-Type': 'application/json',
+}
+
+    params = (
+    ('id', generate_random_chars()),
+    ('token', tokens["master"]),
 )
 
     data = '{"data": {"hello": "world"}}'
@@ -115,7 +147,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests for a standalone authorised ID with empty resource id')
+@when('The consumer publishes data with an empty resource id')
 def step_imp(context):
 
 
@@ -125,12 +157,41 @@ def step_imp(context):
 
     params = (
     ('id', ''),
-    ('token', t),
+    ('token', tokens["master"]),
 )
 
     data = '{"data": {"hello": "world"}}'
 
     r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
+
+
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer requests for a standalone authorised ID')
+def step_imp(context):
+
+    context.type= 'authorised_id'
+    headers = {
+    'Content-Type': 'application/json',
+}
+    params = (
+    ('token', tokens["master"]),
+
+    )
+    data =  {
+                "id": 
+                        res[i],
+                    
+                "time": {
+                    "start": "2021-01-01",
+                    "end": "2021-11-01"
+                }
+            }
+
+    r = requests.post(VERMILLION_URL+SEARCH_ENDPOINT, headers=headers, params=params, data=json.dumps(data), verify=False)
+    print(r.text)
 
 
     context.response= r
@@ -144,38 +205,43 @@ def step_imp(context):
     headers = {
     'Content-Type': 'application/json',
 }
-
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts11'),
-    ('token', t),
-)
+    ('token', tokens["master"]),
 
-    data = '{"data": {"hello": "world"}}'
+    )
+    data =  {
+                "id": 
+                        generate_random_chars(),
 
-    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
+                "time": {
+                    "start": "2021-01-01",
+                    "end": "2021-11-01"
+                }
+            }
 
-   
+    r = requests.post(VERMILLION_URL+SEARCH_ENDPOINT, headers=headers, params=params, data=json.dumps(data), verify=False)
+    print(r.text)
+
+
     context.response= r
     context.status_code=r.status_code
     print(context.status_code,context.response)
-
-
 @when('The consumer requests for multiple authorised IDs')
 def step_imp(context):
-     
+    context.type= 'multauth_id' 
 
     headers = {
     'Content-Type': 'application/json',
 }
 
     params = (
-    ('token', t),
+    ('token', tokens["master"]),
 
     )
     data =  {
                 "id": [
-                        "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts1", 
-                        "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts"
+                    res[2],
+                    res[3]
                     ], 
                 "time": { 
                     "start": "2021-01-01", 
@@ -200,13 +266,13 @@ def step_imp(context):
 }
 
     params = (
-    ('token', t),
+    ('token', tokens["master"]),
 
     )
     data =  {
                 "id": [
-                        "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts11",
-                        "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts"
+                    generate_random_chars(),
+                    generate_random_chars()
                     ],
                 "time": {
                     "start": "2021-01-01",
@@ -230,13 +296,13 @@ def step_imp(context):
 }
 
     params = (
-    ('token', t),
+    ('token', tokens["master"]),
 
     )
     data =  {
                 "id": [
-                        "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts12",
-                        "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-ts00"
+                    res[i],
+                    generate_random_chars()
                     ],
                 "time": {
                     "start": "2021-01-01",
@@ -256,5 +322,11 @@ def step_imp(context):
 
 @then('The response should contain the secure timeseries data')
 def step_impl(context):
-    if not context.response:
-        raise ValueError('Secure Timeseries data not found in response')
+    if context.type =='authorised_id':
+        dat = '{"hello": "world"}'
+        
+        
+        re=context.response.json()
+        if dat !=re['data']:
+    
+            raise ValueError('Secure Timeseries data not found in response')

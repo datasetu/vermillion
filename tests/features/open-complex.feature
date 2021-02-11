@@ -1,6 +1,6 @@
 Feature: Vermillion is able to handle complex queries
 
-	 Scenario: Complex query with empty payload
+	Scenario: Complex query with empty payload
                 Given Vermillion is running
                 When The complex query payload is empty
                 Then The response status should be 400

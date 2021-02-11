@@ -2,68 +2,65 @@ Feature: Vermillion is able to handle static files
 
 
         
-	Scenario: Consumer requests with valid token
+	Scenario: Consumer publishes with valid token
 		Given Vermillion is running
-		When The consumer requests with a valid token
+		When The consumer publishes with a valid token
 		Then The response status should be 201
 
-	Scenario: Consumer requests with invalid payload id
+	Scenario: Consumer publishes with invalid resource id
                 Given Vermillion is running
-                When The consumer requests with invalid payload id
+                When The consumer publishes with invalid resource id
                 Then The response status should be 403
 
 		
-        Scenario: Consumer requests with empty payload id
+        Scenario: Consumer publishes with empty resource id
                 Given Vermillion is running
-                When The consumer requests with empty payload id
+                When The consumer publishes with empty resource id
                 Then The response status should be 500
 		
 	
-	Scenario: Consumer requests with invalid token
+	Scenario: Consumer publishes with invalid token
                 Given Vermillion is running
-                When The consumer requests with invalid payload token
+                When The consumer publishes with invalid token
 		Then The response status should be 403
 
- 	Scenario: Consumer requests with empty token
+ 	Scenario: Consumer publishes with empty token
                 Given Vermillion is running
-                When The consumer requests with empty payload token
+                When The consumer publishes with empty token
                 Then The response status should be 403
 		
-	Scenario: Consumer requests by removing file form parameter
+	Scenario: Consumer publishes by removing file form parameter
                 Given Vermillion is running
-                When The consumer requests by removing file form parameter 
+                When The consumer publishes by removing file form parameter 
                 Then The response status should be 400
 
-        Scenario: Consumer requests by removing metadata form parameter
+        Scenario: Consumer publishes by removing metadata form parameter
                 Given Vermillion is running
-                When The consumer requests by removing metadata form parameter  
+                When The consumer publishes by removing metadata form parameter  
                 Then The response status should be 201
 	
 	
-	Scenario: Consumer requests by using extraneous form parameter
+	Scenario: Consumer publishes by using extraneous form parameter
                 Given Vermillion is running
-                When The consumer requests by using extraneous form parameter
-                Then The response status should be 400
+                When The consumer publishes by using extraneous form parameter
+		Then The response status should be 400
+		And The uploaded files are deleted
 	
 
- 	Scenario: Consumer checks if the extraneous file is deleted
+	 Scenario: Consumer publishes with empty form parameter
                 Given Vermillion is running
-                When The consumer requests by checking if the extraneous file is deleted
-                Then The response status should be 200
-		
-	 Scenario: Consumer requests with empty form parameter
-                Given Vermillion is running
-                When The consumer requests with empty form parameter  
+                When The consumer publishes with empty form parameter  
                 Then The response status should be 400
 
-        Scenario: Consumer requests with more than 2 form parameters
+        Scenario: Consumer publishes with more than 2 form parameters
                 Given Vermillion is running
-                When The consumer requests with more than 2 form parameter
+                When The consumer publishes with more than 2 form parameters
                 Then The response status should be 400
 	
-	Scenario: Consumer requests to download the file
+	Scenario: Consumer downloads the file
                 Given Vermillion is running
-                When The consumer requests to download the file
+                When The consumer downloads the file
                 Then The response status should be 200
+		And The expected file is returned
 
 		

@@ -17,12 +17,12 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 #XXX Open-files tests need definition here
 
 
-@when('The consumer requests with a valid token')
+@when('The consumer publishes with a valid token')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -42,12 +42,12 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 
-@when('The consumer requests with invalid payload id')
+@when('The consumer publishes with invalid resource id')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.publicggg"
+           ("id",id_prefix + generate_random_chars()
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -66,12 +66,12 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests with empty payload id')
+@when('The consumer publishes with empty resource id')
 def step_imp(context):
     payload= (
            ("id",""
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -94,12 +94,12 @@ def step_imp(context):
 
 
 
-@when('The consumer requests with invalid payload token')
+@when('The consumer publishes with invalid token')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id", res[0]
             ),
-    ('token', 'hsdbhsd'),
+    ('token',generate_random_chars() ),
 
 )
     files = {
@@ -118,10 +118,10 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests with empty payload token')
+@when('The consumer publishes with empty token')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
     ('token', ''),
 
@@ -142,12 +142,12 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests by removing file form parameter')
+@when('The consumer publishes by removing file form parameter')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -166,12 +166,12 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests by removing metadata form parameter')
+@when('The consumer publishes by removing metadata form parameter')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -191,12 +191,12 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 
-@when('The consumer requests by using extraneous form parameter')
+@when('The consumer publishes by using extraneous form parameter')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -220,24 +220,19 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests by checking if the extraneous file is deleted')
+@then('The uploaded files are deleted')
 def step_imp(context):
     dirl= os.listdir('../api-server/file-uploads/')
-    if(len(dirl)==0):
-        context.response=200
-    else:
-        context.response=400
+    if(len(dirl)!=0):
+        raise ValueError('Files are not deleted')
         
-    context.status_code=context.response
-    print(context.status_code,context.response)
-
-
-@when('The consumer requests with empty form parameter')
+   
+@when('The consumer publishes with empty form parameter')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -256,12 +251,12 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests with more than 2 form parameter')
+@when('The consumer publishes with more than 2 form parameters')
 def step_imp(context):
     payload= (
-           ("id","rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+           ("id",res[0]
             ),
-    ('token', t),
+    ('token', tokens["master"]),
 
 )
     files = {
@@ -283,11 +278,19 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests to download the file')
+@when('The consumer downloads the file')
 def step_imp(context):
-   
-    r = requests.get("https://localhost/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public", verify=False)                  
+    urd='https://localhost/provider/public/'
+    r = requests.get(url=urd+res[0], verify=False)                  
     context.response= r
     context.status_code=r.status_code
     print(context.status_code,context.response)
+@then('The expected file is returned')
+def step_imp(context):
+    with open('download_open_file','wb') as f:
+        f.write(r.content)
 
+    if not os.path.exists("download_open_file"):
+        raise ValueError("File doesnt exist")
+    
+        

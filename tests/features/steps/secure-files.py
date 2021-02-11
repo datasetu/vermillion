@@ -15,11 +15,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 #XXX Secure-files tests need definition here
-@when('The consumer requests having a valid token')
+@when('The consumer publishes along with a valid token')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
-    ('token', t),
+    ('id', res[i]),
+    ('token', tokens["master"]),
 )
 
     files = {
@@ -33,11 +33,11 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests having an invalid token')
+@when('The consumer publishes along with an invalid token')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
-    ('token', 'auth.local/consumer@iisc.ac.in/ii6f015b9152e9e14208be1f092c47530c'),
+    ('id', res[i]),
+    ('token', generate_random_chars()),
 )
 
     files = {
@@ -52,10 +52,10 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 
-@when('The consumer requests having an empty token')
+@when('The consumer publishes along with an empty token')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
+    ('id', res[i]),
     ('token', ''),
 )
 
@@ -70,11 +70,11 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests having an invalid id')
+@when('The consumer publishes along with an invalid resource id')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file545'),
-    ('token', t),
+    ('id', generate_random_chars()),
+    ('token', tokens["master"]),
 )
 
     files = {
@@ -88,11 +88,11 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests having an empty id')
+@when('The consumer publishes along with an empty resource id')
 def step_imp(context):
     params = (
     ('id', ''),
-    ('token', t),
+    ('token', tokens["master"]),
 )
 
     files = {
@@ -108,11 +108,11 @@ def step_imp(context):
 
 
 
-@when('The consumer requests along with a valid token')
+@when('The consumer downloads file by passing a valid token')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
-    ('token', t),
+    ('id', res[i]),
+    ('token', tokens["master"]),
 )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -123,11 +123,11 @@ def step_imp(context):
 
 
 
-@when('The consumer requests along with an invalid token')
+@when('The consumer downloads file by passing an invalid token')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
-    ('token', 'dvdfdf'),
+    ('id', res[i]),
+    ('token', generate_random_chars()),
 )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -135,11 +135,11 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests along with an empty token')
+@when('The consumer downloads file by passing an empty token')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/secure-file'),
-    ('token', ''),
+    ('id', res[i]),
+        ('token', ''),
 )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -147,11 +147,12 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests along with an invalid id')
+@when('The consumer downloads file by passing an invalid resource id')
 def step_imp(context):
     params = (
-    ('id', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c8dvdfdfdf9cfd50be0b/example.com/test-category/secure-file'),
-    ('token', t),
+    ('id', generate_random_chars()),
+    ('token', tokens["master"]),
+    
 )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -159,11 +160,11 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer requests along with an empty id')
+@when('The consumer downloads file by passing an empty resource id')
 def step_imp(context):
     params = (
     ('id', ''),
-    ('token', t),
+    ('token', tokens["master"]),
 )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
