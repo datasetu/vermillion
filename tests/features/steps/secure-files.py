@@ -15,7 +15,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 #XXX Secure-files tests need definition here
-@when('The consumer publishes along with a valid token')
+@when('The consumer publishes secure file with a valid token')
 def step_imp(context):
     params = (
     ('id', res[2]),
@@ -33,7 +33,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer publishes along with a file and timeseries data')
+@when('The consumer publishes secure file with a file and timeseries data')
 def step_imp(context):
     params = (
     ('id', res[2]),
@@ -52,7 +52,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer publishes along with an invalid token')
+@when('The consumer publishes secure file with an invalid token')
 def step_imp(context):
     params = (
     ('id', res[2]),
@@ -71,7 +71,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 
-@when('The consumer publishes along with an empty token')
+@when('The consumer publishes secure file with an empty token')
 def step_imp(context):
     params = (
     ('id', res[2]),
@@ -89,7 +89,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer publishes along with an invalid resource id')
+@when('The consumer publishes secure file with an invalid resource id')
 def step_imp(context):
     params = (
     ('id', generate_random_chars()),
@@ -107,7 +107,7 @@ def step_imp(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
-@when('The consumer publishes along with an empty resource id')
+@when('The consumer publishes secure file with an empty resource id')
 def step_imp(context):
     params = (
     ('id', ''),

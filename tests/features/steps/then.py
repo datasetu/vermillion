@@ -42,10 +42,13 @@ def step_impl(context, expected_code):
 
 @then('The expected file is returned')
 def step_imp(context):
+    l = "This is the downloaded file"
     if not os.path.exists('test-resource.public'):
         f = open('test-resource.public', 'rb')
-        if os.stat(f).st_size() == 0:
-            raise UnexpectedBehaviourError('Files havent been downloaded')
+        with f as read_obj:
+            for line in read_obj:
+                if l not in line:
+                    raise UnexpectedBehaviourError('Files havent been downloaded')
 
 
 @then('The uploaded files are deleted')

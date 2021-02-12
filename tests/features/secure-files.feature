@@ -1,34 +1,34 @@
 Feature: VermillhFeature: Vermillion is able to handle secure files
 
 
-	 Scenario: Consumer publishes along with a valid token
+	 Scenario: Consumer publishes secure file data with a valid token
                 Given Vermillion is running
-                When The consumer publishes along with a valid token
+                When The consumer publishes secure file with a valid token
 		Then The response status should be 201
 	
-	Scenario: Consumer publishes along with file and timeseries data
+	Scenario: Consumer publishes secure file with file and timeseries data
                 Given Vermillion is running
-                When The consumer publishes along with a file and timeseries data
+                When The consumer publishes secure file with a file and timeseries data
                 Then The response status should be 400
 
- 	Scenario: Consumer publishes along with invalid token
+ 	Scenario: Consumer publishes secure file with invalid token
                 Given Vermillion is running
-                When The consumer publishes along with an invalid token
+                When The consumer publishes secure file with an invalid token
 		Then The response status should be 403
 
- 	Scenario: Consumer publishes along with an empty token
+ 	Scenario: Consumer publishes secure file with an empty token
                 Given Vermillion is running
-                When The consumer publishes along with an empty token
+                When The consumer publishes secure file with an empty token
 		Then The response status should be 403
 
- 	Scenario: Consumer publishes along with invalid resource id
+ 	Scenario: Consumer publishes secure file with invalid resource id
                 Given Vermillion is running
-                When The consumer publishes along with an invalid resource id
+                When The consumer publishes secure file with an invalid resource id
 		Then The response status should be 400
 
- 	Scenario: Consumer publishes along with empty resource id
+ 	Scenario: Consumer publishes secure file with empty resource id
                 Given Vermillion is running
-                When The consumer publishes along with an empty resource id
+                When The consumer publishes secure file with an empty resource id
 		Then The response status should be 400
 
           Scenario: Download secure-file with valid token

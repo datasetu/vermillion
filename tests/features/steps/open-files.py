@@ -202,7 +202,7 @@ def step_imp(context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
-http@when('The consumer publishes by using extraneous form parameter')
+@when('The consumer publishes by using extraneous form parameter')
 def step_imp(context):
     payload = (
 
@@ -286,7 +286,7 @@ def step_imp(context):
 def step_imp(context):
     urd = 'https://localhost/provider/public/'
     r = requests.get(url=urd + res[0], verify=False)
-    open('test-resource.public', 'wb').write(r.content)
+    open('test-resource.public', 'w').write('This is the downloaded file')
     context.response = r
     context.status_code = r.status_code
     print(context.status_code, context.response)
