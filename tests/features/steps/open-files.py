@@ -202,21 +202,7 @@ def step_imp(context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
-
-def get_umask():
-    umask = os.umask(0)
-    os.umask(umask)
-    return umask
-
-# Providing permissions to access the files
-def chmod_plus_x(path):
-    os.chmod(
-        path,
-        os.stat(path).st_mode | ((stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-                                 & ~get_umask()))
-
-
-@when('The consumer publishes by using extraneous form parameter')
+http@when('The consumer publishes by using extraneous form parameter')
 def step_imp(context):
     payload = (
 

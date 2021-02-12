@@ -103,10 +103,13 @@ public class HttpServerVerticle extends AbstractVerticle {
         router.post("/latest").handler(this::latest);
         router.post("/search").handler(this::search);
 
+        // The path described by the regex is /consumer/<auth_server>/<token>/*
         router.routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[0-9a-f]+\\/?.*")
                 .handler(StaticHandler.create()
                         .setAllowRootFileSystemAccess(false)
                         .setDirectoryListing(true));
+
+        // The path described by the regex is /provider/public/<domain>/<sha1>/<rs_name>/*
         router.routeWithRegex("\\/provider\\/public\\/?.*")
                 .handler(StaticHandler.create()
                         .setAllowRootFileSystemAccess(false)
