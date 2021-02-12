@@ -200,6 +200,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String resourceID = requestBody.getString("id");
 
+        if(resourceID != null && !isStringSafe(resourceID)) {
+            apiFailure(context, new UnauthorisedThrowable("Token is not valid"));
+            return;
+        }
+
+
         // Initialise queries object
         Queries queries = new Queries();
 
@@ -229,6 +235,11 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         // Read the token if present
         String token = request.getParam("token");
+
+        if(token != null && !isStringSafe(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
+            return;
+        }
 
         Queries queries = new Queries();
 
@@ -570,6 +581,11 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        if(!isStringSafe(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+            return;
+        }
+
         JsonArray requestedIds = new JsonArray();
         String basePath = PROVIDER_PATH + "secure/";
 
@@ -578,6 +594,12 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
 
         for (int i = 0; i < requestedIds.size(); i++) {
+
+            if(!isStringSafe(requestedIds.getString(i))) {
+                apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+                return;
+            }
+
             if (requestedIds.getString(i).endsWith(".public")) {
                 apiFailure(
                         context,
@@ -707,7 +729,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     // Publish API for timeseries data as well as static files
     public void publish(RoutingContext context) {
-        // TODO: Check scope before allowing publish - very imp
+
         logger.debug("In publish API");
         HttpServerRequest request = context.request();
         HttpServerResponse response = context.response();
@@ -732,10 +754,15 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        if(!isStringSafe(token) || !isStringSafe(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+            return;
+        }
+
         String[] splitId = resourceId.split("/");
 
         if (splitId.length < 5) {
-            apiFailure(context, new BadRequestThrowable("Resource ID is invalid"));
+            apiFailure(context, new UnauthorisedThrowable("Resource ID is invalid"));
             return;
         }
 

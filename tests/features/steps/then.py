@@ -69,7 +69,7 @@ def step_imp(context):
         time.sleep(1)
     print(number_of_files)
     if (number_of_files > 0):
-        raise UnexpectedBehaviourError('Files havent been deleted')
+        raise UnexpectedBehaviourError('Files have not been deleted')
 
 
 @then('The response should contain the secure timeseries data')

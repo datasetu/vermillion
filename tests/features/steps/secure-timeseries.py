@@ -1,4 +1,4 @@
-import json
+import json, time
 import requests
 from behave import when
 import urllib3
@@ -189,7 +189,7 @@ def step_imp(context):
                     "end": "2021-11-01"
                 }
             }
-
+    time.sleep(1)
     r = requests.post(VERMILLION_URL+SEARCH_ENDPOINT, headers=headers, params=params, data=json.dumps(data), verify=False)
     print(r.text)
 

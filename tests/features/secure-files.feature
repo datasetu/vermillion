@@ -24,7 +24,7 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
  	Scenario: Consumer publishes secure file with invalid resource id
                 Given Vermillion is running
                 When The consumer publishes secure file with an invalid resource id
-		Then The response status should be 400
+		Then The response status should be 403
 
  	Scenario: Consumer publishes secure file with empty resource id
                 Given Vermillion is running
