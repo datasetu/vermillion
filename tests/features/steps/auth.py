@@ -2,6 +2,8 @@ import json
 import requests
 from behave import when, then, step
 import urllib3
+from utils import *
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 VERMILLION_URL = 'https://localhost'
@@ -23,13 +25,15 @@ RESOURCE_SERVER_KEY_PATH = 'resource-server.key.pem'
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+tok = None
+
 
 @when('The provider sets rules in the auth server')
 def step_impl(context):
     context.type = 'set_rules'
     payload = {
         "policy":
-        "consumer@iisc.ac.in can access example.com/test-category/test-resource-1 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-2 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-3 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource.public for 1 month if scope = write"
+            "consumer@iisc.ac.in can access example.com/test-category/test-resource-1 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-2 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-3 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource.public for 1 month if scope = write"
     }
 
     r = requests.post(url=AUTH_URL + SET_POLICY_ENDPOINT,
@@ -51,20 +55,21 @@ def step_impl(context):
 
 @when('The consumer requests for a token')
 def step_impl(context):
+    global tok
     context.type = 'token_request'
     payload = {
         "request": [{
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1"
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1"
         }, {
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2"
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2"
         }, {
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3"
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3"
         }, {
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public",
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public",
             "scope": "write"
         }]
     }
@@ -81,4 +86,28 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
     context.token = context.response['token']
+
+    tok = context.token
+
+
+@when('The consumer provides a valid token')
+def step_impl(context):
+    global tok
+    context.type = 'token_introspect'
+
+    payload = {'token': tok}
+
+    r = requests.post(url=AUTH_URL + INTROSPECT_ENDPOINT,
+                      headers={
+                          'content-type': 'application/json',
+                          'host': 'auth.local'
+                      },
+                      data=json.dumps(payload),
+                      cert=(RESOURCE_SERVER_CERT_PATH,
+                            RESOURCE_SERVER_KEY_PATH),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
 

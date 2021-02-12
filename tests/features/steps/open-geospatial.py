@@ -11,7 +11,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-@when('The payload is empty')
+@when('The geospatial query body is empty')
 def step_impl(context):
     context.type = 'nopayload'
     payload = {}
@@ -25,7 +25,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The payload id is empty')
+@when('The geospatial query resource id is empty')
 def step_impl(context):
     context.type = 'nopayload'
 
@@ -46,7 +46,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The payload has only id')
+@when('The geospatial query has only resource id')
 def step_impl(context):
     context.type = 'nopayload'
 
@@ -64,7 +64,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The payload id is invalid')
+@when('The geospatial query resource id is invalid')
 def step_impl(context):
     context.type = 'nopayload'
 
@@ -85,7 +85,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The payload is random')
+@when('The geospatial query body is invalid')
 def step_impl(context):
 
     context.type = 'randompayload'
@@ -100,7 +100,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The coordinates are not present')
+@when('The geospatial query coordinates are not present')
 def step_impl(context):
 
     payload = {
@@ -121,7 +121,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The coordinates are invalid')
+@when('The geospatial query coordinates are invalid')
 def step_impl(context):
 
     payload = {
@@ -142,7 +142,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The coordinates are empty')
+@when('The geospatial query coordinates are empty')
 def step_impl(context):
 
     payload = {
@@ -163,7 +163,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The distance is invalid')
+@when('The geospatial query distance is invalid')
 def step_impl(context):
 
     payload = {
@@ -184,7 +184,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The distance is not present')
+@when('The geospatial query distance is not present')
 def step_impl(context):
 
     payload = {
@@ -205,7 +205,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The distance is empty')
+@when('The geospatial query distance is empty')
 def step_impl(context):
 
     payload = {

@@ -9,6 +9,10 @@ Feature: Vermillion is able to use a dev version of the auth server
                 Given Vermillion is running
                 When The consumer requests for a token
                 Then The response status should be 200
-		And The response should contain an auth token
-		#TODO: Instrospect should be a separate scenario
-		And Introspect should succeed
+		        And The response should contain an auth token
+
+      Scenario: Consumer introspects token
+                Given Vermillion is running
+                When The consumer provides a valid token
+                Then The response status should be 200
+                And Introspect should succeed

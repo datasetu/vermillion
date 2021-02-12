@@ -1,85 +1,85 @@
 Feature: Vermillion is able to handle complex queries
 
-	Scenario: Complex query with empty payload
+	Scenario: Complex query with empty body
                 Given Vermillion is running
-                When The complex query payload is empty
+                When The complex query body is empty
                 Then The response status should be 400
 
-        Scenario: Complex query with invalid payload
+        Scenario: Complex query with invalid body
                 Given Vermillion is running
-                When The complex query payload is invalid
+                When The complex query body is invalid
                 Then The response status should be 400
 
-        Scenario: Complex query with invalid payload id
+        Scenario: Complex query with invalid resource id
                 Given Vermillion is running
-                When The complex query payload id is invalid
-                Then The response status should be 400
-	
-	Scenario: Complex query with just id as payload
-                Given Vermillion is running
-                When The complex query payload has only id
-                Then The response status should be 400
-
-
-        Scenario: Complex query with empty payload id
-                Given Vermillion is running
-                When The complex query payload id is empty
-                Then The response status should be 400
-
-        Scenario: Complex query with empty payload attributes
-                Given Vermillion is running
-                When The complex query payload attributes are empty
-                Then The response status should be 400
-
-
-        Scenario: Complex query with invalid payload attributes
-                Given Vermillion is running
-                When The complex query payload attributes are invalid
+                When The complex query resource id is invalid
                 Then The response status should be 400
 	
-	Scenario: Complex query with empty payload time
+	Scenario: Complex query with just resource id as payload
                 Given Vermillion is running
-                When The complex query payload time is empty
+                When The complex query has only resource id
                 Then The response status should be 400
 
-        Scenario: Complex query with invalid payload time
+
+        Scenario: Complex query with empty resource id
                 Given Vermillion is running
-                When The complex query payload time is invalid
+                When The complex query resource id is empty
                 Then The response status should be 400
 
-        Scenario: Complex query with empty payload coordinates
+        Scenario: Complex query with empty attributes
                 Given Vermillion is running
-                When The complex query payload coordinates are empty
+                When The complex query attributes are empty
                 Then The response status should be 400
 
-        Scenario: Complex query with invalid payload coordinates
+
+        Scenario: Complex query with invalid attributes
                 Given Vermillion is running
-                When The complex query payload coordinates are invalid
+                When The complex query attributes are invalid
+                Then The response status should be 400
+	
+	Scenario: Complex query with empty time
+                Given Vermillion is running
+                When The complex query time is empty
                 Then The response status should be 400
 
-        Scenario: Complex query with string payload coordinates
+        Scenario: Complex query with invalid time
                 Given Vermillion is running
-                When The complex query payload coordinates are strings
+                When The complex query time is invalid
                 Then The response status should be 400
 
-        Scenario: Complex query with empty payload distance
+        Scenario: Complex query with empty coordinates
                 Given Vermillion is running
-                When The complex query payload distance is empty
+                When The complex query coordinates are empty
+                Then The response status should be 400
+
+        Scenario: Complex query with invalid coordinates
+                Given Vermillion is running
+                When The complex query coordinates are invalid
+                Then The response status should be 400
+
+        Scenario: Complex query with string coordinates
+                Given Vermillion is running
+                When The complex query coordinates are strings
+                Then The response status should be 400
+
+        Scenario: Complex query with empty distance
+                Given Vermillion is running
+                When The complex query distance is empty
 		Then The response status should be 400
 	
-	Scenario: Complex query with invalid payload distance
+	Scenario: Complex query with invalid distance
                 Given Vermillion is running
-                When The complex query payload distance is invalid
+                When The complex query distance is invalid
                 Then The response status should be 400
 
-        Scenario: Complex query with payload time not present
+        Scenario: Complex query with time not present
                 Given Vermillion is running
-                When The complex query payload time is not present
+                When The complex query time is not present
                 Then The response status should be 400
 
-        Scenario: Complex query with payload distance not present
+        Scenario: Complex query with distance not present
                 Given Vermillion is running
-                When The complex query payload distance is not present
+                When The complex query distance is not present
                 Then The response status should be 400
 	
 	Scenario: Complex query
