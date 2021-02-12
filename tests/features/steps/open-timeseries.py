@@ -2,6 +2,7 @@ import json
 import requests
 from behave import when
 import urllib3
+from auth_vars import *
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 VERMILLION_URL = 'https://localhost'
@@ -11,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-@when('Timeseries payload is empty')
+@when('Timeseries query body is empty')
 def step_impl(context):
 
     payload = {}
@@ -25,10 +26,10 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload is invalid')
+@when('Timeseries query body is invalid')
 def step_impl(context):
 
-    payload = '{hbahbcbhaadhdhkdhbkhdb1334234124}'
+    payload = generate_random_chars()
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
                       headers={'content-type': 'application/json'},
@@ -39,14 +40,14 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload start date is invalid')
+@when('Timeseries query start date is invalid')
 def step_impl(context):
 
     payload = {
         "id":
         "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
         "time": {
-            "start": "fxxg",
+            "start": generate_random_chars(),
             "end": "2020-03-27"
         }
     }
@@ -60,15 +61,15 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload end date is invalid')
+@when('Timeseries query end date is invalid')
 def step_impl(context):
 
     payload = {
         "id":
         "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
         "time": {
-            "start": "fxxg",
-            "end": "jhvjv"
+            "start": generate_random_chars(),
+            "end": generate_random_chars()
         }
     }
 
@@ -81,7 +82,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload date is empty')
+@when('Timeseries query date is empty')
 def step_impl(context):
 
     payload = {
@@ -102,7 +103,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload date is not present')
+@when('Timeseries query date is not present')
 def step_impl(context):
 
     payload = {
@@ -123,7 +124,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload has only id')
+@when('Timeseries query has only resource id')
 def step_impl(context):
 
     payload = {
@@ -140,7 +141,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload id is empty')
+@when('Timeseries query resource id is empty')
 def step_impl(context):
 
     payload = {"id": "", "time": {"start": "2020-03-01", "end": "2020-03-27"}}
@@ -154,11 +155,11 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('Timeseries payload id is invalid')
+@when('Timeseries query resource id is invalid')
 def step_impl(context):
 
     payload = {
-        "id": "hssbfisbfibs",
+        "id": generate_random_chars(),
         "time": {
             "start": "2020-03-01",
             "end": "2020-03-27"
@@ -195,7 +196,3 @@ def step_impl(context):
 
     context.response = r.json()
 
-
-@when('An attribute term query is initiated')
-def step_impl(context):
-    context.type = 'attribute-term'

@@ -208,7 +208,7 @@ def get_umask():
     os.umask(umask)
     return umask
 
-
+# Providing permissions to access the files
 def chmod_plus_x(path):
     os.chmod(
         path,
@@ -232,7 +232,7 @@ def step_imp(context):
         'abc': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
         'efg': ('samplepdf.pdf', open('samplepdf.pdf', 'rb')),
     }
-
+#This part of code removes the files present in the file-uploads folder that existed previously
     fil = glob.glob('../api-server/file-uploads/*')
     for f in fil:
         os.remove(f)

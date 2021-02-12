@@ -69,8 +69,6 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
-
-
 @when('The attribute value query attributes are empty')
 def step_impl(context):
     payload = {

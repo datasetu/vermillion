@@ -21,10 +21,6 @@ def step_impl(context):
         if len(context.response) != 2000:
             raise ResponseCountMismatchError(2000, len(context.response))
 
-    # TODO: Add attribute term tests
-    if context.type == 'attribute-term':
-        pass
-
     if context.type == 'geospatial':
         if len(context.response) != 5705:
             raise ResponseCountMismatchError(5705, len(context.response))
@@ -54,12 +50,14 @@ def step_imp(context):
 
 @then('The uploaded files are deleted')
 def step_imp(context):
+# Checking if the folder is empty or not
     DIR = '../api-server/file-uploads'
     number_of_files = len([
         name for name in os.listdir(DIR)
         if os.path.isfile(os.path.join(DIR, name))
     ])
     counter = 0
+# Slowing down by running checks for the deletion of files to happen
     while (number_of_files > 0 and counter < 60):
         number_of_files = len([
             name for name in os.listdir(DIR)

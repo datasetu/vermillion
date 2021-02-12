@@ -57,6 +57,20 @@ Feature: Vermillion is able to handle geospatial queries
                 When The geospatial query distance is empty
                 Then The response status should be 400
 
+        Scenario: Geo-spatial query for distance in cm
+                Given Vermillion is running
+                When A geo-spatial query with distance in cm
+                Then The response status should be 400
+
+        Scenario: Geo-spatial query for distance in mm
+                Given Vermillion is running
+                When A geo-spatial query with distance in mm
+                Then The response status should be 400
+
+        Scenario: Geo-spatial query for distance in km
+                Given Vermillion is running
+                When A geo-spatial query with distance in km
+                Then The response status should be 400
         Scenario: Geo-spatial query
                 Given Vermillion is running
                 When A geo-spatial query is initiated
