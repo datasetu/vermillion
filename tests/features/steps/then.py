@@ -41,3 +41,115 @@ def step_impl(context, expected_code):
         raise UnexpectedStatusCodeError(int(expected_code), context.status_code, context.response)
    
 
+@then('The expected file is returned')
+def step_imp(context):
+
+    if not os.path.exists('test-resource.public'):
+        raise UnexpectedBehaviourError('Files havent been downloaded')
+
+
+@then('The uploaded files are deleted')
+def step_imp(context):
+    DIR = '../api-server/file-uploads'
+    number_of_files = len([
+        name for name in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, name))
+    ])
+    counter = 0
+    while (number_of_files > 0 and counter < 60):
+        number_of_files = len([
+            name for name in os.listdir(DIR)
+            if os.path.isfile(os.path.join(DIR, name))
+        ])
+        time.sleep(1)
+    print(number_of_files)
+    if (number_of_files > 0):
+        raise UnexpectedBehaviourError('Files havent been deleted')
+
+@then('The response should contain the secure timeseries data')
+def step_impl(context):
+    if context.type =='authorised_id':
+        dat = {"hello": "world"}
+        
+        re=context.response.json()
+        print(re)
+        if dat !=re[0]['data']:
+            raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+@then('The response should contain an auth token')
+def step_impl(context):
+    if not context.response['token']:
+        raise UnexpectedBehaviourError('Auth token not found in response')
+
+@then('Introspect should succeed')
+def step_impl(context):
+
+    context.type = 'token_introspect'
+    payload = {'token': context.token}
+
+    r = requests.post(url=AUTH_URL + INTROSPECT_ENDPOINT,
+                      headers={
+                          'content-type': 'application/json',
+                          'host': 'auth.local'
+                      },
+                      data=json.dumps(payload),
+                      cert=(RESOURCE_SERVER_CERT_PATH,
+                            RESOURCE_SERVER_KEY_PATH),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+    expected_response = {
+        "consumer":
+        "consumer@iisc.ac.in",
+        "request": [{
+            "id":
+            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1",
+            "apis": ["/*"],
+            "body": None,
+            "scopes": ["read"],
+            "methods": ["*"],
+            "environments": ["*"]
+        }, {
+            "id":
+            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2",
+            "apis": ["/*"],
+            "body": None,
+            "scopes": ["read"],
+            "methods": ["*"],
+            "environments": ["*"]
+        }, {
+            "id":
+            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3",
+            "apis": ["/*"],
+            "body": None,
+            "scopes": ["read"],
+            "methods": ["*"],
+            "environments": ["*"]
+        }, {
+            "id":
+            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public",
+            "apis": ["/*"],
+            "body": None,
+            "scopes": ["write"],
+            "methods": ["*"],
+            "environments": ["*"]
+        }],
+        "consumer-certificate-class": 2
+    }
+
+
+    context.response.pop('expiry', None)
+
+    if ordered(expected_response) != ordered(context.response):
+        raise UnexpectedBehaviourError('Introspect Response is not as expected')
+
+
+def ordered(obj):
+    if isinstance(obj, dict):
+        return sorted((k, ordered(v)) for k, v in obj.items())
+    if isinstance(obj, list):
+        return sorted(ordered(x) for x in obj)
+    else:
+        return obj
