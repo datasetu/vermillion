@@ -16,7 +16,7 @@ Feature: Vermillion is able to handle static files
         Scenario: Consumer publishes with empty resource id
                 Given Vermillion is running
                 When The consumer publishes with empty resource id
-                Then The response status should be 400
+                Then The response status should be 403
 		
 	
 	Scenario: Consumer publishes with invalid token
