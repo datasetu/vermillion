@@ -76,3 +76,8 @@ Quickstart
 
 Work on API documentation, developer docs and a stable release is ongoing
 
+
+
+.. image:: https://api.codacy.com/project/badge/Grade/ab0fe028560a4f96a0b764dd842efa82
+   :alt: Codacy Badge
+   :target: https://app.codacy.com/gh/datasetu/vermillion?utm_source=github.com&utm_medium=referral&utm_content=datasetu/vermillion&utm_campaign=Badge_Grade
