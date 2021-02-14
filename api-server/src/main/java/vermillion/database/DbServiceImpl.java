@@ -129,7 +129,7 @@ public class DbServiceImpl implements DbService {
 
   @Override
   public DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
-
+    //TODO: Don't insert into db directly use rabbitmq
     logger.debug("In insert query");
     logger.debug("Query=" + query.encode());
 

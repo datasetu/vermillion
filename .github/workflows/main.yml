@@ -46,7 +46,7 @@ jobs:
       run: cd setup && ./load_sample_data.sh
 
     - name: Run tests
-      run:  cd ./tests/ && behave
+      run:  cd ./tests/ && sudo behave
 
     - name: Export docker logs to a file
       if: always()

@@ -1,6 +1,7 @@
 import json
 import requests
-from behave import when 
+from behave import when
+from auth_vars import *
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -11,7 +12,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-@when('The complex query payload is empty')
+@when('The complex query body is empty')
 def step_impl(context):
 
     payload = '{}'
@@ -25,10 +26,10 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload is invalid')
+@when('The complex query body is invalid')
 def step_impl(context):
 
-    payload = '{uhsdvjhyuwuyfywhfiy2487y7924yr7}'
+    payload = generate_random_chars()
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
                       headers={'content-type': 'application/json'},
@@ -39,7 +40,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload id is empty')
+@when('The complex query resource id is empty')
 def step_impl(context):
 
     payload = {
@@ -68,11 +69,11 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload id is invalid')
+@when('The complex query resource id is invalid')
 def step_impl(context):
 
     payload = {
-        "id": "hbjsdvhjbsvbsvbsvjbsjfbwy3747",
+        "id": generate_random_chars(),
         "attribute": {
             "term": "speed",
             "min": 30,
@@ -97,7 +98,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload has only id')
+@when('The complex query has only resource id')
 def step_impl(context):
 
     payload = {
@@ -114,7 +115,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload attributes are empty')
+@when('The complex query attributes are empty')
 def step_impl(context):
 
     payload = {
@@ -144,16 +145,16 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload attributes are invalid')
+@when('The complex query attributes are invalid')
 def step_impl(context):
 
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
         "attribute": {
-            "term": "&#&*#&*",
-            "min": "^#^&#",
-            "max": "hjbdsbhjcds"
+            "term": generate_random_chars(),
+            "min": generate_random_chars(),
+            "max": generate_random_chars()
         },
         "time": {
             "start": "2020-01-01",
@@ -174,7 +175,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload time is empty')
+@when('The complex query time is empty')
 def step_impl(context):
 
     payload = {
@@ -204,7 +205,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload time is not present')
+@when('The complex query time is not present')
 def step_impl(context):
 
     payload = {
@@ -234,7 +235,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload time is invalid')
+@when('The complex query time is invalid')
 def step_impl(context):
 
     payload = {
@@ -246,7 +247,7 @@ def step_impl(context):
             "max": 50
         },
         "time": {
-            "start": "jhbsdjbhdsbhj",
+            "start": generate_random_chars(),
             "end": ""
         },
         "geo_distance": {
@@ -264,7 +265,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload coordinates are empty')
+@when('The complex query coordinates are empty')
 def step_impl(context):
 
     payload = {
@@ -294,7 +295,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload coordinates are invalid')
+@when('The complex query coordinates are invalid')
 def step_impl(context):
 
     payload = {
@@ -324,7 +325,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload coordinates are strings')
+@when('The complex query coordinates are strings')
 def step_impl(context):
 
     payload = {
@@ -340,7 +341,7 @@ def step_impl(context):
             "end": "2020-06-01"
         },
         "geo_distance": {
-            "coordinates": ["hbsddhjbs", "hbdhdfhb"],
+            "coordinates": [generate_random_chars(), generate_random_chars()],
             "distance": "5000m"
         }
     }
@@ -354,7 +355,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload distance is empty')
+@when('The complex query distance is empty')
 def step_impl(context):
 
     payload = {
@@ -384,7 +385,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload distance is not present')
+@when('The complex query distance is not present')
 def step_impl(context):
 
     payload = {
@@ -414,7 +415,7 @@ def step_impl(context):
     context.status_code = r.status_code
 
 
-@when('The complex query payload distance is invalid')
+@when('The complex query distance is invalid')
 def step_impl(context):
 
     payload = {
@@ -431,7 +432,7 @@ def step_impl(context):
         },
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
-            "distance": "^&#^&#^&#"
+            "distance": generate_random_chars()
         }
     }
 

@@ -2,6 +2,8 @@ import json
 import requests
 from behave import when, then, step
 import urllib3
+from utils import *
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 VERMILLION_URL = 'https://localhost'
@@ -11,17 +13,19 @@ SET_POLICY_ENDPOINT = '/auth/v1/acl/set'
 REQUEST_TOKEN_ENDPOINT = '/auth/v1/token'
 INTROSPECT_ENDPOINT = '/auth/v1/token/introspect'
 
-PROVIDER_CERT_PATH = '../datasetu-ca/provider/provider.pem'
-PROVIDER_KEY_PATH = '../datasetu-ca/provider/provider.key.pem'
+PROVIDER_CERT_PATH = 'provider.pem'
+PROVIDER_KEY_PATH = 'provider.key.pem'
 
-CONSUMER_CERT_PATH = '../datasetu-ca/consumer/consumer.pem'
-CONSUMER_KEY_PATH = '../datasetu-ca/consumer/consumer.key.pem'
+CONSUMER_CERT_PATH = 'consumer.pem'
+CONSUMER_KEY_PATH = 'consumer.key.pem'
 
-RESOURCE_SERVER_CERT_PATH = '../datasetu-ca/resource-server/resource-server.pem'
-RESOURCE_SERVER_KEY_PATH = '../datasetu-ca/resource-server/resource-server.key.pem'
+RESOURCE_SERVER_CERT_PATH = 'resource-server.pem'
+RESOURCE_SERVER_KEY_PATH = 'resource-server.key.pem'
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+tok = None
 
 
 @when('The provider sets rules in the auth server')
@@ -29,7 +33,7 @@ def step_impl(context):
     context.type = 'set_rules'
     payload = {
         "policy":
-        "consumer@iisc.ac.in can access example.com/test-category/test-resource-1 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-2 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-3 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource.public for 1 month if scope = write"
+            "consumer@iisc.ac.in can access example.com/test-category/test-resource-1 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-2 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource-3 for 1 month;consumer@iisc.ac.in can access example.com/test-category/test-resource.public for 1 month if scope = write"
     }
 
     r = requests.post(url=AUTH_URL + SET_POLICY_ENDPOINT,
@@ -51,20 +55,21 @@ def step_impl(context):
 
 @when('The consumer requests for a token')
 def step_impl(context):
+    global tok
     context.type = 'token_request'
     payload = {
         "request": [{
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1"
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1"
         }, {
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2"
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2"
         }, {
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3"
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3"
         }, {
             "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public",
+                "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public",
             "scope": "write"
         }]
     }
@@ -82,16 +87,15 @@ def step_impl(context):
     context.status_code = r.status_code
     context.token = context.response['token']
 
-@then('The response should contain an auth token')
-def step_impl(context):
-    if not context.response['token']:
-        raise ValueError('Auth token not found in response')
+    tok = context.token
 
-@then('Introspect should succeed')
-def step_impl(context):
 
+@when('The consumer provides a valid token')
+def step_impl(context):
+    global tok
     context.type = 'token_introspect'
-    payload = {'token': context.token}
+
+    payload = {'token': tok}
 
     r = requests.post(url=AUTH_URL + INTROSPECT_ENDPOINT,
                       headers={
@@ -106,56 +110,4 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
-    expected_response = {
-        "consumer":
-        "consumer@iisc.ac.in",
-        "request": [{
-            "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1",
-            "apis": ["/*"],
-            "body": None,
-            "scopes": ["read"],
-            "methods": ["*"],
-            "environments": ["*"]
-        }, {
-            "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-2",
-            "apis": ["/*"],
-            "body": None,
-            "scopes": ["read"],
-            "methods": ["*"],
-            "environments": ["*"]
-        }, {
-            "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-3",
-            "apis": ["/*"],
-            "body": None,
-            "scopes": ["read"],
-            "methods": ["*"],
-            "environments": ["*"]
-        }, {
-            "id":
-            "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public",
-            "apis": ["/*"],
-            "body": None,
-            "scopes": ["write"],
-            "methods": ["*"],
-            "environments": ["*"]
-        }],
-        "consumer-certificate-class": 2
-    }
 
-
-    context.response.pop('expiry', None)
-
-    if ordered(expected_response) != ordered(context.response):
-        raise ValueError('Introspect Response is not as expected')
-
-
-def ordered(obj):
-    if isinstance(obj, dict):
-        return sorted((k, ordered(v)) for k, v in obj.items())
-    if isinstance(obj, list):
-        return sorted(ordered(x) for x in obj)
-    else:
-        return obj

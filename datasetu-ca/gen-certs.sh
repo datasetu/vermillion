@@ -68,6 +68,14 @@ mkdir -p ../authenticator/certs/auth && cp resource-server/resource-server-keyst
 cp resource-server/resource-server.pem ../api-server/certs/auth/
 cp resource-server/resource-server.key.pem ../api-server/certs/auth/
 
+#For tests
+cp provider/provider.pem provider/provider.key.pem ../tests/
+cp consumer/consumer.pem consumer/consumer.key.pem ../tests/
+cp resource-server/resource-server.pem resource-server/resource-server.key.pem ../tests/
+cp provider/provider.pem provider/provider.key.pem ../tests/features/steps/
+cp consumer/consumer.pem consumer/consumer.key.pem ../tests/features/steps/
+cp resource-server/resource-server.pem resource-server/resource-server.key.pem ../tests/features/steps/
+
 mkdir -p ../api-server/certs/ssl/ && mv ssl-keystore.jks ../api-server/certs/ssl/
 
 #Remove unwanted files
