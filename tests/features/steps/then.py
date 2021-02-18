@@ -1,6 +1,4 @@
-import requests
 from behave import then
-import urllib3
 from utils import *
 import os
 import time
@@ -41,7 +39,7 @@ def step_impl(context, expected_code):
 
 
 @then('The expected file is returned')
-def step_imp(context):
+def step_impl(context):
     l = "This is the downloaded file"
     if not os.path.exists('test-resource.public'):
         f = open('test-resource.public', 'rb')
@@ -52,7 +50,7 @@ def step_imp(context):
 
 
 @then('The uploaded files are deleted')
-def step_imp(context):
+def step_impl(context):
 # Checking if the folder is empty or not
     DIR = '../api-server/file-uploads'
     number_of_files = len([

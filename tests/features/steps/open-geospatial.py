@@ -1,7 +1,4 @@
-import json
-import requests
 from behave import when
-import urllib3
 from auth_vars import *
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -14,7 +11,6 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 @when('The geospatial query body is empty')
 def step_impl(context):
-    context.type = 'nopayload'
     payload = {}
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
@@ -28,8 +24,6 @@ def step_impl(context):
 
 @when('The geospatial query resource id is empty')
 def step_impl(context):
-    context.type = 'nopayload'
-
     payload = {
         "id": "",
         "geo_distance": {
@@ -49,8 +43,6 @@ def step_impl(context):
 
 @when('The geospatial query has only resource id')
 def step_impl(context):
-    context.type = 'nopayload'
-
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"
@@ -67,8 +59,6 @@ def step_impl(context):
 
 @when('The geospatial query resource id is invalid')
 def step_impl(context):
-    context.type = 'nopayload'
-
     payload = {
         "id": generate_random_chars(),
         "geo_distance": {
@@ -88,7 +78,6 @@ def step_impl(context):
 
 @when('The geospatial query body is invalid')
 def step_impl(context):
-    context.type = 'randompayload'
     payload = generate_random_chars()
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
@@ -239,6 +228,7 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+
 @when('A geo-spatial query with distance in mm')
 def step_impl(context):
     payload = {
@@ -258,6 +248,7 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+
 @when('A geo-spatial query with distance in km')
 def step_impl(context):
     payload = {
@@ -276,6 +267,7 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
+
 
 @when('A geo-spatial query is initiated')
 def step_impl(context):

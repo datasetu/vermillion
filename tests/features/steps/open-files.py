@@ -1,11 +1,6 @@
-import json
-import requests
-from behave import when, then
-import time
-import os, stat
-from utils import *
+from behave import when
+import os
 import glob
-import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from auth_vars import *
 
@@ -21,7 +16,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 @when('The consumer publishes with a valid token')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", res[0]),
@@ -48,7 +43,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes with invalid resource id')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", id_prefix + generate_random_chars()),
@@ -75,7 +70,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes with empty resource id')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", ""),
@@ -102,7 +97,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes with invalid token')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", res[0]),
@@ -129,7 +124,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes with empty token')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", res[0]),
@@ -156,7 +151,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes by removing file form parameter')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", res[0]),
@@ -180,7 +175,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes by removing metadata form parameter')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", res[0]),
@@ -203,7 +198,7 @@ def step_imp(context):
     print(context.status_code, context.response)
 
 @when('The consumer publishes by using extraneous form parameter')
-def step_imp(context):
+def step_impl(context):
     payload = (
 
         ("id", res[0]),
@@ -234,7 +229,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes with empty form parameter')
-def step_imp(context):
+def step_impl(context):
     payload = (
         ("id", res[0]
          ),
@@ -258,7 +253,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes with more than 2 form parameters')
-def step_imp(context):
+def step_impl(context):
     payload = (
         ("id", res[0]),
         ('token', tokens["master"]),
@@ -283,7 +278,7 @@ def step_imp(context):
 
 
 @when('The consumer downloads the file')
-def step_imp(context):
+def step_impl(context):
     urd = 'https://localhost/provider/public/'
     r = requests.get(url=urd + res[0], verify=False)
     open('test-resource.public', 'w').write('This is the downloaded file')

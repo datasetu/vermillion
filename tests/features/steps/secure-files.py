@@ -1,7 +1,4 @@
-import json
-import requests
 from behave import when
-import urllib3
 from auth_vars import *
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -16,7 +13,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 #XXX Secure-files tests need definition here
 @when('The consumer publishes secure file with a valid token')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
     ('token', tokens["master"]),
@@ -34,7 +31,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer publishes secure file with a file and timeseries data')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
     ('token', tokens["master"]),
@@ -53,7 +50,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer publishes secure file with an invalid token')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
     ('token', generate_random_chars()),
@@ -72,7 +69,7 @@ def step_imp(context):
 
 
 @when('The consumer publishes secure file with an empty token')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
     ('token', ''),
@@ -90,7 +87,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer publishes secure file with an invalid resource id')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', generate_random_chars()),
     ('token', tokens["master"]),
@@ -108,7 +105,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer publishes secure file with an empty resource id')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', ''),
     ('token', tokens["master"]),
@@ -128,7 +125,7 @@ def step_imp(context):
 
 
 @when('The consumer downloads file by passing a valid token')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
     ('token', tokens["master"]),
@@ -143,7 +140,7 @@ def step_imp(context):
 
 
 @when('The consumer downloads file by passing an invalid token')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
     ('token', generate_random_chars()),
@@ -155,7 +152,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer downloads file by passing an empty token')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', res[2]),
         ('token', ''),
@@ -167,7 +164,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer downloads file by passing an invalid resource id')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', generate_random_chars()),
     ('token', tokens["master"]),
@@ -180,7 +177,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer downloads file by passing an empty resource id')
-def step_imp(context):
+def step_impl(context):
     params = (
     ('id', ''),
     ('token', tokens["master"]),
@@ -192,7 +189,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer downloads file by passing only token')
-def step_imp(context):
+def step_impl(context):
     params = (
     
     ('token', tokens["master"]),
@@ -204,7 +201,7 @@ def step_imp(context):
     print(context.status_code,context.response)
 
 @when('The consumer downloads file by passing multiple resource ids and a token')
-def step_imp(context):
+def step_impl(context):
     params = {
             "id": [
                 res[2],

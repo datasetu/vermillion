@@ -1,8 +1,6 @@
 import json
 import requests
-from behave import when
 import urllib3
-import re
 import random
 import string
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -14,11 +12,6 @@ CONSUMER_CERT_PATH = 'consumer.pem'
 CONSUMER_KEY_PATH = 'consumer.key.pem'
 PROVIDER_CERT_PATH = 'provider.pem'
 PROVIDER_KEY_PATH = 'provider.key.pem'
-
-#TODO: Set policies
-#TODO: Request for a master token - all resources
-#TODO: Request for at least 3 more tokens with mixed permissions
-
 
 def generate_random_chars(n=32, letters=True, digits=True, special_chars=True):
     generate = ''

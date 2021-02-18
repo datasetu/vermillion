@@ -1,7 +1,4 @@
-import json
-import requests
 from behave import when
-import urllib3
 from auth_vars import *
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 

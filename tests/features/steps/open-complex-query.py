@@ -1,5 +1,3 @@
-import json
-import requests
 from behave import when
 from auth_vars import *
 import urllib3
