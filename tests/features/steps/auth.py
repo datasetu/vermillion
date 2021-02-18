@@ -1,8 +1,8 @@
 import json
 import requests
-from behave import when, then, step
+from behave import when
 import urllib3
-from utils import *
+
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
