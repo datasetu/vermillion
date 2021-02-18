@@ -88,6 +88,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public DbService dbService;
     public RedisOptions options;
 
+
     @Override
     public void start(Promise<Void> startPromise) {
         logger.debug("In start");
@@ -738,7 +739,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         FileUpload metadata = null;
         JsonObject metaJson = null;
 
-        String fileName = null, resourceId, token;
+        String fileName = null;
+        String resourceId;
+        String token;
         JsonObject requestBody = null;
 
         // TODO: Check for invalid IDs
