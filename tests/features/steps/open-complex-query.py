@@ -1,5 +1,5 @@
 from behave import when
-from auth_vars import *
+from auth_vars import generate_random_chars, requests, json
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 

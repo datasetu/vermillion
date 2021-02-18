@@ -1,7 +1,7 @@
 import time
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import *
+from auth_vars import urllib3,requests,generate_random_chars,res,tokens,json
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'

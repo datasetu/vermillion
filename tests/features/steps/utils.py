@@ -1,5 +1,7 @@
 
-"""This error is for cases when the expected status code does not match the status code from the API
+"""This error is for cases when the expected status code
+
+does not match the status code from the API
 
 """
 
@@ -14,7 +16,9 @@ class UnexpectedStatusCodeError(Exception):
         super().__init__(self.message)
 
 
-"""This is for cases when the expected number of datapoints do not match the received datapoints from the API
+"""This is for cases when the expected number of data points
+ 
+ do not match the received datapoints from the API
 
 """
 

@@ -1,5 +1,5 @@
 from behave import when
-from auth_vars import *
+from auth_vars import urllib3, generate_random_chars, requests, json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 VERMILLION_URL = 'https://localhost'

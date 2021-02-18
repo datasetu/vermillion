@@ -1,12 +1,11 @@
 from behave import when
-from auth_vars import *
+from auth_vars import urllib3, res, tokens,generate_random_chars, requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
 
 PUBLISH_ENDPOINT= '/publish'
-
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -18,12 +17,10 @@ def step_impl(context):
     ('id', res[2]),
     ('token', tokens["master"]),
 )
-
     files = {
     'file': ('sample.txt', open('sample.txt', 'rb')),
     'metadata': ('meta.json', open('meta.json', 'rb')),
 }
-
     r = requests.post('https://localhost/publish', params=params, files=files, verify=False)
     
     context.response= r
@@ -60,7 +57,6 @@ def step_impl(context):
     'file': ('sample.txt', open('sample.txt', 'rb')),
     'metadata': ('meta.json', open('meta.json', 'rb')),
 }
-
     r = requests.post('https://localhost/publish', params=params, files=files, verify=False)
 
     context.response= r
