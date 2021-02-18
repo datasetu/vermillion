@@ -1,7 +1,6 @@
 
-"""
-This error is for cases when the expected status code does not match
-the status code from the API
+"""This error is for cases when the expected status code does not match the status code from the API
+
 """
 
 
@@ -15,9 +14,8 @@ class UnexpectedStatusCodeError(Exception):
         super().__init__(self.message)
 
 
-"""
-This is for cases when the expected number of datapoints do not match
-the received datapoints from the API
+"""This is for cases when the expected number of datapoints do not match the received datapoints from the API
+
 """
 
 
@@ -30,10 +28,11 @@ class ResponseCountMismatchError(Exception):
         super().__init__(self.message)
 
 
-'''
-This error is for all kinds of unexpected behaviour of vermillion
-The exact error should be described in the message 
-'''
+"""This error is for all kinds of unexpected behaviour of vermillion
+ 
+ The exact error should be described in the message
+ 
+"""
 
 
 class UnexpectedBehaviourError(Exception):
