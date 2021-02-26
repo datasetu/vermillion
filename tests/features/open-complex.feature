@@ -1,6 +1,6 @@
 Feature: Vermillion is able to handle complex queries
 
-	Scenario: Complex query with empty body
+	    Scenario: Complex query with empty body
                 Given Vermillion is running
                 When The complex query body is empty
                 Then The response status should be 400
@@ -15,7 +15,7 @@ Feature: Vermillion is able to handle complex queries
                 When The complex query resource id is invalid
                 Then The response status should be 400
 	
-	Scenario: Complex query with just resource id as payload
+	    Scenario: Complex query with just resource id as payload
                 Given Vermillion is running
                 When The complex query has only resource id
                 Then The response status should be 400
@@ -81,8 +81,23 @@ Feature: Vermillion is able to handle complex queries
                 Given Vermillion is running
                 When The complex query distance is not present
                 Then The response status should be 400
-	
-	Scenario: Complex query
+
+        Scenario: Complex query with just resource attributes as payload
+                Given Vermillion is running
+                When The complex query has only resource attributes
+                Then The response status should be 400
+
+        Scenario: Complex query with just resource time as payload
+                Given Vermillion is running
+                When The complex query has only resource time
+                Then The response status should be 400
+
+        Scenario: Complex query with just resource geo-distance as payload
+                Given Vermillion is running
+                When The complex query has only resource geo-distance
+                Then The response status should be 400
+
+        Scenario: Complex query
                 Given Vermillion is running
                 When A complex query is initiated
                 Then All matching records are returned

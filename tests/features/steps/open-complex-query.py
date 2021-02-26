@@ -399,8 +399,8 @@ def step_impl(context):
             "end": "2020-06-01"
         },
         "geo_distance": {
-            "coordinates": [82.9739, 25.3176],
-            "distance": "123"
+            "coordinates": [82.9739, 25.3176]
+
         }
     }
 
@@ -431,6 +431,69 @@ def step_impl(context):
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
             "distance": generate_random_chars()
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('The complex query has only resource attributes')
+def step_impl(context):
+
+
+    payload = {
+
+        "attribute": {
+            "term": "speed",
+            "min": 30,
+            "max": 50
+        },
+
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('The complex query has only resource time')
+def step_impl(context):
+
+    payload = {
+
+        "time": {
+            "start": "2020-01-01",
+            "end": "2020-06-01"
+        },
+
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('The complex query has only resource geo-distance')
+def step_impl(context):
+
+
+
+    payload = {
+
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "5000m"
         }
     }
 

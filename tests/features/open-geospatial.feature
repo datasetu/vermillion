@@ -71,6 +71,22 @@ Feature: Vermillion is able to handle geospatial queries
                 Given Vermillion is running
                 When A geo-spatial query with distance in km
                 Then The response status should be 400
+
+        Scenario: Geo-spatial query coordinates size is 1
+                Given Vermillion is running
+                When A geo-spatial query coordinates size is 1
+                Then The response status should be 400
+
+        Scenario: Geo-spatial query coordinates size is 3
+                Given Vermillion is running
+                When A geo-spatial query coordinates size is 3
+                Then The response status should be 400
+
+        Scenario: Geo-spatial query coordinates
+                Given Vermillion is running
+                When A geo-spatial query coordinates values are negative
+                Then The response status should be 200
+
         Scenario: Geo-spatial query
                 Given Vermillion is running
                 When A geo-spatial query is initiated
