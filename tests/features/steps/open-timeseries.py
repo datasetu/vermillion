@@ -156,7 +156,7 @@ def step_impl(context):
 def step_impl(context):
 
     payload = {
-        "id": generate_random_chars(),
+        "id": generate_random_chars()+".public",
         "time": {
             "start": "2020-03-01",
             "end": "2020-03-27"

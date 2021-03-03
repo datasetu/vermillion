@@ -60,7 +60,7 @@ def step_impl(context):
 @when('The geospatial query resource id is invalid')
 def step_impl(context):
     payload = {
-        "id": generate_random_chars(),
+        "id": generate_random_chars()+".public",
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
             "distance": "10000m"

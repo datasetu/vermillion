@@ -71,7 +71,7 @@ def step_impl(context):
 def step_impl(context):
 
     payload = {
-        "id": generate_random_chars(),
+        "id": generate_random_chars()+".public",
         "attribute": {
             "term": "speed",
             "min": 30,

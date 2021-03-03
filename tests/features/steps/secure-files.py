@@ -85,7 +85,7 @@ def step_impl(context):
 @when('The consumer publishes secure file with an invalid resource id')
 def step_impl(context):
     params = (
-    ('id', generate_random_chars()),
+    ('id', generate_random_chars()+".public"),
     ('token', tokens["master"]),
 )
 

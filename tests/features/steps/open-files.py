@@ -47,7 +47,7 @@ def step_impl(context):
 def step_impl(context):
     payload = (
 
-        ("id", id_prefix + generate_random_chars()),
+        ("id", id_prefix + generate_random_chars()+".public"),
         ('token', tokens["master"]),
 
         ("id", id_prefix + generate_random_chars()
