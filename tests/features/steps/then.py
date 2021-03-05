@@ -1,9 +1,9 @@
 from behave import then
 import os
 import time
-from auth import urllib3,requests
+from auth import urllib3, requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import ResponseCountMismatchError, UnexpectedStatusCodeError,UnexpectedBehaviourError
+from utils import ResponseCountMismatchError, UnexpectedStatusCodeError, UnexpectedBehaviourError
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
@@ -30,6 +30,10 @@ def step_impl(context):
         if len(context.response) != 305:
             raise ResponseCountMismatchError(305, len(context.response))
 
+    if context.type == 'latest-api':
+        if len(context.response) != 405:
+            raise ResponseCountMismatchError(405, len(context.response))
+
 
 @then('The response status should be {expected_code}')
 def step_impl(context, expected_code):
@@ -50,14 +54,14 @@ def step_impl(context):
 
 @then('The uploaded files are deleted')
 def step_impl(context):
-# Checking if the folder is empty or not
+    # Checking if the folder is empty or not
     DIR = '../api-server/file-uploads'
     number_of_files = len([
         name for name in os.listdir(DIR)
         if os.path.isfile(os.path.join(DIR, name))
     ])
     counter = 0
-# Slowing down by running checks for the deletion of files to happen
+    # Slowing down by running checks for the deletion of files to happen
     while (number_of_files > 0 and counter < 60):
         number_of_files = len([
             name for name in os.listdir(DIR)

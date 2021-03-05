@@ -120,6 +120,24 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+@when('Timeseries query start and end date is not present')
+def step_impl(context):
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
 
 @when('Timeseries query has only resource id')
 def step_impl(context):
@@ -171,6 +189,26 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+@when('Timeseries query start and end date is not string')
+def step_impl(context):
+
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": 202003-0,
+            "end": 202003-27
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
 
 @when('A timeseries query is initiated')
 def step_impl(context):

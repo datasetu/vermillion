@@ -24,6 +24,11 @@ Feature: Vermillion is able to handle timeseries queries
 		Given Vermillion is running
 		When Timeseries query date is not present
 		Then The response status should be 400
+
+	Scenario: Timeseries query for start and end date not present
+		Given Vermillion is running
+		When Timeseries query start and end date is not present
+		Then The response status should be 400
 	
 	Scenario: Timeseries query for empty date
 		Given Vermillion is running
@@ -38,6 +43,11 @@ Feature: Vermillion is able to handle timeseries queries
 	Scenario: Timeseries query for empty resource id
 		Given Vermillion is running
 		When Timeseries query resource id is empty
+		Then The response status should be 400
+
+	Scenario: Timeseries query for start and end date objects not string
+		Given Vermillion is running
+		When Timeseries query start and end date is not string
 		Then The response status should be 400
 
 	Scenario: Timeseries query with just resource id as payload

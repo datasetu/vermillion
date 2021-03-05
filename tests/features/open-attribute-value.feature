@@ -66,6 +66,16 @@ Feature: Vermillion is able to handle attribute queries
                 When The attribute value query without max value
                 Then The response status should be 400
 
+        Scenario: Attribute value query with invalid value
+                Given Vermillion is running
+                When The attribute value query with invalid value
+                Then The response status should be 400
+
+        Scenario: Attribute value query with valid value
+                Given Vermillion is running
+                When The attribute value query with valid value
+                Then The response status should be 200
+
         Scenario: Attribute value query
                 Given Vermillion is running
                 When An attribute value query is initiated

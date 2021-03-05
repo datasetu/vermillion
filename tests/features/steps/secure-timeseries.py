@@ -296,3 +296,56 @@ def step_impl(context):
     context.response = r
     context.status_code = r.status_code
     print(context.status_code, context.response)
+
+@when('The consumer requests for a standalone authorised ID with invalid token')
+def step_impl(context):
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    params = (
+        ('token', generate_random_chars()),
+
+    )
+    data = {
+        "id":
+            res[3],
+
+        "time": {
+            "start": "2021-01-01",
+            "end": "2021-11-01"
+        }
+    }
+    time.sleep(1)
+    r = requests.post(VERMILLION_URL + SEARCH_ENDPOINT, headers=headers, params=params, data=json.dumps(data),
+                      verify=False)
+    print(r.text)
+
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+@when('The consumer requests for a standalone authorised ID without token')
+def step_impl(context):
+
+    headers = {
+        'Content-Type': 'application/json',
+    }
+
+    data = {
+        "id":
+            res[3],
+
+        "time": {
+            "start": "2021-01-01",
+            "end": "2021-11-01"
+        }
+    }
+    time.sleep(1)
+    r = requests.post(VERMILLION_URL + SEARCH_ENDPOINT, headers=headers, data=json.dumps(data),
+                      verify=False)
+    print(r.text)
+
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)

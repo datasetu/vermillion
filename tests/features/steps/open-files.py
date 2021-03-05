@@ -23,10 +23,6 @@ def step_impl(context):
         ("id", res[0]),
         ('token', tokens["master"]),
 
-        ("id", res[0]
-         ),
-        ('token', tokens["master"]),
-
     )
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
@@ -50,9 +46,6 @@ def step_impl(context):
         ("id", id_prefix + generate_random_chars()+".public"),
         ('token', tokens["master"]),
 
-        ("id", id_prefix + generate_random_chars()
-         ),
-        ('token', tokens["master"]),
 
     )
     files = {
@@ -75,10 +68,6 @@ def step_impl(context):
     payload = (
 
         ("id", ""),
-        ('token', tokens["master"]),
-
-        ("id", ""
-         ),
         ('token', tokens["master"]),
 
     )
@@ -104,10 +93,6 @@ def step_impl(context):
         ("id", res[0]),
         ('token', generate_random_chars()),
 
-        ("id", res[0]
-         ),
-        ('token', generate_random_chars()),
-
     )
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
@@ -131,9 +116,6 @@ def step_impl(context):
         ("id", res[0]),
         ('token', ''),
 
-        ("id", res[0]
-         ),
-        ('token', ''),
 
     )
     files = {
@@ -205,9 +187,6 @@ def step_impl(context):
         ("id", res[0]),
         ('token', tokens["master"]),
 
-        ("id", res[0]
-         ),
-        ('token', tokens["master"]),
 
     )
     files = {

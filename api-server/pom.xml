@@ -18,9 +18,10 @@
     <vertx.version>4.0.0-SNAPSHOT</vertx.version>
     <main.verticle>vermillion.MainVerticle</main.verticle>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <jacoco.version>0.8.6</jacoco.version>
+    <jacoco.version>0.8.3</jacoco.version>
   </properties>
   <dependencies>
+
     <dependency>
       <groupId>org.jacoco</groupId>
       <artifactId>org.jacoco.agent</artifactId>
@@ -111,7 +112,7 @@
         <!-- tag::codegen[] -->
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.8.1</version>
+          <version>3.3</version>
           <configuration>
             <source>1.8</source>
             <target>1.8</target>
@@ -171,7 +172,7 @@
                 <goal>report-integration</goal>
               </goals>
               <configuration>
-                <dataFile>${project.build.directory}/jacoco-it.exec</dataFile>
+                <dataFile>${project.build.directory}/jacoco.exec</dataFile>
               </configuration>
             </execution>
           </executions>
