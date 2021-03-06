@@ -23,7 +23,6 @@ servers:
   - url: 'https://vermillion.datasetu.org'
 
 paths:
-
   /download?id=Id&token=token:
     get:
       tags:
