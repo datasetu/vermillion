@@ -9,7 +9,12 @@ Feature: Vermillion is able to handle timeseries queries
 		Given Vermillion is running
 		When Timeseries query body is invalid
 		Then The response status should be 400
-	
+
+	Scenario: Timeseries query for invalid time json object
+		Given Vermillion is running
+		When Timeseries query time has invalid json object
+		Then The response status should be 400
+
 	Scenario: Timeseries query for invalid start date
 		Given Vermillion is running
 		When Timeseries query start date is invalid
@@ -45,7 +50,7 @@ Feature: Vermillion is able to handle timeseries queries
 		When Timeseries query resource id is empty
 		Then The response status should be 400
 
-	Scenario: Timeseries query for start and end date objects not string
+	Scenario: Timeseries query for start and end date objects are not string
 		Given Vermillion is running
 		When Timeseries query start and end date is not string
 		Then The response status should be 400

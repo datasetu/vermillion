@@ -1,7 +1,7 @@
 import time
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import urllib3,requests,generate_random_chars,res,tokens,json
+from auth_vars import urllib3, requests, generate_random_chars, res, tokens, json
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
@@ -26,6 +26,64 @@ def step_impl(context):
     data = '{"data": {"hello": "world"}}'
 
     r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
+
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+
+@when('The consumer publishes data without data field in body')
+def step_impl(context):
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    params = (
+        ('id', res[3]),
+        ('token', tokens["master"]),
+    )
+
+    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, verify=False)
+
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+
+@when('The consumer publishes data with invalid json data')
+def step_impl(context):
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    params = (
+        ('id', res[3]),
+        ('token', tokens["master"]),
+    )
+
+    data = '{"data": "hello" "world}}'
+
+    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
+
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+
+@when('The consumer publishes data with invalid body fields')
+def step_impl(context):
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    params = (
+        ('id', res[3]),
+        ('token', tokens["master"]),
+        ('item', "value"),
+    )
+
+    data = '{"data": {"hello": "world"}}'
+
+    xyz= 'testing invalid'
+
+    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=xyz, verify=False)
 
     context.response = r
     context.status_code = r.status_code
@@ -118,7 +176,7 @@ def step_impl(context):
     }
 
     params = (
-        ('id', generate_random_chars()+".public"),
+        ('id', generate_random_chars() + ".public"),
         ('token', tokens["master"]),
     )
 
@@ -297,9 +355,9 @@ def step_impl(context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
+
 @when('The consumer requests for a standalone authorised ID with invalid token')
 def step_impl(context):
-
     headers = {
         'Content-Type': 'application/json',
     }
@@ -325,9 +383,9 @@ def step_impl(context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
+
 @when('The consumer requests for a standalone authorised ID without token')
 def step_impl(context):
-
     headers = {
         'Content-Type': 'application/json',
     }

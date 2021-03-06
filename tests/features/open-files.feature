@@ -7,6 +7,16 @@ Feature: Vermillion is able to handle static files
 		      When The consumer publishes with a valid token
 		      Then The response status should be 201
 
+    Scenario: Consumer publishes without resource id
+            Given Vermillion is running
+            When The consumer publishes without resource id
+            Then The response status should be 400
+
+  Scenario: Consumer publishes without token
+           Given Vermillion is running
+            When The consumer publishes without token
+            Then The response status should be 400
+
 	Scenario: Consumer publishes with invalid resource id
                 Given Vermillion is running
                 When The consumer publishes with invalid resource id
@@ -33,6 +43,11 @@ Feature: Vermillion is able to handle static files
                 Given Vermillion is running
                 When The consumer publishes by removing file form parameter 
                 Then The response status should be 400
+
+     Scenario: Consumer publishes with invalid json meta file
+        Given Vermillion is running
+         When The consumer publishes with invalid json meta file
+          Then The response status should be 400
 
         Scenario: Consumer publishes by removing metadata form parameter
                 Given Vermillion is running

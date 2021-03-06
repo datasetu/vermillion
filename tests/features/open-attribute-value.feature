@@ -71,6 +71,12 @@ Feature: Vermillion is able to handle attribute queries
                 When The attribute value query with invalid value
                 Then The response status should be 400
 
+        Scenario: Attribute value query with invalid json object
+                Given Vermillion is running
+                When The attribute value query with invalid json object
+                Then The response status should be 400
+
+
         Scenario: Attribute value query with valid value
                 Given Vermillion is running
                 When The attribute value query with valid value

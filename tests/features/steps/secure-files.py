@@ -133,6 +133,30 @@ def step_impl(context):
     print(context.status_code,context.response)
 
 
+@when('The consumer downloads file by passing a valid reroute link')
+def step_impl(context):
+    params = (
+
+        ('token', tokens["master"]),
+        ('id', res[2]),
+    )
+
+    r = requests.get('https://localhost/consumer/', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer downloads file by using public resource id')
+def step_impl(context):
+    params = (
+        ('id', res[0]),
+        ('token', tokens["master"]),
+    )
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
 
 
 @when('The consumer downloads file by passing an invalid token')
@@ -153,6 +177,17 @@ def step_impl(context):
     ('id', res[2]),
         ('token', ''),
 )
+
+    r = requests.get('https://localhost/download', params=params, verify=False)
+    context.response= r
+    context.status_code=r.status_code
+    print(context.status_code,context.response)
+
+@when('The consumer downloads file without passing token')
+def step_impl(context):
+    params = (
+        ('id', res[2]),
+            )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
     context.response= r

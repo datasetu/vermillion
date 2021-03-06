@@ -92,6 +92,16 @@ Feature: Vermillion is able to handle geospatial queries
                 When A geo-spatial query coordinates values are negative
                 Then The response status should be 200
 
+        Scenario: Geo-spatial query coordinates with invalid json array
+                Given Vermillion is running
+                When A geo-spatial query coordinates with invalid json array
+                Then The response status should be 400
+
+        Scenario: Geo-spatial query distance with invalid json object
+                Given Vermillion is running
+                When A geo-spatial query distance with invalid json object
+                Then The response status should be 400
+
         Scenario: Geo-spatial query
                 Given Vermillion is running
                 When A geo-spatial query is initiated
