@@ -22,6 +22,13 @@
     
 Vermillion is a high performance, scalable and secure IoT middleware platform developed using `Vertx <https://vertx.io>`_. It is a middleware stack which focuses primarily on the compute layer in a smart city IoT deployment. One of the chief goals of Vermillion is to enable seamless data exchange between data producers and consumers in a smart city.
 
+Architecture
+============
+
+.. image:: images/vermillion-arch.png
+   :align: center
+
+The HTTPS APIs are written using `vertx <https://vertx.io>`_. The datastore used is `elasticsearch <https://elastic.co>`_, and the authentication and authorisation mechanism is using the `datasetu auth server <http://auth.datasetu.org>`_. A detailed architecture diagram for developers is in the works.
 
 Performance
 ===========
@@ -31,12 +38,6 @@ Performance has been *the* key consideration while developing Vermillion. Initia
 A detailed white paper on this project published in Arxiv can be found `here <https://arxiv.org/abs/2003.08361>`_. The code for this setup and tests can be found in release 0.2.0. The following is a graph depicting results from the 18-node test:
 
 .. image:: images/12-nodes.png
-   :align: center
-
-Architecture
-============
-
-.. image:: images/vermillion-arch.png
    :align: center
 
 Quickstart
