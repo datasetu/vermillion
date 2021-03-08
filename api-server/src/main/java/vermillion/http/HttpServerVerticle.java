@@ -488,6 +488,11 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String attributeName = attribute.getString("term");
 
+            if (attributeName == null) {
+                apiFailure(context, new BadRequestThrowable("Term parameter is empty"));
+                return;
+            }
+
             if (!(attribute.containsKey("min") && attribute.containsKey("max"))
                     == !(attribute.containsKey("term") && attribute.containsKey("value"))) {
 

@@ -244,13 +244,13 @@ def step_impl(context):
         'Content-Type': 'application/json',
     }
     params = (
-        ('token', tokens["master"]),
+        ('token', tokens["3_4_pub_no_write"]),
 
     )
     data = {
         "id":
             #TODO: Use a genuine secure resource ID. Not random characters
-            generate_random_chars(),
+            res[5],
 
         "time": {
             "start": "2021-01-01",

@@ -64,12 +64,12 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
         Scenario: Download secure-file with invalid resource id
                 Given Vermillion is running
                 When The consumer downloads file by passing an invalid resource id
-                Then The response status should be 403
+                Then The response status should be 400
 
         Scenario: Download secure-file with empty resource id
                 Given Vermillion is running
                 When The consumer downloads file by passing an empty resource id
-		        Then The response status should be 403
+		        Then The response status should be 400
 
 	Scenario: Download secure-file with only token
                 Given Vermillion is running

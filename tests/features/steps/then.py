@@ -31,8 +31,8 @@ def step_impl(context):
             raise ResponseCountMismatchError(305, len(context.response))
 
     if context.type == 'latest-api':
-        if len(context.response) != 405:
-            raise ResponseCountMismatchError(405, len(context.response))
+        if len(context.response) != 1:
+            raise ResponseCountMismatchError(1, len(context.response))
 
 
 @then('The response status should be {expected_code}')
