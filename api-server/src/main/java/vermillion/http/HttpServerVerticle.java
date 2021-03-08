@@ -200,11 +200,10 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String resourceID = requestBody.getString("id");
 
-        if(resourceID != null && !isStringSafe(resourceID)) {
-            apiFailure(context, new UnauthorisedThrowable("Token is not valid"));
+        if (resourceID != null && (!isStringSafe(resourceID) || !isValidResourceID(resourceID))) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed resource ID"));
             return;
         }
-
 
         // Initialise queries object
         Queries queries = new Queries();
@@ -236,7 +235,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         // Read the token if present
         String token = request.getParam("token");
 
-        if(token != null && !isStringSafe(token)) {
+        if (token != null && (!isStringSafe(token) || !isValidToken(token))) {
             apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
             return;
         }
@@ -280,6 +279,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
         if (resourceIdObj instanceof JsonArray) {
+            // Resource ID is an array of strings
             resourceIDArray = requestBody.getJsonArray("id");
             for (Object o : resourceIDArray) {
                 if (!(o instanceof String)) {
@@ -290,6 +290,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                     apiFailure(context, new BadRequestThrowable("Resource ID is empty"));
                     return;
                 }
+                if (!isValidResourceID(o.toString())) {
+                    apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
+                    return;
+                }
                 if (!(((String) o).endsWith(".public")) && token == null) {
                     apiFailure(context, new BadRequestThrowable("No token found in request"));
                     return;
@@ -298,9 +302,14 @@ public class HttpServerVerticle extends AbstractVerticle {
             termsQuery.getJsonObject("terms").put("id.keyword", resourceIDArray);
             filterQuery.add(termsQuery);
         } else {
+            // Standalone resource ID
             resourceIDstr = requestBody.getString("id");
             if ("".equalsIgnoreCase(resourceIDstr)) {
                 apiFailure(context, new BadRequestThrowable("Resource ID is empty"));
+                return;
+            }
+            if (!isValidResourceID(resourceIDstr)) {
+                apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                 return;
             }
             if (!resourceIDstr.endsWith(".public") && token == null) {
@@ -494,6 +503,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
 
+                if (min > max) {
+                    apiFailure(context, new BadRequestThrowable("Min value is greater than max"));
+                    return;
+                }
                 attributeQuery = queries.getRangeQuery();
 
                 attributeQuery
@@ -581,8 +594,8 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if(!isStringSafe(token)) {
-            apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+        if (!isStringSafe(token) || !isValidToken(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
             return;
         }
 
@@ -590,13 +603,21 @@ public class HttpServerVerticle extends AbstractVerticle {
         String basePath = PROVIDER_PATH + "secure/";
 
         if (idParam != null) {
+            // TODO: Handle possible issues here
             Arrays.asList(idParam.split(",")).forEach(requestedIds::add);
         }
 
         for (int i = 0; i < requestedIds.size(); i++) {
 
-            if(!isStringSafe(requestedIds.getString(i))) {
+            String resourceIDStr = requestedIds.getString(i);
+
+            if (!isStringSafe(requestedIds.getString(i))) {
                 apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+                return;
+            }
+
+            if (!isValidResourceID(resourceIDStr)) {
+                apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                 return;
             }
 
@@ -754,13 +775,17 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if(!isStringSafe(token) || !isStringSafe(resourceId)) {
-            apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+        if (!isStringSafe(token)
+                || !isStringSafe(resourceId)
+                || !isValidToken(token)
+                || !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
             return;
         }
 
         String[] splitId = resourceId.split("/");
 
+        // TODO: Need to define the types of IDs supported
         if (splitId.length < 5) {
             apiFailure(context, new UnauthorisedThrowable("Resource ID is invalid"));
             return;
@@ -1066,18 +1091,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         return safe;
     }
 
-    public void ok(HttpServerResponse resp) {
-        if (!resp.closed()) {
-            resp.setStatusCode(OK).end();
-        }
-    }
-
-    public void accepted(HttpServerResponse resp) {
-        if (!resp.closed()) {
-            resp.setStatusCode(ACCEPTED).end();
-        }
-    }
-
     private void apiFailure(RoutingContext context, Throwable t) {
         logger.debug("In apifailure");
         logger.debug("Message=" + t.getMessage());
@@ -1137,5 +1150,21 @@ public class HttpServerVerticle extends AbstractVerticle {
             commonPrefix += current;
         }
         return commonPrefix;
+    }
+
+    private boolean isValidResourceID(String resourceID) {
+
+        // TODO: Handle sub-categories correctly
+        String validRegex = "^[a-z-_.]*\\/[a-f0-9]{40}\\/[a-z-_.]*\\/[a-zA-Z0-9-_\\/]*$";
+
+        return resourceID.matches(validRegex);
+    }
+
+    private boolean isValidToken(String token) {
+
+        // TODO: Handle sub-categories correctly
+        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}$";
+
+        return token.matches(validRegex);
     }
 }
