@@ -198,6 +198,13 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        Object resourceIDObj = requestBody.getValue("id");
+
+        if (!(resourceIDObj instanceof String)) {
+            apiFailure(context, new BadRequestThrowable("Resource ID must be a string"));
+            return;
+        }
+
         String resourceID = requestBody.getString("id");
 
         if (resourceID == null) {
