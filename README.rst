@@ -33,6 +33,12 @@ A detailed white paper on this project published in Arxiv can be found `here <ht
 .. image:: images/12-nodes.png
    :align: center
 
+Architecture
+============
+
+.. image:: images/vermillion-arch.png
+   :align: center
+
 Quickstart
 ==========
 
