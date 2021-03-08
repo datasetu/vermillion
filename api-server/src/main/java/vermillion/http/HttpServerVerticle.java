@@ -201,7 +201,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String resourceID = requestBody.getString("id");
 
-        if (resourceID != null && (!isStringSafe(resourceID) || !isValidResourceID(resourceID))) {
+        if (resourceID != null && !isValidResourceID(resourceID)) {
             apiFailure(context, new UnauthorisedThrowable("Malformed resource ID"));
             return;
         }
@@ -236,7 +236,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         // Read the token if present
         String token = request.getParam("token");
 
-        if (token != null && (!isStringSafe(token) || !isValidToken(token))) {
+        if (token != null && !isValidToken(token)) {
             apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
             return;
         }
@@ -595,7 +595,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if (!isStringSafe(token) || !isValidToken(token)) {
+        if (!isValidToken(token)) {
             apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
             return;
         }
@@ -612,17 +612,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String resourceIDStr = requestedIds.getString(i);
 
-            if (!isStringSafe(requestedIds.getString(i))) {
-                apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
-                return;
-            }
-
             if (!isValidResourceID(resourceIDStr)) {
                 apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                 return;
             }
 
-            if (requestedIds.getString(i).endsWith(".public")) {
+            if (resourceIDStr.endsWith(".public")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
@@ -778,10 +773,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if (!isStringSafe(token)
-                || !isStringSafe(resourceId)
-                || !isValidToken(token)
-                || !isValidResourceID(resourceId)) {
+        if (!isValidToken(token) || !isValidResourceID(resourceId)) {
             apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
             return;
         }
@@ -1080,18 +1072,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .toSingle(Optional.empty())
                 .flatMap(result -> result.map(Single::just)
                         .orElseGet(() -> Single.error(new UnauthorisedThrowable("Unauthorised"))));
-    }
-
-    public boolean isStringSafe(String resource) {
-        logger.debug("In is_string_safe");
-
-        logger.debug("resource=" + resource);
-
-        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
-
-        logger.debug("Original resource name =" + resource);
-        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
-        return safe;
     }
 
     private void apiFailure(RoutingContext context, Throwable t) {
