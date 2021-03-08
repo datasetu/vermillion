@@ -88,7 +88,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     public DbService dbService;
     public RedisOptions options;
 
-
     @Override
     public void start(Promise<Void> startPromise) {
         logger.debug("In start");
@@ -201,8 +200,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String resourceID = requestBody.getString("id");
 
-        if (resourceID != null && !isValidResourceID(resourceID)) {
-            apiFailure(context, new UnauthorisedThrowable("Malformed resource ID"));
+        if (resourceID == null) {
+            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            return;
+        }
+
+        if (!isValidResourceID(resourceID)) {
+            apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
             return;
         }
 
@@ -1137,16 +1141,20 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     private boolean isValidResourceID(String resourceID) {
 
+        logger.debug("In isValidResourceId");
+        logger.debug("Received resource id = " + resourceID);
         // TODO: Handle sub-categories correctly
-        String validRegex = "^[a-z-_.]*\\/[a-f0-9]{40}\\/[a-z-_.]*\\/[a-zA-Z0-9-_\\/]*$";
+        String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+\\/[a-zA-Z0-9_.\\-]+\\/[a-zA-Z0-9_.\\-]+";
 
         return resourceID.matches(validRegex);
     }
 
     private boolean isValidToken(String token) {
 
+        logger.debug("In isValidToken");
+        logger.debug("Received token = " + token);
         // TODO: Handle sub-categories correctly
-        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}$";
+        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
 
         return token.matches(validRegex);
     }

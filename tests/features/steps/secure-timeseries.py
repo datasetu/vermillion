@@ -249,6 +249,7 @@ def step_impl(context):
     )
     data = {
         "id":
+            #TODO: Use a genuine secure resource ID. Not random characters
             generate_random_chars(),
 
         "time": {
@@ -308,6 +309,7 @@ def step_impl(context):
     )
     data = {
         "id": [
+            #TODO: Use a genuine secure resource ID. Not random characters
             generate_random_chars(),
             generate_random_chars()
         ],
@@ -339,6 +341,7 @@ def step_impl(context):
     data = {
         "id": [
             res[3],
+            #TODO: Use a genuine secure resource ID. Not random characters
             generate_random_chars()
         ],
         "time": {

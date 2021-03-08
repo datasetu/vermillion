@@ -133,6 +133,7 @@ def step_impl(context):
     print(context.status_code,context.response)
 
 
+#TODO: This is not how this API works. Please recheck
 @when('The consumer downloads file by passing a valid reroute link')
 def step_impl(context):
     params = (
@@ -207,6 +208,7 @@ def step_impl(context):
     context.status_code=r.status_code
     print(context.status_code,context.response)
 
+#TODO: The expected status code should be 400 and not 403
 @when('The consumer downloads file by passing an empty resource id')
 def step_impl(context):
     params = (
