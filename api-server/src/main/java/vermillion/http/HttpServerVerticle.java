@@ -100,7 +100,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.route().handler(BodyHandler.create().setHandleFileUploads(true));
 
-        router.post("/latest").handler(this::latest);
+        router.get("/latest").handler(this::latest);
         router.post("/search").handler(this::search);
 
         // The path described by the regex is /consumer/<auth_server>/<token>/*
@@ -180,48 +180,36 @@ public class HttpServerVerticle extends AbstractVerticle {
     // TODO: This can be a simple get request
     public void latest(RoutingContext context) {
         logger.debug("In latest API");
+        HttpServerRequest request = context.request();
         HttpServerResponse response = context.response();
 
-        JsonObject requestBody;
+        String token = request.getParam("token");
+        String resourceID = request.getParam("id");
 
-        try {
-            logger.debug("Trying to parse body as a Json");
-            requestBody = context.getBodyAsJson();
-
-            if (requestBody == null) {
-                logger.debug("Body is null");
-                apiFailure(context, new BadRequestThrowable("Body is empty"));
-                return;
-            }
-        } catch (Exception e) {
-            logger.debug("In catch");
-            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
-            return;
-        }
-
-        logger.debug("Body=" + requestBody.encode());
-
-        if (!requestBody.containsKey("id")) {
-            apiFailure(context, new BadRequestThrowable("No id found in body"));
-            return;
-        }
-
-        Object resourceIDObj = requestBody.getValue("id");
-
-        if (!(resourceIDObj instanceof String)) {
-            apiFailure(context, new BadRequestThrowable("Resource ID must be a string"));
-            return;
-        }
-
-        String resourceID = requestBody.getString("id");
+        logger.debug("id=" + resourceID);
+        logger.info("token=" + token);
 
         if (resourceID == null) {
+            logger.debug("Resource id is null");
             apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
             return;
         }
 
         if (!isValidResourceID(resourceID)) {
+            logger.debug("Resource is is malformed");
             apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
+            return;
+        }
+
+        if (!resourceID.endsWith(".public") && token == null) {
+            logger.debug("Id is secure but no access token provided");
+            apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            return;
+        }
+
+        if (token != null && !isValidToken(token)) {
+            logger.debug("Access token is malformed");
+            apiFailure(context, new BadRequestThrowable("Malformed access token"));
             return;
         }
 
@@ -238,11 +226,23 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonObject constructedQuery = queries.getLatestQuery(baseQuery);
 
-        logger.debug(constructedQuery.encodePrettily());
+        logger.debug("Latest query = " + constructedQuery.encodePrettily());
 
-        dbService.rxSearch(constructedQuery).subscribe(result -> {
-            response.putHeader("content-type", "application/json").end(result.encode());
-        });
+        if (token == null && resourceID.endsWith(".public")) {
+            logger.debug("Search on public resources");
+            dbService.rxSearch(constructedQuery).subscribe(result -> response.putHeader(
+                            "content-type", "application/json")
+                    .end(result.encode()));
+        } else {
+            logger.debug("Secure search");
+            JsonArray requestedIDs = new JsonArray().add(resourceID);
+            checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                    .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token)))
+                    .subscribe(
+                            result -> response.putHeader("content-type", "application/json")
+                                    .end(result.encode()),
+                            t -> apiFailure(context, t));
+        }
     }
 
     public void search(RoutingContext context) {
