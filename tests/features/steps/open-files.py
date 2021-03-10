@@ -20,8 +20,8 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 def step_impl(context):
     payload = (
 
-        ("id", res[0]),
-        ('token', tokens["master"]),
+        ("id", res[6]),
+        ('token', tokens["6_7_read"]),
 
     )
     files = {
@@ -227,8 +227,8 @@ def step_impl(context):
 def step_impl(context):
     payload = (
 
-        ("id", res[0]),
-        ('token', tokens["master"]),
+        ("id", res[6]),
+        ('token', tokens["6_7_read"]),
     )
 
     files = {
@@ -326,7 +326,7 @@ def step_impl(context):
 @when('The consumer downloads the file')
 def step_impl(context):
     urd = 'https://localhost/provider/public/'
-    r = requests.get(url=urd + res[0], verify=False)
+    r = requests.get(url=urd + res[6], verify=False)
     open('test-resource.public', 'w').write('This is the downloaded file')
     context.response = r
     context.status_code = r.status_code

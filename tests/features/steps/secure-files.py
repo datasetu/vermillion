@@ -15,8 +15,8 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 @when('The consumer publishes secure file with a valid token')
 def step_impl(context):
     params = (
-        ('id', res[2]),
-        ('token', tokens["master"]),
+        ('id', res[6]),
+        ('token', tokens["6_7_read"]),
     )
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
@@ -127,8 +127,8 @@ def step_impl(context):
 @when('The consumer downloads file by passing a valid token')
 def step_impl(context):
     params = (
-        ('id', res[2]),
-        ('token', tokens["master"]),
+        ('id', res[6]),
+        ('token', tokens["6_7_read"]),
     )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -139,7 +139,7 @@ def step_impl(context):
 
 @when('The consumer downloads file by passing a valid reroute link')
 def step_impl(context):
-    param = tokens["master"]
+    param = tokens["6_7_read"]
 
     r = requests.get('https://localhost/consumer/'+ param, verify=False)
     context.response = r
@@ -242,10 +242,10 @@ def step_impl(context):
 def step_impl(context):
     params = {
         "id": [
-            res[2],
-            res[3]
+            res[6],
+            res[7]
         ],
-        "token": tokens["master"]
+        "token": tokens["6_7_read"]
 
     }
 
