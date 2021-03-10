@@ -15,8 +15,8 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 @when('The consumer publishes secure file with a valid token')
 def step_impl(context):
     params = (
-        ('id', res[6]),
-        ('token', tokens["6_7_read"]),
+        ('id', res[2]),
+        ('token', tokens["2_5_write"]),
     )
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
@@ -52,7 +52,7 @@ def step_impl(context):
 @when('The consumer publishes secure file with an invalid token')
 def step_impl(context):
     params = (
-        ('id', res[2]),
+        ('id', res[3]),
         ('token', generate_random_chars()),
     )
 
@@ -90,7 +90,7 @@ def step_impl(context):
 def step_impl(context):
     params = (
         ('id', generate_random_chars() + ".public"),
-        ('token', tokens["master"]),
+        ('token', tokens["3_4_write"]),
     )
 
     files = {
@@ -127,8 +127,8 @@ def step_impl(context):
 @when('The consumer downloads file by passing a valid token')
 def step_impl(context):
     params = (
-        ('id', res[6]),
-        ('token', tokens["6_7_read"]),
+        ('id', res[2]),
+        ('token', tokens["master"]),
     )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -139,7 +139,7 @@ def step_impl(context):
 
 @when('The consumer downloads file by passing a valid reroute link')
 def step_impl(context):
-    param = tokens["6_7_read"]
+    param = tokens["master"]
 
     r = requests.get('https://localhost/consumer/'+ param, verify=False)
     context.response = r
@@ -229,7 +229,7 @@ def step_impl(context):
 def step_impl(context):
     params = (
 
-        ('token', tokens["master"]),
+        ('token', tokens["3_4_write"]),
     )
 
     r = requests.get('https://localhost/download', params=params, verify=False)
@@ -242,10 +242,10 @@ def step_impl(context):
 def step_impl(context):
     params = {
         "id": [
-            res[6],
-            res[7]
+            res[2],
+            res[3]
         ],
-        "token": tokens["6_7_read"]
+        "token": tokens["2_5_write"]
 
     }
 

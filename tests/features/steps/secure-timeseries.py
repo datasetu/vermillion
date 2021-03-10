@@ -19,8 +19,8 @@ def step_impl(context):
         'Content-Type': 'application/json',
     }
     params = (
-        ('id', res[2]),
-        ('token', tokens["2_write"])
+        ('id', res[3]),
+        ('token', tokens["master"])
     )
 
     data = '{"data": {"hello": "world"}}'
@@ -221,7 +221,7 @@ def step_impl(context):
     )
     data = {
         "id":
-            res[0],
+            res[3],
 
         "time": {
             "start": "2021-01-01",
@@ -244,13 +244,13 @@ def step_impl(context):
         'Content-Type': 'application/json',
     }
     params = (
-        ('token', tokens["3_4_write"]),
+        ('token', tokens["2_5_write"]),
 
     )
     data = {
         "id":
-            #TODO: Use a genuine secure resource ID. Not random characters
-            res[8],
+
+            res[6],
 
         "time": {
             "start": "2021-01-01",
@@ -274,12 +274,12 @@ def step_impl(context):
     }
 
     params = (
-        ('token', tokens["3_4_write"]),
+        ('token', tokens["6_7_read"]),
 
     )
     data = {
         "id": [
-            res[3],
+            res[6],
             res[7]
         ],
         "time": {
@@ -304,14 +304,14 @@ def step_impl(context):
     }
 
     params = (
-        ('token', tokens["3_4_write"]),
+        ('token', tokens["2_5_write"]),
 
     )
     data = {
         "id": [
-            #TODO: Use a genuine secure resource ID. Not random characters
-            res[0],
-            res[1]
+
+            res[6],
+            res[7]
         ],
         "time": {
             "start": "2021-01-01",
@@ -335,14 +335,14 @@ def step_impl(context):
     }
 
     params = (
-        ('token', tokens["master"]),
+        ('token', tokens["2_5_write"]),
 
     )
     data = {
         "id": [
-            res[3],
-            #TODO: Use a genuine secure resource ID. Not random characters
-            res[4]
+            res[0],
+
+            res[7]
         ],
         "time": {
             "start": "2021-01-01",
