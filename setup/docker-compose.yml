@@ -12,7 +12,7 @@ volumes:
 services:
 
   vertx:
-    image: iudx/java
+    image: datasetu/java
     container_name: vertx
     hostname: vertx
     restart: on-failure
@@ -65,7 +65,7 @@ services:
       - vermillion.conf
   
   elasticsearch:
-    image: elasticsearch:${ES_VERSION}
+    image: elasticsearch:7.9.2
     container_name: elasticsearch
     hostname: ${ES_HOSTNAME}
     ports:
@@ -73,12 +73,13 @@ services:
     restart: on-failure
     networks:
       - vermillion-net
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
+        #volumes:
+        #- es-data:/bitnami/elasticsearch/data
     env_file:
       - vermillion.conf
     environment:
       - discovery.type=single-node
+      #- ELASTICSEARCH_HEAP_SIZE=2048m
 
   dbconnector:
     image: iudx/db-connector

@@ -1,5 +1,5 @@
 import requests
-from behave import given 
+from behave import given
 import urllib3
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -15,6 +15,6 @@ def step_impl(context):
     context.type = 'running_server'
 
     try:
-        r = requests.get(VERMILLION_URL, verify=False)
+        requests.get(VERMILLION_URL, verify=False)
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
         context.failed = True

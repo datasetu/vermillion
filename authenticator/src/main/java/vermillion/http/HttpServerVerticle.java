@@ -53,7 +53,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final int MAX_POOL_SIZE = 10;
     public final int MAX_WAITING_HANDLERS = 32;
 
-    RedisOptions options;
+    public RedisOptions options;
 
     @Override
     public void start(Promise<Void> promise) {

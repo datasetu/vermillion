@@ -16,135 +16,180 @@ import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
+import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.InternalErrorThrowable;
+
+import java.io.IOException;
 
 public class DbServiceImpl implements DbService {
 
-  private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(DbServiceImpl.class);
 
-  private RestClient client;
-  private String index;
+    private RestClient client;
+    private String index;
 
-  private String searchEndpoint;
-  private String searchMethod;
-  private Request searchRequest;
+    private String searchEndpoint;
+    private String searchMethod;
+    private Request searchRequest;
 
-  private String insertEndpoint;
-  private String insertMethod;
-  private Request insertRequest;
+    private String insertEndpoint;
+    private String insertMethod;
+    private Request insertRequest;
 
-  public DbServiceImpl(
-      String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
+    public DbServiceImpl(String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
 
-    client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
-    this.index = index;
-    this.searchEndpoint = "/" + this.index + "/_search";
-    this.searchMethod = "GET";
+        client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
+        this.index = index;
+        this.searchEndpoint = "/" + this.index + "/_search";
+        this.searchMethod = "GET";
 
-    this.insertEndpoint = "/" + this.index + "/_doc";
-    this.insertMethod = "POST";
+        this.insertEndpoint = "/" + this.index + "/_doc";
+        this.insertMethod = "POST";
 
-    // TODO: Have a retry mechanism
-    searchRequest = new Request(searchMethod, searchEndpoint);
-    insertRequest = new Request(insertMethod, insertEndpoint);
+        // TODO: Have a retry mechanism
+        searchRequest = new Request(searchMethod, searchEndpoint);
+        insertRequest = new Request(insertMethod, insertEndpoint);
 
-    resultHandler.handle(Future.succeededFuture(this));
-  }
+        resultHandler.handle(Future.succeededFuture(this));
+    }
 
-  // TODO: Implement Scroll API
-  @Override
-  public DbService search(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler) {
-    logger.debug("In regular search");
-    logger.debug("Query=" + query.encode());
+    // TODO: Implement Scroll API
+    @Override
+    public DbService search(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler) {
+        logger.debug("In regular search");
+        logger.debug("Query=" + query.encode());
 
-    Observable.create(
-            observableEmitter -> {
-              searchRequest.setJsonEntity(query.encode());
-              Response response = client.performRequest(searchRequest);
+        searchRequest.setJsonEntity(query.encode());
+        Response response = null;
+        try {
+            response = client.performRequest(searchRequest);
+        } catch (IOException e) {
+            logger.debug(e.getMessage());
+            resultHandler.handle(
+                    Future.failedFuture(
+                            new InternalErrorThrowable(
+                                    "Error while querying DB. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
+            return this;
+        }
 
-              JsonArray responseJson =
-                  new JsonObject(EntityUtils.toString(response.getEntity()))
-                      .getJsonObject("hits")
-                      .getJsonArray("hits");
+        if (response.getStatusLine().getStatusCode() != 200) {
+            resultHandler.handle(
+                    Future.failedFuture(
+                            new BadRequestThrowable(
+                                    "Malformed query. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
+            return this;
+        } else {
+            JsonArray responseJson = null;
+            try {
+                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()))
+                        .getJsonObject("hits")
+                        .getJsonArray("hits");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
-              // TODO: This might be expensive for large responses
-              for (int i = 0; i < responseJson.size(); i++) {
-                observableEmitter.onNext(responseJson.getJsonObject(i).getJsonObject("_source"));
-              }
-              observableEmitter.onComplete();
-            })
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(SingleHelper.toObserver(resultHandler));
+            JsonArray finalResponseJson = responseJson;
+            Observable.create(observableEmitter -> {
+                        // TODO: This might be expensive for large responses
+                        for (int i = 0; i < finalResponseJson.size(); i++) {
+                            observableEmitter.onNext(
+                                    finalResponseJson.getJsonObject(i).getJsonObject("_source"));
+                        }
+                        observableEmitter.onComplete();
+                    })
+                    .collect(JsonArray::new, JsonArray::add)
+                    .subscribe(SingleHelper.toObserver(resultHandler));
+        }
 
-    return this;
-  }
+        return this;
+    }
 
-  @Override
-  public DbService secureSearch(
-      JsonObject query, String token, Handler<AsyncResult<JsonArray>> resultHandler) {
-    logger.debug("In secure search");
-    logger.debug("Query=" + query.encode());
+    @Override
+    public DbService secureSearch(JsonObject query, String token, Handler<AsyncResult<JsonArray>> resultHandler) {
+        logger.debug("In secure search");
+        logger.debug("Query=" + query.encode());
 
-    String serverName = System.getenv("SERVER_NAME");
+        String serverName = System.getenv("SERVER_NAME");
 
-    Observable.create(
-            observableEmitter -> {
-              searchRequest.setJsonEntity(query.encode());
-              Response response = client.performRequest(searchRequest);
+        searchRequest.setJsonEntity(query.encode());
+        Response response = null;
+        try {
+            response = client.performRequest(searchRequest);
+        } catch (IOException e) {
+            logger.debug(e.getMessage());
+            resultHandler.handle(
+                    Future.failedFuture(
+                            new InternalErrorThrowable(
+                                    "Error while querying DB. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
+            return this;
+        }
 
-              JsonArray dbResponse =
-                  new JsonObject(EntityUtils.toString(response.getEntity()))
-                      .getJsonObject("hits")
-                      .getJsonArray("hits");
+        if (response.getStatusLine().getStatusCode() != 200) {
+            resultHandler.handle(
+                    Future.failedFuture(
+                            new BadRequestThrowable(
+                                    "Malformed query. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
+            return this;
+        } else {
+            JsonArray responseJson = null;
+            try {
+                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()))
+                        .getJsonObject("hits")
+                        .getJsonArray("hits");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
-              // TODO: This might be expensive for large responses
-              for (int i = 0; i < dbResponse.size(); i++) {
+            JsonArray finalResponseJson = responseJson;
+            Observable.create(observableEmitter -> {
+                        // TODO: This might be expensive for large responses
+                        for (int i = 0; i < finalResponseJson.size(); i++) {
 
-                JsonObject responseJson = dbResponse.getJsonObject(i).getJsonObject("_source");
+                            JsonObject responsedocs =
+                                    finalResponseJson.getJsonObject(i).getJsonObject("_source");
 
-                JsonObject responseData = responseJson.getJsonObject("data");
+                            JsonObject responseData = responsedocs.getJsonObject("data");
 
-                if (responseData.containsKey("link")
-                    && "/download".equalsIgnoreCase(responseData.getString("link"))) {
+                            if (responseData.containsKey("link")
+                                    && "/download".equalsIgnoreCase(responseData.getString("link"))) {
 
-                  String downloadLink =
-                      "https://"
-                          + serverName
-                          + "/download?token="
-                          + token
-                          + "&id="
-                          + responseJson.getString("id");
+                                String downloadLink = "https://"
+                                        + serverName
+                                        + "/download?token="
+                                        + token
+                                        + "&id="
+                                        + responsedocs.getString("id");
 
-                  responseJson.getJsonObject("data").put("link", downloadLink);
-                }
-                observableEmitter.onNext(responseJson);
-              }
-              observableEmitter.onComplete();
-            })
-        .collect(JsonArray::new, JsonArray::add)
-        .subscribe(SingleHelper.toObserver(resultHandler));
+                                responsedocs.getJsonObject("data").put("link", downloadLink);
+                            }
+                            observableEmitter.onNext(responsedocs);
+                        }
+                        observableEmitter.onComplete();
+                    })
+                    .collect(JsonArray::new, JsonArray::add)
+                    .subscribe(SingleHelper.toObserver(resultHandler));
 
-    return this;
-  }
+            return this;
+        }
+    }
 
-  @Override
-  public DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
-    //TODO: Don't insert into db directly use rabbitmq
-    logger.debug("In insert query");
-    logger.debug("Query=" + query.encode());
+    @Override
+    public DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
+        // TODO: Don't insert into db directly use rabbitmq
+        logger.debug("In insert query");
+        logger.debug("Query=" + query.encode());
 
-    Completable.fromCallable(
-            () -> {
-              insertRequest.setJsonEntity(query.encode());
-              Response response = client.performRequest(insertRequest);
+        Completable.fromCallable(() -> {
+                    insertRequest.setJsonEntity(query.encode());
+                    Response response = client.performRequest(insertRequest);
 
-              if (response.getStatusLine().getStatusCode() != 200)
-                return Completable.error(new InternalErrorThrowable("Errored while inserting"));
+                    if (response.getStatusLine().getStatusCode() != 200)
+                        return Completable.error(new InternalErrorThrowable("Errored while inserting"));
 
-              return Completable.complete();
-            })
-        .subscribe(CompletableHelper.toObserver(resultHandler));
+                    return Completable.complete();
+                })
+                .subscribe(CompletableHelper.toObserver(resultHandler));
 
-    return this;
-  }
+        return this;
+    }
 }
