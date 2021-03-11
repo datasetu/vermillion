@@ -1102,27 +1102,29 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("In apifailure");
         logger.debug("Message=" + t.getMessage());
         if (t instanceof BadRequestThrowable) {
+            logger.debug("In bad request");
             context.response()
                     .setStatusCode(BAD_REQUEST)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof UnauthorisedThrowable) {
+            logger.debug("In unauthroised");
             context.response()
                     .setStatusCode(FORBIDDEN)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof ConflictThrowable) {
+            logger.debug("In conflict");
             context.response()
                     .setStatusCode(CONFLICT)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        } else if (t instanceof InternalErrorThrowable) {
+        } else {
+            logger.debug("In internal error or ServiceException");
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        } else {
-            context.fail(t);
         }
     }
 
