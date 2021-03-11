@@ -4,10 +4,8 @@ import glob
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from auth_vars import urllib3, generate_random_chars, res, tokens, id_prefix
 import requests
+from utils import check_openfiles_pub
 
-VERMILLION_URL = 'https://localhost'
-SEARCH_ENDPOINT = '/search'
-PUBLISH_ENDPOINT = '/publish'
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -18,7 +16,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 @when('The consumer publishes with a valid token')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
         ('token', tokens["master"]),
@@ -29,19 +27,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes without resource id')
 def step_impl(context):
-    payload = (
+    data = (
 
         ('token', tokens["master"]),
 
@@ -51,19 +42,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes without token')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
 
@@ -73,19 +57,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with invalid resource id')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", id_prefix + generate_random_chars() + ".public"),
         ('token', tokens["master"]),
@@ -96,19 +73,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with empty resource id')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", ""),
         ('token', tokens["master"]),
@@ -119,19 +89,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with invalid token')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
         ('token', generate_random_chars()),
@@ -142,19 +105,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with empty token')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
         ('token', ''),
@@ -165,19 +121,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes by removing file form parameter')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
         ('token', tokens["master"]),
@@ -189,19 +138,12 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with invalid json meta file')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
         ('token', tokens["master"]),
@@ -213,19 +155,12 @@ def step_impl(context):
         'metadata': ('invalidmeta.json', open('invalidmeta.json', 'rb')),
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes by removing metadata form parameter')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[1]),
         ('token', tokens["master"]),
@@ -237,19 +172,12 @@ def step_impl(context):
 
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes by using extraneous form parameter')
 def step_impl(context):
-    payload = (
+    data = (
 
         ("id", res[0]),
         ('token', tokens["master"]),
@@ -264,19 +192,12 @@ def step_impl(context):
     for f in fil:
         os.remove(f)
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with empty form parameter')
 def step_impl(context):
-    payload = (
+    data = (
         ("id", res[0]
          ),
         ('token', tokens["master"]),
@@ -288,19 +209,12 @@ def step_impl(context):
 
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer publishes with more than 2 form parameters')
 def step_impl(context):
-    payload = (
+    data = (
         ("id", res[0]),
         ('token', tokens["master"]),
     )
@@ -313,14 +227,7 @@ def step_impl(context):
 
     }
 
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=payload,
-                      files=files,
-                      verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_openfiles_pub(data, files, context)
 
 
 @when('The consumer downloads the file')
