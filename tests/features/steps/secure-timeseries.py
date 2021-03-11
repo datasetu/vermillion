@@ -79,7 +79,7 @@ def step_impl(context):
         ('item', "value"),
     )
 
-    data = '{"data": {"hello": "world"}}'
+    # data = '{"data": {"hello": "world"}}'
 
     xyz= 'testing invalid'
 

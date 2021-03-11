@@ -1,4 +1,3 @@
-from auth_vars import urllib3, generate_random_chars, requests, json, tokens, res
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
