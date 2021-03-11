@@ -38,7 +38,7 @@ def step_impl(context):
         'Content-Type': 'application/json',
     }
     params = (
-        ('id', res[0]),
+        ('id', res[4]),
         ('token', tokens["master"]),
     )
 
@@ -59,7 +59,7 @@ def step_impl(context):
         ('token', tokens["master"]),
     )
 
-    data = '{"data": "hello" "world}}'
+    data = "True"
 
     r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
 

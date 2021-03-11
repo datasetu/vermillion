@@ -60,7 +60,7 @@ def step_impl(context):
 @when('The geospatial query resource id is invalid')
 def step_impl(context):
     payload = {
-        "id": generate_random_chars()+".public",
+        "id": generate_random_chars() + ".public",
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
             "distance": "10000m"
@@ -268,14 +268,15 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
-@when('A geo-spatial query with distance in string')
+
+@when('A geo-spatial query with distance not in string')
 def step_impl(context):
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
-            "distance": "xyz"
+            "distance": 100
         }
     }
 
@@ -309,15 +310,14 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+
 @when('A geo-spatial query coordinates size is 3')
 def step_impl(context):
-
-
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
         "geo_distance": {
-            "coordinates": [82.9739, 25.3176,73.737],
+            "coordinates": [82.9739, 25.3176, 73.737],
             "distance": "10000m"
         }
     }
@@ -329,10 +329,10 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
+
+
 @when('A geo-spatial query coordinates values are negative')
 def step_impl(context):
-
-
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
@@ -350,15 +350,14 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+
 @when('A geo-spatial query coordinates with invalid json array')
 def step_impl(context):
-
-
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
         "geo_distance": {
-            "coordinates": 82.9739,
+            "coordinates": "True",
             "distance": "10000m"
         }
     }
@@ -371,17 +370,33 @@ def step_impl(context):
     context.response = r.json()
     context.status_code = r.status_code
 
+
 @when('A geo-spatial query distance with invalid json object')
 def step_impl(context):
-
-
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
-        "geo_distance":{
-            "coordinates [82.9739, 25.3176]",
-            "distance" "10000m"
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "True"
         }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=payload,
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('A geo-spatial query geodistance with invalid json object')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": "True"
+
     }
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
@@ -403,7 +418,6 @@ def step_impl(context):
             "coordinates": [82.9739, 25.3176],
             "distance": "10000m",
 
-
         }
     }
 
@@ -413,4 +427,3 @@ def step_impl(context):
                       verify=False)
 
     context.response = r.json()
-

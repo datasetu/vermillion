@@ -87,8 +87,27 @@ Feature: Vermillion is able to handle attribute queries
                 When The attribute value query with valid value
                 Then The response status should be 200
 
+        Scenario: Attribute value query with empty resource id array
+                Given Vermillion is running
+                When An attribute value query with empty resource id array
+                Then The response status should be 400
+
+        Scenario: Attribute value query with invalid resource id array
+                Given Vermillion is running
+                When An attribute value query with invalid resource id array
+                Then The response status should be 400
+
+        Scenario: Attribute value query resource id array without token
+                Given Vermillion is running
+                When An attribute value query resource id array without token
+                Then The response status should be 400
+
+        Scenario: Attribute value query resource id not a list of string
+                Given Vermillion is running
+                When An attribute value query resource id is not a list of string
+                Then The response status should be 400
+
         Scenario: Attribute value query
                 Given Vermillion is running
                 When An attribute value query is initiated
                 Then All matching records are returned
-

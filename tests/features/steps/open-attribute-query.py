@@ -326,10 +326,7 @@ def step_impl(context):
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
-        "attribute": {
-            "term :speed",
-            "value" "bus"
-        }
+        "attribute": "True"
     }
 
     r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
@@ -339,6 +336,28 @@ def step_impl(context):
 
     context.response = r.json()
     context.status_code = r.status_code
+
+# @when('An attribute value query with min and max values having invalid numbers')
+# def step_impl(context):
+#
+#
+#     payload = {
+#         "id":
+#             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+#         "attribute": {
+#             "term": "speed",
+#             "min": 88888888888,
+#             "max": 500000000000
+#         }
+#     }
+
+    # r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+    #                   headers={'content-type': 'application/json'},
+    #                   data=json.dumps(payload),
+    #                   verify=False)
+    #
+    # context.response = r.json()
+    # context.status_code = r.status_code
 
 @when('An attribute value query is initiated')
 def step_impl(context):
@@ -360,3 +379,95 @@ def step_impl(context):
                       verify=False)
 
     context.response = r.json()
+
+@when('An attribute value query with empty resource id array')
+def step_impl(context):
+
+
+    payload = {
+        "id":
+            ["rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",""],
+        "attribute": {
+            "term": "speed",
+            "min": 30,
+            "max": 50
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
+@when('An attribute value query with invalid resource id array')
+def step_impl(context):
+
+
+    payload = {
+        "id":
+            ["rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"," "],
+        "attribute": {
+            "term": "speed",
+            "min": 30,
+            "max": 50
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+
+@when('An attribute value query resource id array without token')
+def step_impl(context):
+
+
+    payload = {
+        "id":
+            ["rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public","rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live"],
+        "attribute": {
+            "term": "speed",
+            "min": 30,
+            "max": 50
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+@when('An attribute value query resource id is not a list of string')
+def step_impl(context):
+
+
+    payload = {
+        "id":
+            [1,2,3],
+        "attribute": {
+            "term": "speed",
+            "min": 30,
+            "max": 50
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+
+

@@ -28,6 +28,24 @@ def step_impl(context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
+@when('A latest API query is initiated for public resource id')
+def step_impl(context):
+    context.type = 'latest-api'
+
+    params = ({
+        "id": res[0],
+
+    }
+    )
+
+    r = requests.get(url=VERMILLION_URL + LATEST_ENDPOINT,
+                     headers={'content-type': 'application/json'},
+                     params=params,
+                     verify=False)
+
+    context.response = r.json()
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
 
 @when('A latest API query with invalid resource id')
 def step_impl(context):

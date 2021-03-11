@@ -72,9 +72,9 @@ Feature: Vermillion is able to handle geospatial queries
                 When A geo-spatial query with distance in km
                 Then The response status should be 400
 
-        Scenario: Geo-spatial query for distance in string
+        Scenario: Geo-spatial query for distance not in string
                 Given Vermillion is running
-                When A geo-spatial query with distance in string
+                When A geo-spatial query with distance not in string
                 Then The response status should be 400
 
         Scenario: Geo-spatial query coordinates size is 1
@@ -91,6 +91,11 @@ Feature: Vermillion is able to handle geospatial queries
                 Given Vermillion is running
                 When A geo-spatial query coordinates values are negative
                 Then The response status should be 200
+
+        Scenario: Geo-spatial query geodistance with invalid json object
+                Given Vermillion is running
+                When A geo-spatial query geodistance with invalid json object
+                Then The response status should be 400
 
         Scenario: Geo-spatial query coordinates with invalid json array
                 Given Vermillion is running
