@@ -1,8 +1,10 @@
-from behave import when
-from auth_vars import generate_random_chars, requests, json
+import json
+
+import requests
 import urllib3
+from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import check_search
+from utils import check_search, generate_random_chars
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'

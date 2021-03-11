@@ -1,14 +1,15 @@
 import time
+
+import requests
+import urllib3
+
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import urllib3, requests, generate_random_chars, res, tokens
-from utils import check_publish, check_search
+from auth_vars import res, tokens
+from utils import check_publish, check_search, generate_random_chars
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-
-# XXX Secure-timeseries tests need definition here
 
 @when('The consumer publishes data with a valid token')
 def step_impl(context):

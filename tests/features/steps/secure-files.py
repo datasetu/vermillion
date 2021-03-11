@@ -1,7 +1,10 @@
+import requests
+import urllib3
+
 from behave import when
-from auth_vars import urllib3, res, tokens, generate_random_chars, requests
+from auth_vars import res, tokens
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import check_pub_file, check_download
+from utils import check_pub_file, check_download, generate_random_chars
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)

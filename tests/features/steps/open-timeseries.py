@@ -1,6 +1,8 @@
+import requests
+import urllib3
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import check_search
+from utils import check_search, generate_random_chars
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)

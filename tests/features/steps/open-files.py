@@ -1,18 +1,17 @@
-from behave import when
 import os
 import glob
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import urllib3, generate_random_chars, res, tokens, id_prefix
-import requests
-from utils import check_openfiles_pub
 
+import requests
+import urllib3
+from behave import when
+
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+from auth_vars import res, tokens, id_prefix
+from utils import check_openfiles_pub, generate_random_chars
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
-
-# XXX Open-files tests need definition here
-
 
 @when('The consumer publishes with a valid token')
 def step_impl(context):

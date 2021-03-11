@@ -1,9 +1,12 @@
 from behave import then
 import os
 import time
-from auth import urllib3, requests
+
+import requests
+import urllib3
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import ResponseCountMismatchError, UnexpectedStatusCodeError, UnexpectedBehaviourError
+from error_definitions import ResponseCountMismatchError, UnexpectedStatusCodeError, UnexpectedBehaviourError
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'

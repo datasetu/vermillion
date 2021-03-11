@@ -2,8 +2,8 @@ import requests
 import urllib3
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import res,tokens,generate_random_chars
-from utils import check_latest
+from auth_vars import res,tokens
+from utils import check_latest, generate_random_chars
 
 VERMILLION_URL = 'https://localhost'
 LATEST_ENDPOINT = '/latest'

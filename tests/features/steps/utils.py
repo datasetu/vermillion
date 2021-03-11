@@ -1,9 +1,8 @@
-"""This error is for cases when the expected status code
+import json
+import string
+import random
 
-does not match the status code from the API
-
-"""
-from auth_vars import requests, json
+import requests
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
@@ -13,47 +12,6 @@ LATEST_ENDPOINT = '/latest'
 headers = {
     'Content-Type': 'application/json',
 }
-
-
-class UnexpectedStatusCodeError(Exception):
-
-    def __init__(self, expected, actual, response_object):
-        self.expected = expected
-        self.actual = actual
-        self.message = "Expecting {0} from API call got {1} with response {2}".format(expected, actual,
-                                                                                      str(response_object))
-        super().__init__(self.message)
-
-
-"""This is for cases when the expected number of data points
- 
- do not match the received datapoints from the API
-
-"""
-
-
-class ResponseCountMismatchError(Exception):
-
-    def __init__(self, expected, actual):
-        self.expected = expected
-        self.actual = actual
-        self.message = "Expecting {0} responses from API call got {1}".format(expected, actual)
-        super().__init__(self.message)
-
-
-"""This error is for all kinds of unexpected behaviour of vermillion
- 
- The exact error should be described in the message
- 
-"""
-
-
-class UnexpectedBehaviourError(Exception):
-
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
-
 
 def check_publish(params, data, context):
     r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, data=data, verify=False)
@@ -106,3 +64,15 @@ def check_latest(params, context):
     context.response = r.json()
     context.status_code = r.status_code
     print(context.status_code, context.response)
+
+
+def generate_random_chars(n=32, letters=True, digits=True, special_chars=True):
+    generate = ''
+    if letters:
+        generate += string.ascii_letters
+    if digits:
+        generate += string.digits
+    if special_chars:
+        generate += string.punctuation
+
+    return ''.join([random.choice(generate) for _ in range(n)])
