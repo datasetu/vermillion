@@ -30,6 +30,7 @@ services:
       - WAIT_HOSTS_TIMEOUT=120
       - PROJECT_DIR=api-server
       - JAR_NAME=api-server-fat.jar
+    command: tail -f /dev/null
 
   authenticator:
     image: iudx/java
@@ -46,6 +47,7 @@ services:
       - WAIT_HOSTS=redis:6379
       - PROJECT_DIR=authenticator
       - JAR_NAME=authenticator-fat.jar
+
 
   rabbit:
     image: rabbitmq:${RABBITMQ_VERSION}
