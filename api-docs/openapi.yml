@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   version: 1.0.0
   title: Vermilllion API Documentation
@@ -32,6 +32,8 @@ paths:
        - Consumer
       description: This endpoint is meant for downloading secure file datasets for which access has been obtained beforehand. If the fully-qualified resource ID is known then this endpoint can be invoked from programs or from user-agents like ``curl``. Otherwise, invoking the endpoint with just an access token will bring up an HTML page containing a list of the datasets. Furthermore, this API can be used in two modes. In the first mode, a specific resource ID or a specific set of resource IDs can be requested (a subset of the resources that the token has authorisation to). They will be then be made available on the consumer's directory which can then be downloaded. In the second mode, the consumer can simply pass an access token, and all resources that the token has authorisation to will be made available in the consumer's directory. The pre-condition for the second mode is that the token presented must not have authorisation to heterogenous resources, i.e., a mixture of time-series datasets and files.
       operationId: download
+      security:
+        - datasetu-auth-server: [read]
       parameters:
         - name: token
           in: query
@@ -70,6 +72,8 @@ paths:
         - Consumer
       description: This API is for getting the latest datapoint of a resource. This is typically meant to be used on time-series datasets. However, it could be used to query the latest metadata of static files as well. It supports both open and secure datasets. An access token is required in the latter case.
       operationId: latest
+      security:
+        - datasetu-auth-server: [read]
       parameters:
         - name: id
           in: query
@@ -108,6 +112,8 @@ paths:
         - Provider
       description: This endpoint gives a consumer accesss to publish the data into database. It takes id & token as parameters.
       operationId: publish
+      security:
+        - datasetu-auth-server: [write]
       parameters:
         - name: Id
           in: query
@@ -162,6 +168,8 @@ paths:
         - Consumer
       description: This API provides a search interface for the data hosted on vermillion. Both public and secure datasets can be queried using this API, with an access token being required in the latter case. This interface provides options to query using time, geo-spatial co-ordinates, text or any combination of these. Resource Id is a mandatory field across all search types. Along with the resource Id, at least one of the other three parameters is necessary for the search query.
       operationId: Search
+      security: 
+        - datasetu-auth-server: [read]
       parameters:
         - name: token
           in: query
@@ -209,6 +217,8 @@ paths:
         - Consumer
       description: The consumer endpoint allows a consumer to see all the files/datasets that consumer is interested in. It takes token as parameter. This API will be made use of only when download endpoint is hit in first place.
       operationId: consumer
+      security:
+        - datasetu-auth-server: [read]
       parameters:
         - name: token
           in: path
@@ -235,6 +245,8 @@ paths:
         - Consumer
       description: This API allows a consumer to see all the public files/datasets that provider has exposed them publicly.
       operationId: provider
+      security:
+        - datasetu-auth-server: [read]
       responses:
         200:
           description: Consumer sees all the public files/datasets that provider has provided publicly.
@@ -247,15 +259,20 @@ paths:
 
 security:
   - datasetu-auth-server:
-      - read_data
+      - read
+      - write
 components:
   securitySchemes:
-    Datasetu Authentication and Authorisation:
+    datasetu-auth-server:
       type: apiKey
       in: query
       name: token
-      description: The datasetu-auth-server is the authentication, authorisation and accounting (AAA) server of Datasetu. Data providers can set fine-grained access control policies to regulate access to their resources/datasets. Data consumers can request access tokens to get access to resources. For more information please refer to [Datasetu Auth Server](https://datasetu.github.io/auth/index.html) documentation
+      scopes:
+        read: Grants read access to resources
+        write: Grants write access to resources
+      description: The datasetu-auth-server is the authentication, authorisation and accounting (AAA) server of Datasetu. Data providers can set fine-grained access control policies to regulate access to their resources/datasets. Data consumers can request access tokens to get access to resources. For more information please refer to [Datasetu Auth Server](https://datasetu.github.io/auth/index.html) documentation. The access token 
       scheme: custom
+
   schemas:
     publish-timeSeriesData:
       type: object
