@@ -222,7 +222,7 @@ paths:
       parameters:
         - name: token
           in: path
-          required: false
+          required: true
           description: A token granted by the datasetu auth server to access resources.
           schema:
             type: string
@@ -232,14 +232,12 @@ paths:
         200:
           description: Consumer sees all the files/datasets that consumer is interested in.
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                externalDocs:
-                  description: The file containing all the requested datasets
-                  url: https://github.com/datasetu/vermillion/blob/master/README.rst
+                $ref: '#/components/schemas/consumer-resources'
         404:
           $ref: '#/components/responses/NOT-FOUND'
-  /provider/public/:
+  /provider/public/id:
     post:
       tags:
         - Consumer
@@ -247,15 +245,22 @@ paths:
       operationId: provider
       security:
         - datasetu-auth-server: [read]
+      parameters:
+        - name: id
+          in: path
+          description: A token granted by the datasetu auth server to access resources.
+          schema:
+            type: string
+            example: "auth.local/36a83204ea6ad6690a0eccda0f37e179"
+          allowReserved: true
       responses:
         200:
           description: Consumer sees all the public files/datasets that provider has provided publicly.
           content:
-            application/octet-stream:
+            application/json:
               schema:
-                externalDocs:
-                  description: The file containing all the requested datasets
-                  url: https://github.com/datasetu/vermillion/blob/master/README.rst
+                $ref: '#/components/schemas/provider-resources'
+
 
 security:
   - datasetu-auth-server:
@@ -270,10 +275,16 @@ components:
       scopes:
         read: Grants read access to resources
         write: Grants write access to resources
-      description: The datasetu-auth-server is the authentication, authorisation and accounting (AAA) server of Datasetu. Data providers can set fine-grained access control policies to regulate access to their resources/datasets. Data consumers can request access tokens to get access to resources. For more information please refer to [Datasetu Auth Server](https://datasetu.github.io/auth/index.html) documentation. The access token 
+      description: The datasetu-auth-server is the authentication, authorisation and accounting (AAA) server of Datasetu. Data providers can set fine-grained access control policies to regulate access to their resources/datasets. Data consumers can request access tokens to get access to resources. For more information please refer to [Datasetu Auth Server](https://datasetu.github.io/auth/index.html) documentation.
       scheme: custom
 
   schemas:
+    provider-resources:
+      type: object
+      example: [rbpscs.org, iisc.com]
+    consumer-resources:
+      type: object
+      example: [ rbpscs.org, iisc.com ]
     publish-timeSeriesData:
       type: object
       properties:
