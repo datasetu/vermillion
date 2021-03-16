@@ -67,7 +67,7 @@ paths:
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
 
-  /latest:
+  /latest?id=resourceId&token=token:
     get:
       tags:
         - Consumer
