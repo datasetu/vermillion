@@ -230,14 +230,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         if (token == null && resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
-            dbService.rxSearch(constructedQuery).subscribe(result -> response.putHeader(
+            dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
                             "content-type", "application/json")
                     .end(result.encode()));
         } else {
             logger.debug("Secure search");
             JsonArray requestedIDs = new JsonArray().add(resourceID);
             checkAuthorisation(token, READ_SCOPE, requestedIDs)
-                    .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token)))
+                    .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token, false, null)))
                     .subscribe(
                             result -> response.putHeader("content-type", "application/json")
                                     .end(result.encode()),
@@ -338,6 +338,32 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             termQuery.getJsonObject("term").put("id.keyword", resourceIDstr);
             filterQuery.add(termQuery);
+        }
+
+        // Response size
+
+        // Init default value of responses to 10k
+        int size = 10000;
+
+        if (requestBody.containsKey("size")) {
+            Object sizeObj = requestBody.getValue("size");
+
+            if (sizeObj instanceof String) {
+                apiFailure(context, new BadRequestThrowable("Response size should be an integer"));
+                return;
+            }
+
+            try {
+                size = NumberUtils.createInteger(sizeObj.toString());
+            } catch (NumberFormatException numberFormatException) {
+                apiFailure(context, new BadRequestThrowable("Response size is not a valid integer"));
+                return;
+            }
+
+            if (size < 0 || size > 10000) {
+                apiFailure(context, new BadRequestThrowable("Response size must be between 0-10000"));
+                return;
+            }
         }
 
         // Geo Query
@@ -556,7 +582,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
 
         baseQuery
-                .put("size", 10000)
+                .put("size", size)
                 .getJsonObject("query")
                 .getJsonObject("bool")
                 .put("filter", filterQuery);
@@ -574,7 +600,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 || (resourceIDArray != null
                         && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
             dbService
-                    .rxSearch(baseQuery)
+                    .rxSearch(baseQuery, false, null)
                     .subscribe(
                             result -> response.putHeader("content-type", "application/json")
                                     .end(result.encode()),
@@ -594,7 +620,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             checkAuthorisation(token, READ_SCOPE, requestedIDs)
-                    .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token)))
+                    .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, false, null)))
                     .subscribe(
                             result -> response.putHeader("content-type", "application/json")
                                     .end(result.encode()),

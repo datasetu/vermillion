@@ -31,6 +31,7 @@ public class DbServiceImpl implements DbService {
     private String searchEndpoint;
     private String searchMethod;
     private Request searchRequest;
+    private Request scrolledSearchRequest;
 
     private String insertEndpoint;
     private String insertMethod;
@@ -47,17 +48,22 @@ public class DbServiceImpl implements DbService {
         this.insertMethod = "POST";
 
         // TODO: Have a retry mechanism
-        searchRequest = new Request(searchMethod, searchEndpoint);
-        insertRequest = new Request(insertMethod, insertEndpoint);
+        this.searchRequest = new Request(searchMethod, searchEndpoint);
+        this.insertRequest = new Request(insertMethod, insertEndpoint);
 
         resultHandler.handle(Future.succeededFuture(this));
     }
 
     // TODO: Implement Scroll API
     @Override
-    public DbService search(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler) {
+    public DbService search(
+            JsonObject query, boolean scroll, String scrollDuration, Handler<AsyncResult<JsonObject>> resultHandler) {
         logger.debug("In regular search");
         logger.debug("Query=" + query.encode());
+
+        if (scroll) {
+            searchRequest = new Request(searchMethod, searchEndpoint + "?scroll=" + scrollDuration);
+        }
 
         searchRequest.setJsonEntity(query.encode());
         Response response = null;
@@ -79,25 +85,44 @@ public class DbServiceImpl implements DbService {
                                     "Malformed query. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
             return this;
         } else {
-            JsonArray responseJson = null;
+            JsonObject responseJson = null;
             try {
-                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()))
-                        .getJsonObject("hits")
-                        .getJsonArray("hits");
+                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
+
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.debug(e.getMessage());
+                resultHandler.handle(
+                        Future.failedFuture(
+                                new InternalErrorThrowable(
+                                        "Error while querying DB. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
+                return this;
             }
 
-            JsonArray finalResponseJson = responseJson;
+            JsonObject finalResponseJson = responseJson;
+
             Observable.create(observableEmitter -> {
+                        JsonArray responseHits =
+                                finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+
                         // TODO: This might be expensive for large responses
-                        for (int i = 0; i < finalResponseJson.size(); i++) {
+                        for (int i = 0; i < responseHits.size(); i++) {
                             observableEmitter.onNext(
-                                    finalResponseJson.getJsonObject(i).getJsonObject("_source"));
+                                    responseHits.getJsonObject(i).getJsonObject("_source"));
                         }
                         observableEmitter.onComplete();
                     })
                     .collect(JsonArray::new, JsonArray::add)
+                    .map(hits -> {
+                        JsonObject searchResponse = new JsonObject();
+
+                        if (scroll) {
+                            searchResponse.put("scroll_id", finalResponseJson.getString("_scroll_id"));
+                        }
+
+                        searchResponse.put("hits", hits);
+
+                        return searchResponse;
+                    })
                     .subscribe(SingleHelper.toObserver(resultHandler));
         }
 
@@ -105,11 +130,20 @@ public class DbServiceImpl implements DbService {
     }
 
     @Override
-    public DbService secureSearch(JsonObject query, String token, Handler<AsyncResult<JsonArray>> resultHandler) {
+    public DbService secureSearch(
+            JsonObject query,
+            String token,
+            boolean scroll,
+            String scrollDuration,
+            Handler<AsyncResult<JsonObject>> resultHandler) {
         logger.debug("In secure search");
         logger.debug("Query=" + query.encode());
 
         String serverName = System.getenv("SERVER_NAME");
+
+        if (scroll) {
+            searchRequest = new Request(searchMethod, searchEndpoint + "?scroll=" + scrollDuration);
+        }
 
         searchRequest.setJsonEntity(query.encode());
         Response response = null;
@@ -131,22 +165,24 @@ public class DbServiceImpl implements DbService {
                                     "Malformed query. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
             return this;
         } else {
-            JsonArray responseJson = null;
+            JsonObject responseJson = null;
             try {
-                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()))
-                        .getJsonObject("hits")
-                        .getJsonArray("hits");
+                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
 
-            JsonArray finalResponseJson = responseJson;
+            JsonObject finalResponseJson = responseJson;
+
             Observable.create(observableEmitter -> {
+                        JsonArray responseHits =
+                                finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+
                         // TODO: This might be expensive for large responses
-                        for (int i = 0; i < finalResponseJson.size(); i++) {
+                        for (int i = 0; i < responseHits.size(); i++) {
 
                             JsonObject responsedocs =
-                                    finalResponseJson.getJsonObject(i).getJsonObject("_source");
+                                    responseHits.getJsonObject(i).getJsonObject("_source");
 
                             JsonObject responseData = responsedocs.getJsonObject("data");
 
@@ -167,6 +203,17 @@ public class DbServiceImpl implements DbService {
                         observableEmitter.onComplete();
                     })
                     .collect(JsonArray::new, JsonArray::add)
+                    .map(hits -> {
+                        JsonObject searchResponse = new JsonObject();
+
+                        if (scroll) {
+                            searchResponse.put("scroll_id", finalResponseJson.getString("_scroll_id"));
+                        }
+
+                        searchResponse.put("hits", hits);
+
+                        return searchResponse;
+                    })
                     .subscribe(SingleHelper.toObserver(resultHandler));
 
             return this;
