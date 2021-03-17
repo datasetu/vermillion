@@ -26,7 +26,7 @@ servers:
   - url: 'https://vermillion.datasetu.org'
 
 paths:
-  /download?id=Id&token=token:
+  /download?id=RESOURCE_ID&token=ACCESS_TOKEN:
     get:
       tags:
        - Consumer
@@ -35,15 +35,15 @@ paths:
       security:
         - datasetu-auth-server: [read]
       parameters:
-        - name: token
+        - name: ACCESS_TOKEN
           in: query
           required: true
           description: A token granted by the datasetu auth server to access resources.
           schema:
             type: string
-            example: "auth.local/36a83204ea6ad6690a0eccda0f37e153"
+            example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e153"
           allowReserved: true
-        - name: id
+        - name: RESOURCE_ID
           in: query
           description: A fully qualified resource name obtained from the datasetu catalogue. Id can be given as one single id or multiple ids separated by a comma.
           schema:
@@ -67,7 +67,7 @@ paths:
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
 
-  /latest?id=resourceId&token=token:
+  /latest?id=RESOURCE_ID&token=ACCESS_TOKEN:
     get:
       tags:
         - Consumer
@@ -76,7 +76,7 @@ paths:
       security:
         - datasetu-auth-server: [read]
       parameters:
-        - name: id
+        - name: RESOURCE_ID
           in: query
           required: true
           description: A fully qualified resource name obtained from the datasetu catalogue.
@@ -84,13 +84,13 @@ paths:
             type: string
             example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource"
           allowReserved: true
-        - name: token
+        - name: ACCESS_TOKEN
           in: query
           required: false
           description: An access token granted by the datasetu auth server
           schema:
             type: string
-            example: "auth.local/36a83204ea6ad6690a0eccda0f37e179"
+            example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
           allowReserved: true
       responses:
         200:
@@ -107,7 +107,7 @@ paths:
           $ref: '#/components/responses/UNAUTHORIZED'
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
-  /publish?id=Id&token=token:
+  /publish?id=RESOURCE_ID&token=ACCESS_TOKEN:
     post:
       tags:
         - Provider
@@ -116,7 +116,7 @@ paths:
       security:
         - datasetu-auth-server: [write]
       parameters:
-        - name: Id
+        - name: RESOURCE_ID
           in: query
           required: true
           description: A fully qualified resource name obtained from the datasetu catalogue.
@@ -124,13 +124,13 @@ paths:
             type: string
             example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource"
           allowReserved: true
-        - name: token
+        - name: ACCESS_TOKEN
           in: query
           required: true
           description: token accessed by data provider
           schema:
             type: string
-            example: "auth.local/36a83204ea6ad6690a0eccda0f37e179"
+            example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
           allowReserved: true
       requestBody:
         description: |
@@ -164,7 +164,7 @@ paths:
            $ref: '#/components/responses/UNAUTHORIZED'
          500:
            $ref: '#/components/responses/INTERNAL-SERVER'
-  /search/?token="token":
+  /search/?token=ACCESS_TOKEN:
     post:
       tags:
         - Consumer
@@ -173,13 +173,13 @@ paths:
       security: 
         - datasetu-auth-server: [read]
       parameters:
-        - name: token
+        - name: ACCESS_TOKEN
           in: query
           required: false
           description: A token granted by the datasetu auth server to access resources.
           schema:
             type: string
-            example: "auth.local/36a83204ea6ad6690a0eccda0f37e179"
+            example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
           allowReserved: true
       requestBody:
         required: true
@@ -213,48 +213,48 @@ paths:
           $ref: '#/components/responses/UNAUTHORIZED'
         500:
          $ref: '#/components/responses/INTERNAL-SERVER'
-  /consumer/token:
+  /consumer/ACCESS_TOKEN:
     get:
       tags:
         - Consumer
-      description: The consumer endpoint allows a consumer to see all the files/datasets that consumer is interested in. It takes token as parameter. This API will be made use of only when download endpoint is hit in first place.
+      description: This API is for consumers to get access to secure file datasets of providers. The pre-requisite to invoke this API is to invoke the ``/download`` API. The latter will create symlinks for the requested datasets in the consumers directory. This API can be used on a browser in which case an HTML page containing the folders is returned. Alternatively, it could also be invoked from a user-agent such as ``curl`` if the fully qualified resource ID is known.
       operationId: consumer
       security:
         - datasetu-auth-server: [read]
       parameters:
-        - name: token
+        - name: ACCESS_TOKEN
           in: path
           required: true
-          description: A token granted by the datasetu auth server to access resources.
+          description: A token granted by the datasetu auth server to access resources. In the above example, the endpoint the consumer needs to invoke would be ``/consumer/auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179``. In this case, the consumer will NOT be able to browse parent directories of their folders unlike the case with the ``/provider/public`` API.
           schema:
             type: string
-            example: "auth.local/36a83204ea6ad6690a0eccda0f37e179"
+            example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
           allowReserved: true
       responses:
         200:
-          description: Consumer sees all the files/datasets that consumer is interested in.
+          description: Consumer sees all the files/datasets that they had requested for in the download API
           content:
             text/plain:
               schema:
                 type: array
                 items:
                   type: string
-              example: [ rbccps.org, iisc.com ]
+              example: secure-resource-1  secure-resource-2
 
         404:
           $ref: '#/components/responses/NOT-FOUND'
-  /provider/public/id:
+  /provider/public/RESOURCE_ID:
     get:
       tags:
         - Consumer
-      description: This API allows a consumer to see all the public files/datasets that provider has exposed them publicly.
+      description: This API allows a consumer to browse public files/datasets that providers have publicly made available. This API can be used on a browser in which case an HTML page containing the folders is returned. Alternatively, it could also be invoked from a user-agent such as ``curl`` if the fully qualified resource ID is known.
       operationId: provider
       security:
         - datasetu-auth-server: [read]
       parameters:
-        - name: id
+        - name: RESOURCE_ID
           in: path
-          description: A fully qualified resource name obtained from the datasetu catalogue.
+          description: A fully qualified resource name obtained from the datasetu catalogue. In the above resource ID, the full path to access the file is ``/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource``. Furthermore, if a consumer wants to explore all publicly available datasets, they can simply invoke the ``/provider/public`` endpoint which will display publicly available datasets from all providers using that instance of Vermillion.
           schema:
             type: string
             example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource"
@@ -268,7 +268,7 @@ paths:
                 type: array
                 items:
                   type: string
-              example: [rbccps.org, iisc.com]
+              example: rbccps.org, iisc.com
 
 
 security:
