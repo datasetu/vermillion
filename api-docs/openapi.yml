@@ -13,14 +13,14 @@ info:
     url: 'https://github.com/datasetu/vermillion/raw/master/images/logo.png'
     backgroundColor: "#FFFFFF"
     altText: "Vermillion logo"
-  description: Vermillion is a high-performance, scalable and secure open-source data exchange platform developed using Vertx. It is a general-purpose resource-server that data providers and consumers can use to exchange time-series as well as static datasets. Vermillion exposes a simple search interface that can be used to query resources using various parameters like time, geo-coordinates, full-text or any combination of these parameters.
+  description: Vermillion is a high-performance, scalable and secure open-source data exchange platform developed using Vertx. It is a general-purpose resource-server that data providers and consumers can use to exchange time-series as well as static datasets. Vermillion exposes a simple search interface that can be used to query resources using various parameters like time, geo-coordinates, full-text or any combination thereof.
 
 tags:
   - name: Consumer
-    description: A data consumer is any user or entity which is interested in a data resource that vermillion hosts (or acts as a intermediary for). Consumers discover resources on the datasetu catalogue and use search interface to query the datasets
+    description: A data consumer is any user or entity which is interested in a data resource that vermillion hosts (or acts as a intermediary for). Consumers discover resources on the datasetu catalogue and use the search interface to query the datasets
 
   - name: Provider
-    description: A data provider is any user or entity which is responsible for a dataset that vermillion hosts. Providers can be data owners or have delegated access to act as custodians for resources. Providers upload details, access mechanisms, license and other metadata of resources onto the datasetu catalogue. Also, they manage access control rules for their resources on the datasetu auth server. Providers use the publish interface of vermillion to upload datasets and dynamic metadata associated with it.
+    description: A data provider is any user or entity which is responsible for a dataset that vermillion hosts. Providers can be data owners or have delegated access to act as custodians for resources. Providers upload details, access mechanisms, license and other metadata of resources onto the datasetu catalogue. Also, they manage access control rules for their resources on the datasetu auth server. Providers use the publish interface of Vermillion to upload datasets and dynamic metadata associated with it.
 
 servers:
   - url: 'https://vermillion.datasetu.org'
@@ -30,7 +30,7 @@ paths:
     get:
       tags:
        - Consumer
-      description: This endpoint is meant for downloading secure file datasets for which access has been obtained beforehand. If the fully-qualified resource ID is known then this endpoint can be invoked from programs or from user-agents like ``curl``. Otherwise, invoking the endpoint with just an access token will bring up an HTML page containing a list of the datasets. Furthermore, this API can be used in two modes. In the first mode, a specific resource ID or a specific set of resource IDs can be requested (a subset of the resources that the token has authorisation to). They will be then be made available on the consumer's directory which can then be downloaded. In the second mode, the consumer can simply pass an access token, and all resources that the token has authorisation to will be made available in the consumer's directory. The pre-condition for the second mode is that the token presented must not have authorisation to heterogenous resources, i.e., a mixture of time-series datasets and files.
+      description: This endpoint is meant for downloading secure file datasets for which access has been obtained beforehand. If the fully-qualified resource ID is known then this endpoint can be invoked from programs or from user-agents like ``curl``. Otherwise, invoking the endpoint with just an access token will bring up an HTML page containing a list of datasets the consumer had requested for. Furthermore, this API can be used in two modes. In the first mode, a specific resource ID or a specific set of resource IDs can be requested (a subset of the resources that the token has authorisation to). They will be then be made available on the consumer's directory which can be downloaded. In the second mode, the consumer can simply pass an access token, and all resources that the token has authorisation to will be made available in the consumer's directory. The pre-condition for the second mode is that the token presented must not have authorisation to heterogenous resources, i.e., a mixture of time-series datasets and files (or files residing on other resource servers). The ``download`` API merely performs the function of symlinking the requested resources to the consumer's directory. Once the symlinks are created, this API internally redirects to the ``/consumer/`` API.
       operationId: download
       security:
         - datasetu-auth-server: [read]
@@ -45,19 +45,19 @@ paths:
           allowReserved: true
         - name: RESOURCE_ID
           in: query
-          description: A fully qualified resource name obtained from the datasetu catalogue. Id can be given as one single id or multiple ids separated by a comma.
+          description: A fully qualified resource name obtained from the datasetu catalogue. One or more resource IDs can be specified in this API. In the latter case, the resource IDs need to be separated by a comma. 
           schema:
             type: string
             example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
           allowReserved: true
       responses:
         200:
-          description: Consumer successfully downloads the data
+          description: The file symlinks have been created and the consumer is successfully redirected to the ``/consumer`` API. Depending on the depth of the requested ID (how many elements of the full resource ID), a top-level folder, a list of files, or the contents of a specific file can be displayed.
           content:
             text/plain:
               schema:
                 type: string
-              example: This contains the data which resides in a static file.
+              example: This is a sample text from a file        
         400:
           $ref: '#/components/responses/BAD-REQUEST'
         404:
@@ -94,7 +94,7 @@ paths:
           allowReserved: true
       responses:
         200:
-          description: Consumer retrieves the requested data
+          description: The latest data of the requested resource is returned
           content:
             application/json:
               schema:
@@ -107,11 +107,12 @@ paths:
           $ref: '#/components/responses/UNAUTHORIZED'
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
+
   /publish?id=RESOURCE_ID&token=ACCESS_TOKEN:
     post:
       tags:
         - Provider
-      description: This endpoint gives a consumer accesss to publish the data into database. It takes id & token as parameters.
+      description: This endpoint gives providers access to publish data into vermillion. Resource ID and access token are mandatory parameters. This API can be used to publish either time series data or static files. Depending on the mode, the request will have to be either application/json or multipart/form-data.
       operationId: publish
       security:
         - datasetu-auth-server: [write]
@@ -127,17 +128,20 @@ paths:
         - name: ACCESS_TOKEN
           in: query
           required: true
-          description: token accessed by data provider
+          description: An access token granted by the datasetu auth server
           schema:
             type: string
             example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
           allowReserved: true
       requestBody:
         description: |
+          As mentioned previously, this API can be used to publish time series data or static files. The request will vary depending on the mode used.
           #### Publish-timeSeriesData
-          Any data that is in JSON format will be published.
+          Time-series data in JSON, formatted as per the schema specified below.
+
           #### Publish-staticData
-          Any file that has static data will be published and is in form-data format.
+          Any file that the provider wishes to host on Vermillion
+
         required: true
         content:
           application/json:
@@ -155,7 +159,7 @@ paths:
               text/plain:
                 schema:
                   type: string
-                example: HTTP 201, Created.
+                example: Ok
          400:
            $ref: '#/components/responses/BAD-REQUEST'
          404:
@@ -164,11 +168,11 @@ paths:
            $ref: '#/components/responses/UNAUTHORIZED'
          500:
            $ref: '#/components/responses/INTERNAL-SERVER'
-  /search/?token=ACCESS_TOKEN:
+  /search?token=ACCESS_TOKEN:
     post:
       tags:
         - Consumer
-      description: This API provides a search interface for the data hosted on vermillion. Both public and secure datasets can be queried using this API, with an access token being required in the latter case. This interface provides options to query using time, geo-spatial co-ordinates, text or any combination of these. Resource Id is a mandatory field across all search types. Along with the resource Id, at least one of the other three parameters is necessary for the search query.
+      description: This API provides a search interface for the data hosted on vermillion. Both public and secure datasets can be queried using this API, with an access token being required in the latter case. This interface provides options to query using time, geo-spatial co-ordinates, text or any combination thereof. Resource Id is a mandatory field across all search types. Along with the resource ID, at least one of the other three parameters is necessary for the search query.
       operationId: Search
       security: 
         - datasetu-auth-server: [read]
@@ -192,15 +196,19 @@ paths:
                 - $ref: '#/components/schemas/attribute-search'
                 - $ref: '#/components/schemas/complex-search'
         description: |
+          The following lists the various filters which can be used in the search API. A filter can be clubbed with any other filter to perform a complex search.
           #### Time-series Search
-          This can be used to query resources using a time-based filter. This filter can be clubbed with other search filters as well.
+          This can be used to query resources using a time-based filter.
           #### Geo-spatial Search
-          This can be used to query resources using a geo-spatial filter, i.e., using geo co-ordinates. This filter can be clubbed with other search filters as well.
+          This can be used to query resources using a geo-spatial filter, i.e., using geo co-ordinates.
           #### Attribute Search
-          This can be used to query resources using a text-based or numeric filter. This filter can be clubbed with other search filters as well.<br/><br/>
+          This can be used to query resources using a text-based or numeric filter.
+          #### Complex Search
+          When one or more of the above filters are used, all of them are applied while querying the DB. <br/><br/>
+
       responses:
         200:
-          description: The requested resources as a JSON array.
+          description: The data from requested resources as a JSON array.
           content:
             application/json:
               schema:
@@ -217,7 +225,7 @@ paths:
     get:
       tags:
         - Consumer
-      description: This API is for consumers to get access to secure file datasets of providers. The pre-requisite to invoke this API is to invoke the ``/download`` API. The latter will create symlinks for the requested datasets in the consumers directory. This API can be used on a browser in which case an HTML page containing the folders is returned. Alternatively, it could also be invoked from a user-agent such as ``curl`` if the fully qualified resource ID is known.
+      description: This API is for consumers to get access to secure file datasets of providers. The pre-requisite to invoke this API is to invoke the ``/download`` API. The latter will create symlinks for the requested datasets in the consumer's directory. This API can be used on a browser in which case an HTML page containing the folders is returned. Alternatively, it could also be invoked from a user-agent such as ``curl`` if the fully qualified resource ID is known.
       operationId: consumer
       security:
         - datasetu-auth-server: [read]
@@ -232,7 +240,7 @@ paths:
           allowReserved: true
       responses:
         200:
-          description: Consumer sees all the files/datasets that they had requested for in the download API
+          description: Consumer sees all the files/datasets that they had requested for previously using the download API
           content:
             text/plain:
               schema:
@@ -240,32 +248,32 @@ paths:
                 items:
                   type: string
               example: secure-resource-1  secure-resource-2
-
         404:
           $ref: '#/components/responses/NOT-FOUND'
+
   /provider/public/RESOURCE_ID:
     get:
       tags:
         - Consumer
-      description: This API allows a consumer to browse public files/datasets that providers have publicly made available. This API can be used on a browser in which case an HTML page containing the folders is returned. Alternatively, it could also be invoked from a user-agent such as ``curl`` if the fully qualified resource ID is known.
+      description: This API allows a consumer to browse files/datasets that providers have made available publicly. This API can be used on a browser in which case an HTML page containing the folders is returned. Alternatively, it could also be invoked from a user-agent such as ``curl`` if the fully qualified resource ID is known.
       operationId: provider
       security:
         - datasetu-auth-server: [read]
       parameters:
         - name: RESOURCE_ID
           in: path
-          description: A fully qualified resource name obtained from the datasetu catalogue. In the above resource ID, the full path to access the file is ``/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource``. Furthermore, if a consumer wants to explore all publicly available datasets, they can simply invoke the ``/provider/public`` endpoint which will display publicly available datasets from all providers using that instance of Vermillion.
+          description: A fully qualified resource name obtained from the datasetu catalogue. In the above resource ID, the full path to access the file is ``/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource``. Furthermore, if a consumer wants to explore all publicly available datasets, they can simply invoke the ``/provider/public`` endpoint which will display publicly available datasets from all providers (of that Vermillion instance)
           schema:
             type: string
             example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource"
           allowReserved: true
       responses:
         200:
-          description: Consumer sees one or more public files/datasets that provider has provided publicly.
+          description: Consumer sees one or more public files/datasets that a provider has made available publicly.
           content:
             text/plain:
               schema:
-                type: array
+                type: string
                 items:
                   type: string
               example: rbccps.org, iisc.com
@@ -284,7 +292,7 @@ components:
       scopes:
         read: Grants read access to resources
         write: Grants write access to resources
-      description: The datasetu-auth-server is the authentication, authorisation and accounting (AAA) server of Datasetu. Data providers can set fine-grained access control policies to regulate access to their resources/datasets. Data consumers can request access tokens to get access to resources. For more information please refer to [Datasetu Auth Server](https://datasetu.github.io/auth/index.html) documentation.
+      description: The datasetu-auth-server is the authentication, authorisation and accounting (AAA) server of Datasetu. Data providers can set fine-grained access control policies to regulate access to their resources/datasets. Data consumers can request access tokens to get access to resources. For more information please refer to [Datasetu Auth Server](https://datasetu.github.io/auth/index.html) documentation. Access on a resource could be granted by providers using a ``read`` scope or a ``write`` scope. In the ``read`` scope, consumers will be able to invoke read-related APIs on the datasets. In the ``write`` scope, consumers will be able to invoke APIs that "write" to the resource. All APIs except publish need a ``read`` scope. The publish API needs a ``write`` scope for invocation.
       scheme: custom
 
   schemas:
@@ -293,12 +301,12 @@ components:
       properties:
         timestamp:
           type: string
-          description: The time at which the data/file is being published.
+          description: An optional parameter to indicate the relevant timestamp of the resource (created, modified etc.). When not specified, this field defaults to the time at which the data was published.
           example: '2021-03-03T10:18:00.952628Z'
         data:
           type: object
-          description: The data that is pushed into database and it is in JSON format
-          example: '{"data" : { "Name" : "Prabs"}}'
+          description: A mandatory field that contains the data of the resource. This is encased in the ``data`` field to allow for uniform searchability.
+          example: {"data" : { "PM10" : {"value": "70", "unit": "micrograms per cubic metre"}}}
         coordinates:
           type: array
           items:
@@ -310,15 +318,15 @@ components:
     publish-staticData:
       properties:
         file:
-          description: All the static files that needs to be published
+          description: The file that needs to be published
           type: string
           format: binary
-          example: 'Users/prabhupatrot/Downloads/A gentle guide to asynchronous programming with Eclipse Vert.x for Java developers.pdf'
+          example: 'War_and_Peace.pdf'
         metadata:
-          description: Metadata details specific to the uploaded file as a json.
+          description: Metadata of the uploaded file as a json.
           type: string
           format: binary
-          example: 'Users/prabhupatrot/Downloads/metadata.json'
+          example: 'metadata.json'
     resourceId-array:
       type: array
       items:
@@ -326,7 +334,7 @@ components:
         description: A json array of resourceIds.
       example: ['rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public', 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource-1']
     resourceId:
-      description: A fully qualified resource name obtained from the datasetu catalogue. If resource ID is not ending with '.public', then query should have token mandatorily.
+      description: A fully qualified resource name obtained from the datasetu catalogue. If the resource ID or a set of resource IDs do not end with '.public', then the query should compulsorily have an access token.
       type: string
       example: 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public'
     time-series:
@@ -362,7 +370,15 @@ components:
           oneOf:  #If one-of has schemas of type object then give the description here itself. If description is given in subsequent schema object it wont work.
             - $ref: '#/components/schemas/attribute-text'
             - $ref: '#/components/schemas/attribute-numeric'
-          description: In the 'attribute-text' based search, term & value parameters are mandatory and in the 'attribute-numeric' based search, term, min & max keys are mandatory.
+          description: |
+            In the 'attribute-text' based search, ``term`` & ``value`` parameters are mandatory and in the 'attribute-numeric' based search, ``term``, ``min`` & ``max`` keys are mandatory. The text search is for filtering using a text-key and a text-value. E.g. 
+            ```
+            {"term": "car-type", "value": "sedan"} 
+            ```
+            The 'attribute-numeric' search is for searching over text-keys and numeric-values. E.g. 
+            ```
+            {"term": "speed", "min": 50, "max": 60}
+            ```
         id:
           oneOf:
             - $ref: '#/components/schemas/resourceId'
@@ -380,42 +396,55 @@ components:
             - $ref: '#/components/schemas/resourceId-array'
         attribute:
           type: object
-          description: Attribute is json object which has three sub parts/keys- min, max and term.
+          description: Attribute is a json object which has three sub parts/keys - min, max and term. For a text filter, ``term`` and ``value`` are sufficient. For searching on a numeric value, ``term``, ``min`` and ``max`` are necessary.
           oneOf:
             - $ref: '#/components/schemas/attribute-text'
             - $ref: '#/components/schemas/attribute-numeric'
         time:
           type: object
-          description: Time is a jsonObject. It has start & end keys.
+          description: Time is a jsonObject containing start and end timestamps
           $ref: '#/components/schemas/time'
+        geo-spatial:
+          type: object
+          description: A JSON object containing centre coordinates and the distance (radius) for the search
+          properties:
+            id:
+              oneOf:
+                - $ref: '#/components/schemas/resourceId'
+                - $ref: '#/components/schemas/resourceId-array'
+            geoDistance:
+              type: object
+              $ref: '#/components/schemas/geoDistance'
+          required:
+            - id
+            - geoDistance
       required:
         - id
-        - attribute
-        - time
 
     download:
-      description: schema for download data
+      description: Schema for the download API
       type: string
-      example: Hey this is a sample text for download API testing.
+      example: This is a test-string
+
     latest:
       description: schema for latest data
       type: object
       properties:
         data:
           type: object
-          description: This can be any data in a JSON format.
+          description: The data from the resource.
           example: { "data": { "Project": "Vermillion","ApiDocs": "Redoc", "Definition": "OpenAPI" } }
         timestamp:
           type: string
-          description: timestamp is the time at which the data was published into database.
+          description: Timestamp of the datapoint. If left empty while publishing, it defaults to the time of publish
           example: '2021-03-05T10:18:00.952628Z'
         id:
           type: string
-          description: id is a resourceId which is typically associated with data.
+          description: Resource ID of the dataset.
           example: 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public'
         category:
           type: string
-          description: category defines what type of category the resourceId/data falls into.
+          description: The broad category into which the data stream from a resource falls into.
           example: test-category
 
     search:
@@ -451,7 +480,7 @@ components:
         term:
           type: string
           example: 'speed'
-          description: Term can be any key that is present in the dataset that needs to be searched for.
+          description: Term can be any JSON key that is present in the dataset that needs to be searched for.
         min:
           type: string
           example: '30'
@@ -527,7 +556,7 @@ components:
               - code
               - message
     NOT-FOUND:
-      description: The requested resource /endpoint is not found on the server.
+      description: The requested resource/endpoint is not found on the server.
       content:
         application/json:
           schema:
