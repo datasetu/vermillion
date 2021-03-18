@@ -58,7 +58,7 @@ paths:
             text/plain:
               schema:
                 type: string
-              example: This is a sample text from a file        
+              example: This is a sample text from a file.
         400:
           $ref: '#/components/responses/BAD-REQUEST'
         404:
