@@ -48,7 +48,8 @@ paths:
           description: A fully qualified resource name obtained from the datasetu catalogue. One or more resource IDs can be specified in this API. In the latter case, the resource IDs need to be separated by a comma. 
           schema:
             type: string
-            example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public"
+            example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b
+            /example.com/test-category/test-resource.public"
           allowReserved: true
       responses:
         200:
@@ -63,7 +64,7 @@ paths:
         404:
           $ref: '#/components/responses/NOT-FOUND'
         403:
-          $ref: '#/components/responses/UNAUTHORIZED'
+          $ref: '#/components/responses/FORBIDDEN'
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
 
@@ -82,7 +83,8 @@ paths:
           description: A fully qualified resource name obtained from the datasetu catalogue.
           schema:
             type: string
-            example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource"
+            example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b
+            /example.com/test-category/test-resource"
           allowReserved: true
         - name: ACCESS_TOKEN
           in: query
@@ -104,7 +106,7 @@ paths:
         404:
           $ref: '#/components/responses/NOT-FOUND'
         403:
-          $ref: '#/components/responses/UNAUTHORIZED'
+          $ref: '#/components/responses/FORBIDDEN'
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
 
@@ -123,7 +125,8 @@ paths:
           description: A fully qualified resource name obtained from the datasetu catalogue.
           schema:
             type: string
-            example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource"
+            example: "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b
+            /example.com/test-category/test-resource"
           allowReserved: true
         - name: ACCESS_TOKEN
           in: query
@@ -165,7 +168,7 @@ paths:
          404:
            $ref: '#/components/responses/NOT-FOUND'
          403:
-           $ref: '#/components/responses/UNAUTHORIZED'
+           $ref: '#/components/responses/FORBIDDEN'
          500:
            $ref: '#/components/responses/INTERNAL-SERVER'
   /search?token=ACCESS_TOKEN:
@@ -218,7 +221,7 @@ paths:
         404:
           $ref: '#/components/responses/NOT-FOUND'
         403:
-          $ref: '#/components/responses/UNAUTHORIZED'
+          $ref: '#/components/responses/FORBIDDEN'
         500:
          $ref: '#/components/responses/INTERNAL-SERVER'
   /consumer/ACCESS_TOKEN:
@@ -262,6 +265,7 @@ paths:
       parameters:
         - name: RESOURCE_ID
           in: path
+          required: false
           description: A fully qualified resource name obtained from the datasetu catalogue. In the above resource ID, the full path to access the file is ``/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource``. Furthermore, if a consumer wants to explore all publicly available datasets, they can simply invoke the ``/provider/public`` endpoint which will display publicly available datasets from all providers (of that Vermillion instance)
           schema:
             type: string
@@ -277,7 +281,6 @@ paths:
                 items:
                   type: string
               example: rbccps.org, iisc.com
-
 
 security:
   - datasetu-auth-server:
@@ -571,7 +574,7 @@ components:
             required:
               - code
               - message
-    UNAUTHORIZED:
+    FORBIDDEN:
       description: Access to the requested resource(s) is forbidden due to invalid token or inadequate permissions.
       content:
         application/json:
@@ -583,7 +586,7 @@ components:
                   example: '403'
                 message:
                   type: string
-                  example: 'Unauthorized'
+                  example: 'Forbidden'
             required:
               - code
               - message
