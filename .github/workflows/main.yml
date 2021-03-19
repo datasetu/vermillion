@@ -65,6 +65,6 @@ jobs:
         args: 'bundle api-docs/openapi.yml -o index.html'
 
     - name: check result
-        run: |
+      run: |
           ls -al
           test -f index.html || (echo "Missing index.html from previous step." && exit 1)
