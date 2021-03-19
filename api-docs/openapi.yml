@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   version: 1.0.0
-  title: Vermilllion API Documentation Github action test
+  title: Vermilllion API Documentation
   termsOfService: 'https://example.com/terms/'
   contact:
     email: pct960@gmail.com
