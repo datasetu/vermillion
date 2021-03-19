@@ -58,3 +58,6 @@ jobs:
       with:
         name: pass_file
         path: logs.txt
+
+    - name: bundle the new index.html for Vermillion api docs
+      run: redoc-cli bundle -o index.html https://github.com/Prabhu4452/vermillion/tree/api-docs/api-docs/openapi.yml && git push https://github.com/Prabhu4452/vermillion.git api-docs
