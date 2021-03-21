@@ -403,4 +403,4 @@ def step_impl(context):
                       data=json.dumps(payload),
                       verify=False)
 
-    context.response = r.json()
+    context.response = r.json()['hits']
