@@ -31,7 +31,10 @@ public class DbServiceImpl implements DbService {
     private String searchEndpoint;
     private String searchMethod;
     private Request searchRequest;
-    private Request scrolledSearchRequest;
+
+    private String scrollEndpoint;
+    private Request scrollRequest;
+    private String scrollMethod;
 
     private String insertEndpoint;
     private String insertMethod;
@@ -44,12 +47,16 @@ public class DbServiceImpl implements DbService {
         this.searchEndpoint = "/" + this.index + "/_search";
         this.searchMethod = "GET";
 
+        this.scrollEndpoint = "/_search/scroll";
+        this.scrollMethod = "POST";
+
         this.insertEndpoint = "/" + this.index + "/_doc";
         this.insertMethod = "POST";
 
         // TODO: Have a retry mechanism
         this.searchRequest = new Request(searchMethod, searchEndpoint);
         this.insertRequest = new Request(insertMethod, insertEndpoint);
+        this.scrollRequest = new Request(scrollEndpoint, scrollMethod);
 
         resultHandler.handle(Future.succeededFuture(this));
     }
@@ -214,6 +221,101 @@ public class DbServiceImpl implements DbService {
 
                         return searchResponse;
                     })
+                    .subscribe(SingleHelper.toObserver(resultHandler));
+
+            return this;
+        }
+    }
+
+    @Override
+    public DbService scrolledSearch(
+            String scrollId,
+            String scrollDuration,
+            String token,
+            JsonArray authorisedIDs,
+            Handler<AsyncResult<JsonObject>> resultHandler) {
+
+        logger.debug("In scrolled search");
+        logger.debug("Scroll ID = " + scrollId);
+
+        if(authorisedIDs!=null)
+        {
+            logger.debug("Authorised IDs = " + authorisedIDs.encodePrettily());
+        }
+
+        String serverName = System.getenv("SERVER_NAME");
+
+        JsonObject scrollRequestBody =
+                new JsonObject().put("scroll_id", scrollId).put("scroll", scrollDuration);
+
+        scrollRequest = new Request(scrollMethod, scrollEndpoint);
+        scrollRequest.setJsonEntity(scrollRequestBody.encode());
+
+        Response response = null;
+        try {
+            response = client.performRequest(scrollRequest);
+        } catch (IOException e) {
+            logger.debug(e.getMessage());
+            resultHandler.handle(Future.failedFuture(
+                    new InternalErrorThrowable("Error while querying DB. Please check your inputs and try again.")));
+            return this;
+        }
+
+        if (response.getStatusLine().getStatusCode() != 200) {
+            resultHandler.handle(Future.failedFuture(new BadRequestThrowable("Reached end of pagination and/or incorrect scroll ID and/or expired scroll ID")));
+            return this;
+        } else {
+            JsonObject responseJson = null;
+            try {
+                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            JsonObject finalResponseJson = responseJson;
+
+            Observable.create(observableEmitter -> {
+                        JsonArray responseHits =
+                                finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+
+                        // TODO: This might be expensive for large responses
+                        for (int i = 0; i < responseHits.size(); i++) {
+
+                            JsonObject responseDoc =
+                                    responseHits.getJsonObject(i).getJsonObject("_source");
+
+                            String resourceID = responseDoc.getString("id");
+
+                            // The data being accessed is a secure dataset
+                            if (!resourceID.endsWith(".public")) {
+                                if (token != null && authorisedIDs.contains(resourceID)) {
+                                    JsonObject responseData = responseDoc.getJsonObject("data");
+
+                                    if (responseData.containsKey("link")
+                                            && "/download".equalsIgnoreCase(responseData.getString("link"))) {
+
+                                        String downloadLink = "https://"
+                                                + serverName
+                                                + "/download?token="
+                                                + token
+                                                + "&id="
+                                                + responseDoc.getString("id");
+
+                                        responseDoc.getJsonObject("data").put("link", downloadLink);
+                                    }
+                                } else {
+                                    continue;
+                                }
+                            }
+
+                            observableEmitter.onNext(responseDoc);
+                        }
+                        observableEmitter.onComplete();
+                    })
+                    .collect(JsonArray::new, JsonArray::add)
+                    .map(hits -> new JsonObject()
+                            .put("scroll_id", finalResponseJson.getString("_scroll_id"))
+                            .put("hits", hits))
                     .subscribe(SingleHelper.toObserver(resultHandler));
 
             return this;

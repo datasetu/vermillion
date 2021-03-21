@@ -32,5 +32,8 @@ public interface DbService {
       JsonObject query, String token, boolean scroll, String scrollDuration, Handler<AsyncResult<JsonObject>> resultHandler);
 
   @Fluent
+  DbService scrolledSearch(String scrollId, String scrollDuration, String token, JsonArray authorisedIDs, Handler<AsyncResult<JsonObject>> resultHandler);
+
+  @Fluent
   DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler);
 }
