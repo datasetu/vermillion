@@ -30,7 +30,8 @@ services:
       - WAIT_HOSTS_TIMEOUT=120
       - PROJECT_DIR=api-server
       - JAR_NAME=api-server-fat.jar
-    command: tail -f /dev/null
+      #- JAVA_OPTS= -javaagent:org.jacoco.agent-0.8.6.jar=destfile=target/jacoco.exec
+#    command: tail -f /dev/null
 
   authenticator:
     image: iudx/java

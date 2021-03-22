@@ -8,6 +8,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from auth_vars import res, tokens
 from utils import check_publish, check_search, generate_random_chars
 
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -25,12 +26,13 @@ def step_impl(context):
 
 @when('The consumer publishes data without data field in body')
 def step_impl(context):
+
     params = (
         ('id', res[4]),
         ('token', tokens["master"]),
     )
 
-    check_publish(params, "", context)
+    check_publish(params, { }, context)
 
 
 @when('The consumer publishes data with invalid json data')
@@ -40,7 +42,7 @@ def step_impl(context):
         ('token', tokens["master"]),
     )
 
-    data = "True"
+    data = '{"data": "True"}'
 
     check_publish(params, data, context)
 
@@ -53,11 +55,9 @@ def step_impl(context):
         ('item', "value"),
     )
 
-    # data = '{"data": {"hello": "world"}}'
+    data = '{"data": {"hello": "world"}, "hello":"world"}'
 
-    xyz = 'testing invalid'
-
-    check_publish(params, xyz, context)
+    check_publish(params, data, context)
 
 
 @when('The consumer publishes data with an invalid token')

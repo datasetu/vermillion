@@ -10,6 +10,11 @@ Feature: Vermillion is able to handle geospatial queries
                 When The geospatial query resource id is invalid
                 Then The response status should be 400
 
+        Scenario: Geo-spatial query with numerical resource id
+                Given Vermillion is running
+                When The geospatial query resource id is number
+                Then The response status should be 400
+
         Scenario: Geo-spatial query with empty resource id
                 Given Vermillion is running
                 When The geospatial query resource id is empty

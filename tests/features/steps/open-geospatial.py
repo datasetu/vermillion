@@ -56,7 +56,17 @@ def step_impl(context):
 
     check_search("", payload, context)
 
+@when('The geospatial query resource id is number')
+def step_impl(context):
+    payload = {
+        "id": 123,
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m"
+        }
+    }
 
+    check_search("", payload, context)
 @when('The geospatial query body is invalid')
 def step_impl(context):
     payload = generate_random_chars()
