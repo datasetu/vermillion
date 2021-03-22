@@ -58,3 +58,13 @@ jobs:
       with:
         name: pass_file
         path: logs.txt
+
+    - name: redoc-cli test
+      uses: seeebiii/redoc-cli-github-action@v10
+      with:
+        args: 'bundle api-docs/openapi.yml -o index.html'
+
+    - name: check result
+      run: |
+          ls -al
+          test -f index.html || (echo "Missing index.html from previous step." && exit 1)
