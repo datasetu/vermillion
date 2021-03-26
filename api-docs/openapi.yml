@@ -188,7 +188,7 @@ paths:
           schema:
             type: string
             example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
-          allowReserved:; true
+          allowReserved: true
       requestBody:
         content:
           application/json:
