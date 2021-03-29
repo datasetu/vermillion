@@ -45,8 +45,11 @@ jobs:
     - name: Load sample data into ES
       run: cd setup && ./load_sample_data.sh
 
-    - name: Run tests
-      run:  cd ./tests/ && sudo behave
+    - name: Run tests and generate reports
+      run:  ./coverage.sh
+
+    - name: Clean Up files
+      run:  ./cleanup.sh
 
     - name: Export docker logs to a file
       if: always()

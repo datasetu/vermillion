@@ -25,7 +25,7 @@ def step_impl(context):
     check_pub_file(params, files, context)
 
 
-@when('The consumer publishes with a valid token(3)')
+@when('The consumer publishes with a valid token(1)')
 def step_impl(context):
     params = (
 
@@ -41,7 +41,7 @@ def step_impl(context):
     check_pub_file(params, files, context)
 
 
-@when('The consumer publishes with a valid token(4)')
+@when('The consumer publishes with a valid token(2)')
 def step_impl(context):
     params = (
 
@@ -67,17 +67,13 @@ def step_impl(context):
     print(context.status_code, context.response)
 
 
-@when('The consumer downloads file by passing a valid reroute link(2)')
+@when('The consumer downloads file by passing only token')
 def step_impl(context):
     params = (
         ('token', tokens["down"]),
 
     )
-
-    r = requests.get('https://localhost/download', params=params, verify=False)
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    check_download(params,context)
 
 
 @when('The consumer publishes secure file with a file and timeseries data')
@@ -167,11 +163,8 @@ def step_impl(context):
          ),
         ('token', tokens["down"]),
     )
-    r = requests.get('https://localhost/download', params=params, verify=False)
-    open('test-download', 'wb').write(r.content)
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+
+    check_download(params,context)
 
 
 @when('The consumer downloads file by passing an invalid token')

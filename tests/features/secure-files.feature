@@ -9,12 +9,12 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
 
         Scenario: Consumer publishes with valid token
           Given Vermillion is running
-          When The consumer publishes with a valid token(3)
+          When The consumer publishes with a valid token(1)
           Then The response status should be 201
 
         Scenario: Consumer publishes with valid token
           Given Vermillion is running
-          When The consumer publishes with a valid token(4)
+          When The consumer publishes with a valid token(2)
           Then The response status should be 201
 
 	Scenario: Consumer publishes secure file with file and timeseries data
@@ -52,9 +52,9 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
                  When The consumer downloads file by passing a valid reroute link
                 Then The response status should be 200
 
-          Scenario: Download secure-file with valid reroute link(2)
+          Scenario: Download secure-file with only token
             Given Vermillion is running
-            When The consumer downloads file by passing a valid reroute link(2)
+            When The consumer downloads file by passing only token
             Then The response status should be 200
 
         Scenario: Download secure-file with invalid token

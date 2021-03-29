@@ -18,18 +18,18 @@
     <vertx.version>4.0.0-SNAPSHOT</vertx.version>
     <main.verticle>vermillion.MainVerticle</main.verticle>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-<!--    <jacoco.version>0.8.6</jacoco.version>-->
+    <jacoco.version>0.8.6</jacoco.version>
   </properties>
   <dependencies>
 
-<!--    <dependency>-->
-<!--      <groupId>org.jacoco</groupId>-->
-<!--      <artifactId>org.jacoco.agent</artifactId>-->
-<!--      <version>${jacoco.version}</version>-->
-<!--      <classifier>runtime</classifier>-->
-<!--      <scope>test</scope>-->
-<!--    </dependency>-->
-    <!-- https://mvnrepository.com/artifact/com.rabbitmq/amqp-client -->
+    <dependency>
+      <groupId>org.jacoco</groupId>
+      <artifactId>org.jacoco.agent</artifactId>
+      <version>${jacoco.version}</version>
+      <classifier>runtime</classifier>
+      <scope>test</scope>
+    </dependency>
+<!--     https://mvnrepository.com/artifact/com.rabbitmq/amqp-client -->
     <dependency>
       <groupId>com.rabbitmq</groupId>
       <artifactId>amqp-client</artifactId>

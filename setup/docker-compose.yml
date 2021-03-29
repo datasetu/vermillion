@@ -30,8 +30,7 @@ services:
       - WAIT_HOSTS_TIMEOUT=120
       - PROJECT_DIR=api-server
       - JAR_NAME=api-server-fat.jar
-      #- JAVA_OPTS= -javaagent:org.jacoco.agent-0.8.6.jar=destfile=target/jacoco.exec
-#    command: tail -f /dev/null
+      - JAVA_OPTS=-javaagent:org.jacoco.agent-0.8.6-runtime.jar=destfile=target/jacoco.exec
 
   authenticator:
     image: iudx/java
@@ -115,3 +114,22 @@ services:
       - vermillion.conf
     environment:
       - DISABLE_COMMANDS=FLUSHDB,FLUSHALL,CONFIG
+
+#  test:
+#    image: test
+#    container_name: test
+#    hostname: ${TEST_HOSTNAME}
+#    ports:
+#      - "${TEST_PORT}:5000"
+#    restart: on-failure
+#    networks:
+#      - vermillion-net
+#    env_file:
+#      - vermillion.conf
+#    environment:
+#      - WAIT_HOSTS=rabbit:5672,authenticator:80,redis:6379
+#      - WAIT_HOSTS_TIMEOUT=120
+#      - PROJECT_DIR=api-server
+#      - JAR_NAME=api-server-fat.jar
+#      - JAVA_OPTS= -javaagent:org.jacoco.agent-0.8.6-runtime.jar=destfile=target/jacoco.exec
+#
