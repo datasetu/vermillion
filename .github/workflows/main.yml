@@ -46,10 +46,10 @@ jobs:
       run: cd setup && ./load_sample_data.sh
 
     - name: Run tests and generate reports
-      run:  ./coverage.sh
+      run:  cd setup && ./coverage.sh
 
     - name: Clean Up files
-      run:  ./cleanup.sh
+      run:  cd setup && ./cleanup.sh
 
     - name: Export docker logs to a file
       if: always()
