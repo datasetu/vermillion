@@ -2,7 +2,7 @@
 
 cd api-server
 wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.6/org.jacoco.agent-0.8.6-runtime.jar
-cd ../setup
+cd ..
 set -a
 set -e
 dirname=`dirname $0`
