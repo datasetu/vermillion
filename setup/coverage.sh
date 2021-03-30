@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-cd ../tests && behave
+cd ../tests && sudo behave
 echo statement3
 PID=`docker exec vertx ps -aux | grep java | awk '{print $2}'`
 echo "killing $PID"
