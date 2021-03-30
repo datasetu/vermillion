@@ -1,2 +1,4 @@
-elasticsearch==7.7.0
+elasticsearch
 pika==1.1.0
+jsonschema
+strict-rfc3339

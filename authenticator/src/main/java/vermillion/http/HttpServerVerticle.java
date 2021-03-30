@@ -19,11 +19,16 @@ import io.vertx.reactivex.ext.web.client.WebClient;
 import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
+import vermillion.throwables.UnauthorisedThrowable;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class HttpServerVerticle extends AbstractVerticle {
     public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
@@ -121,7 +126,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         logger.debug("Token=" + username);
 
-        if (!isStringSafe(username)) {
+        if (!isValidToken(username)) {
             logger.debug("invalid entity name");
             ok(resp, "deny");
             return;
@@ -179,6 +184,12 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        if (!isValidResourceID(routingKey)) {
+            logger.debug("Routing key is not a valid ID");
+            ok(resp, "deny");
+            return;
+        }
+
         getValue(username)
                 .flatMapCompletable(result -> {
                     JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
@@ -190,7 +201,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                          * in a single request
                          */
 
-                        if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
+                        if (routingKey.equals(requestObject.getString("id"))) {
                             return Completable.complete();
                         }
                     }
@@ -239,18 +250,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         ok(resp, "allow");
     }
 
-    public boolean isStringSafe(String resource) {
-        logger.debug("In is_string_safe");
-
-        logger.debug("resource=" + resource);
-
-        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
-
-        logger.debug("Original resource name =" + resource);
-        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
-        return safe;
-    }
-
     public void ok(HttpServerResponse resp, String message) {
         if (!resp.closed()) {
             resp.setStatusCode(OK).end(message);
@@ -286,9 +285,67 @@ public class HttpServerVerticle extends AbstractVerticle {
                         : Completable.error(new Throwable("Unauthorised")));
     }
 
+    public Completable checkAuthorisation(String token, String scope, JsonArray requestedIds) {
+
+        Set<String> requestedSet = IntStream.range(0, requestedIds.size())
+                .mapToObj(requestedIds::getString)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        return getValue(token)
+                .flatMapCompletable(
+                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
+                // TODO: Avoid reading from cache again
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getJsonArray("request")))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapMaybe(resultArray -> resultArray
+                        .map(authorisedIds ->
+                                // TODO: In this case check for methods,
+                                // body, API etc
+                                Maybe.just(IntStream.range(0, authorisedIds.size())
+                                        .filter(i -> authorisedIds
+                                                .getJsonObject(i)
+                                                .getJsonArray("scopes")
+                                                .contains(scope))
+                                        .mapToObj(i ->
+                                                authorisedIds.getJsonObject(i).getString("id"))
+                                        .collect(Collectors.toCollection(HashSet::new))))
+                        .orElseGet(Maybe::empty))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
+                        ? Completable.complete()
+                        : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                        .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+    }
+
     public void apiFailure(RoutingContext context, Throwable t) {
         logger.debug("In apifailure");
         logger.debug("Message=" + t.getMessage());
         context.response().setStatusCode(OK).end("deny");
+    }
+
+    private boolean isValidResourceID(String resourceID) {
+
+        logger.debug("In isValidResourceId");
+        logger.debug("Received resource id = " + resourceID);
+        // TODO: Handle sub-categories correctly
+        String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+\\/[a-zA-Z0-9_.\\-]+\\/[a-zA-Z0-9_.\\-]+";
+
+        return resourceID.matches(validRegex);
+    }
+
+    private boolean isValidToken(String token) {
+
+        logger.debug("In isValidToken");
+        logger.debug("Received token = " + token);
+        // TODO: Handle sub-categories correctly
+        // TODO: Handle list of trusted auth servers
+        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
+
+        return token.matches(validRegex);
     }
 }

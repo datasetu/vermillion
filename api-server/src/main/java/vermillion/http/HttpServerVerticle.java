@@ -26,6 +26,7 @@ import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.validator.GenericValidator;
+import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.throwables.BadRequestThrowable;
@@ -45,6 +46,7 @@ import java.util.stream.IntStream;
 public class HttpServerVerticle extends AbstractVerticle {
 
     public final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+
     // HTTP Codes
     public final int OK = 200;
     public final int CREATED = 201;
@@ -63,6 +65,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
     public final String WRITE_SCOPE = "write";
     public final String READ_SCOPE = "read";
+
     // Redis constants
     public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
     /* Default port of redis. Port specified in the config file will
@@ -70,23 +73,33 @@ public class HttpServerVerticle extends AbstractVerticle {
     */
     public final String REDIS_PORT = "6379";
     public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
+
     // There are 16 DBs available. Using 1 as the default database number
     public final String DB_NUMBER = "1";
     public final String CONNECTION_STR = "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + "/" + DB_NUMBER;
+
     // public final String CONNECTION_STR =
     //				"redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + ":" + REDIS_PORT + "/" + DB_NUMBER;
     public final int MAX_POOL_SIZE = 10;
     public final int MAX_WAITING_HANDLERS = 32;
+
     // Certificate constants
     public final String SSL_CERT_NAME = System.getenv("SSL_CERT_NAME");
     public final String SSL_CERT_PASSWORD = System.getenv("SSL_CERT_PASSWORD");
+
     // HTTPS port
     public final int HTTPS_PORT = 443;
-    // TODO: Make it final
+
     public String CONSUMER_PATH = "/consumer/";
+
     // Service Proxies
     public DbService dbService;
+    public BrokerService brokerService;
+
     public RedisOptions options;
+
+    // RabbitMQ default exchange to publish to
+    public final String RABBITMQ_PUBLISH_EXCHANGE = "EXCHANGE";
 
     @Override
     public void start(Promise<Void> startPromise) {
@@ -95,6 +108,8 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Redis constr=" + CONNECTION_STR);
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+        brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
+
 
         Router router = Router.router(vertx);
 
@@ -1047,7 +1062,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 fileLink = "/download";
             }
 
-            JsonObject dbJson = new JsonObject()
+            JsonObject dbEntryJson = new JsonObject()
                     .put("data", new JsonObject().put("link", fileLink))
                     .put("timestamp", Clock.systemUTC().instant().toString())
                     .put("id", resourceId)
@@ -1056,7 +1071,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             if (metaJson != null) {
                 logger.debug("Metadata is not null");
                 // TODO: Cap size of metadata
-                dbJson.getJsonObject("data").put("metadata", metaJson);
+                dbEntryJson.getJsonObject("data").put("metadata", metaJson);
                 try {
                     logger.debug("Metadata path = " + metadata.uploadedFileName());
                     Files.deleteIfExists(Paths.get(metadata.uploadedFileName()));
@@ -1078,7 +1093,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         }
                         return Completable.complete();
                     }))
-                    .andThen(dbService.rxInsert(dbJson))
+                    .andThen(brokerService.rxAdminPublish(RABBITMQ_PUBLISH_EXCHANGE, resourceId, dbEntryJson.encode()))
                     .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
             return;
         }
@@ -1132,7 +1147,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         JsonObject finalRequestBody = requestBody;
 
         checkAuthorisation(token, WRITE_SCOPE, new JsonArray().add(resourceId))
-                .andThen(Completable.defer(() -> dbService.rxInsert(finalRequestBody)))
+                .andThen(Completable.defer(() -> brokerService.rxPublish(token, "EXCHANGE", resourceId, finalRequestBody.encode())))
                 .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
 
         logger.debug("Filename = " + fileName);
