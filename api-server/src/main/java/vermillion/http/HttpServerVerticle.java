@@ -89,17 +89,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     // HTTPS port
     public final int HTTPS_PORT = 443;
-
+    // RabbitMQ default exchange to publish to
+    public final String RABBITMQ_PUBLISH_EXCHANGE = "EXCHANGE";
     public String CONSUMER_PATH = "/consumer/";
-
     // Service Proxies
     public DbService dbService;
     public BrokerService brokerService;
-
     public RedisOptions options;
-
-    // RabbitMQ default exchange to publish to
-    public final String RABBITMQ_PUBLISH_EXCHANGE = "EXCHANGE";
 
     @Override
     public void start(Promise<Void> startPromise) {
@@ -109,7 +105,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
         brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
-
 
         Router router = Router.router(vertx);
 
@@ -1146,9 +1141,10 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonObject finalRequestBody = requestBody;
 
-        checkAuthorisation(token, WRITE_SCOPE, new JsonArray().add(resourceId))
-                .andThen(Completable.defer(() -> brokerService.rxPublish(token, "EXCHANGE", resourceId, finalRequestBody.encode())))
-                .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
+        // There is no need for introspect here. It will be done at the rmq auth backend level
+        brokerService
+                .rxPublish(token, RABBITMQ_PUBLISH_EXCHANGE, resourceId, finalRequestBody.encode())
+                .subscribe(() -> response.setStatusCode(202).end(), t -> apiFailure(context, t));
 
         logger.debug("Filename = " + fileName);
     }

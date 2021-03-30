@@ -261,11 +261,15 @@ public class HttpServerVerticle extends AbstractVerticle {
         JsonObject body = new JsonObject();
         body.put("token", token);
 
-        WebClientOptions options = new WebClientOptions()
+        WebClientOptions webClientOptions = new WebClientOptions()
                 .setSsl(true)
                 .setKeyStoreOptions(new JksOptions().setPath(AUTH_TLS_CERT_PATH).setPassword(AUTH_TLS_CERT_PASSWORD));
 
-        WebClient client = WebClient.create(vertx, options);
+        if ("auth.local".equalsIgnoreCase(AUTH_SERVER)) {
+            webClientOptions.setTrustAll(true);
+        }
+
+        WebClient client = WebClient.create(vertx, webClientOptions);
 
         return client.post(443, AUTH_SERVER, INTROSPECT_ENDPOINT)
                 .ssl(true)
@@ -317,8 +321,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .map(Optional::of)
                 .toSingle(Optional.empty())
                 .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
-                        ? Completable.complete()
-                        : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                                ? Completable.complete()
+                                : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
                         .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
