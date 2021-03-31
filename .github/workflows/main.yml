@@ -48,16 +48,27 @@ jobs:
     - name: Run tests
       run:  cd ./tests/ && sudo behave
 
-    - name: Export docker logs to a file
+    - name: Export vertx logs to a file
       if: always()
-      run: docker logs vertx >& logs.txt
+      run: docker logs vertx >& vertx_logs.txt
 
-    - name: Upload file 'logs.txt' as an artifact
+    - name: Export connector logs to a file
       if: always()
-      uses: actions/upload-artifact@v1
+      run: docker logs connector >& connector_logs.txt
+
+    - name: Export rabbit logs to a file
+      if: always()
+      run: docker logs rabbit >& rabbit_logs.txt
+
+    - name: Upload log files as an artifact
+      if: always()
+      uses: actions/upload-artifact@v2
       with:
-        name: pass_file
-        path: logs.txt
+        name: logs-files
+        path: |
+          vertx_logs.txt
+          connector_logs.txt
+          rabbit_logs.txt
 
     - name: redoc-cli test
       uses: seeebiii/redoc-cli-github-action@v10
