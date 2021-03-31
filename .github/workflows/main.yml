@@ -65,7 +65,10 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: logs-files
-        path: *_logs.txt
+        path: |
+          vertx_logs.txt
+          connector_logs.txt
+          rabbit_logs.txt
 
     - name: redoc-cli test
       uses: seeebiii/redoc-cli-github-action@v10
