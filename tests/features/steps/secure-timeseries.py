@@ -149,7 +149,7 @@ def step_impl(context):
             "end": "2021-11-01"
         }
     }
-    time.sleep(1)
+    time.sleep(5)
     check_search(params, data, context)
 
 

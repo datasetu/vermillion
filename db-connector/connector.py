@@ -134,7 +134,7 @@ def callback(ch, method, properties, body):
     except ValidationError as e:
         logging.error("Data does not conform to the required format. Rejecting...")
         return
-    
+
     if method.routing_key != body_dict['id']:
         logging.error("Resource IDs in routing key and body are different. Rejecting...")
         return
