@@ -21,8 +21,11 @@ public class BrokerVerticle extends AbstractVerticle {
         int brokerPort;
 
         if (NumberUtils.isCreatable(brokerPortStr)) {
+            // If the port number is 5672, 5671 etc.
             brokerPort = Integer.parseInt(brokerPortStr);
         } else {
+            // If custom forwarding has been specified, or if forwarding is restricted to localhost
+            // E.g. 127.0.0.1:5672
             brokerPort = Integer.parseInt(brokerPortStr.split(":")[1]);
         }
 

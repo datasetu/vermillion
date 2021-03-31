@@ -122,24 +122,27 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerResponse resp = request.response();
 
         // Ignore the password parameter. Username is the token
-        String username = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
+        String token = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
 
-        logger.debug("Token=" + username);
+        logger.debug("Token=" + token);
 
-        if (!isValidToken(username)) {
+        if (!isValidToken(token)) {
             logger.debug("invalid entity name");
             ok(resp, "deny");
             return;
         }
 
-        getValue(username)
+        // Simply check if the auth server returns 200 for this introspect. Everything else will be done by other APIs
+        getValue(token)
                 .flatMapCompletable(
-                        cache -> cache.equalsIgnoreCase("absent") ? introspect(username) : Completable.complete())
+                        cache -> cache.equalsIgnoreCase("absent") ? introspect(token) : Completable.complete())
                 .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
 
     public void authVhost(RoutingContext context) {
 
+        // No restriction on accessing vhosts
+        // TODO: Restrict vhost to a set of allowed vhosts
         logger.debug("In auth vhost");
         HttpServerResponse resp = context.response();
         ok(resp, "allow");
@@ -151,13 +154,14 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerResponse resp = context.response();
         HttpServerRequest request = context.request();
 
-        String username = request.getParam("username");
+        // Username is the token
+        String token = request.getParam("username");
         String resourceType = request.getParam("resource");
         String resourceName = request.getParam("name");
         String permission = request.getParam("permission");
         String routingKey = request.getParam("routing_key");
 
-        logger.debug("Username=" + username);
+        logger.debug("Username=" + token);
         logger.debug("ResourceType=" + resourceType);
         logger.debug("ResourceName=" + resourceName);
         logger.debug("Permission=" + permission);
@@ -190,24 +194,28 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        getValue(username)
-                .flatMapCompletable(result -> {
-                    JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
-                    for (int i = 0; i < authorisedRequests.size(); i++) {
-                        JsonObject requestObject = authorisedRequests.getJsonObject(i);
-                        logger.debug("Authorised request=" + requestObject.toString());
-
-                        /* Return if a match is found. Cannot request for multiple IDs
-                         * in a single request
-                         */
-
-                        if (routingKey.equals(requestObject.getString("id"))) {
-                            return Completable.complete();
-                        }
-                    }
-                    return Completable.error(new Throwable("Unauthorised"));
-                })
+        // Routing key becomes the requested ID
+        checkAuthorisation(token, "write", new JsonArray().add(routingKey))
                 .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
+
+        //        getValue(token)
+        //                .flatMapCompletable(result -> {
+        //                    JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
+        //                    for (int i = 0; i < authorisedRequests.size(); i++) {
+        //                        JsonObject requestObject = authorisedRequests.getJsonObject(i);
+        //                        logger.debug("Authorised request=" + requestObject.toString());
+        //
+        //                        /* Return if a match is found. Cannot request for multiple IDs
+        //                         * in a single request
+        //                         */
+        //
+        //                        if (routingKey.equals(requestObject.getString("id"))) {
+        //                            return Completable.complete();
+        //                        }
+        //                    }
+        //                    return Completable.error(new Throwable("Unauthorised"));
+        //                })
+        //                .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
 
     public void authResource(RoutingContext context) {
@@ -307,8 +315,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .toSingle(Optional.empty())
                 .flatMapMaybe(resultArray -> resultArray
                         .map(authorisedIds ->
-                                // TODO: In this case check for methods,
-                                // body, API etc
+                                // TODO: In this case check for methods, body, API etc
                                 Maybe.just(IntStream.range(0, authorisedIds.size())
                                         .filter(i -> authorisedIds
                                                 .getJsonObject(i)

@@ -1287,7 +1287,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
     }
 
-    // TODO: Add adequate comments everywhere
     private String commonPrefix(JsonArray resourceIds) {
 
         // Getting length of shortest resourceId
