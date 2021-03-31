@@ -117,6 +117,10 @@ Feature: Vermillion is able to handle geospatial queries
                 When A geo-spatial query is initiated
                 Then All matching records are returned
 
+        Scenario: Geo-spatial query
+                Given Vermillion is running
+                When A geo-spatial query is initiated for distance in M
+                Then All matching records are returned
 
 
 

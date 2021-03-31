@@ -86,6 +86,16 @@ def step_impl(context):
 
     check_latest(params,context)
 
+@when('A latest API query is with empty token and id is public')
+def step_impl(context):
+    params = {
+        "id": res[0],
+        "token": None
+
+
+    }
+
+    check_latest(params,context)
 @when('A latest API query is with invalid token')
 def step_impl(context):
     params = ({

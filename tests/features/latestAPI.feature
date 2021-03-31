@@ -38,6 +38,11 @@ Feature: Vermillion is able to handle latest API
     When A latest API query is with empty token
     Then The response status should be 400
 
+  Scenario: Latest API query with empty token and id is public
+    Given Vermillion is running
+    When A latest API query is with empty token and id is public
+    Then The response status should be 200
+
   Scenario: Latest API query with invalid token
     Given Vermillion is running
     When A latest API query is with invalid token

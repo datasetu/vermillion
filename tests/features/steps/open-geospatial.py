@@ -318,3 +318,25 @@ def step_impl(context):
                       verify=False)
 
     context.response = r.json()
+
+
+@when('A geo-spatial query is initiated for distance in M')
+def step_impl(context):
+    context.type = 'geospatial'
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000M",
+
+        }
+    }
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()
