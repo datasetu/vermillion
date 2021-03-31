@@ -110,6 +110,9 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.route().handler(BodyHandler.create().setHandleFileUploads(true));
 
+        // Serve API docs at /
+        router.route("/").handler(StaticHandler.create("webroot"));
+
         router.get("/latest").handler(this::latest);
         router.post("/search").handler(this::search);
 

@@ -23,6 +23,7 @@ services:
     volumes:
       - ../api-server:/api-server/
       - ${PROVIDER_PATH}:/api-server/webroot/provider/
+      - ../index.html:/api-server/webroot/index.html
     env_file:
       - vermillion.conf
     environment:
