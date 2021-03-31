@@ -128,7 +128,7 @@ def callback(ch, method, properties, body):
     except Exception as e:
         logging.error("Message is not a valid JSON. Rejecting...")
         return
-    
+
     try:
         validate(body_dict, schema, format_checker=jsonschema.FormatChecker())
     except ValidationError as e:
