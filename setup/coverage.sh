@@ -13,9 +13,8 @@ echo statement5
 mvn jacoco:report
 sleep 10
 echo statement6
-env:
-  test: $secrets.CODACY_KEY
-export CODACY_PROJECT_TOKEN="$test"
+
+export CODACY_PROJECT_TOKEN=$secrets.CODACY_KEY
 bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r target/site/jacoco/jacoco.xml
 
 
