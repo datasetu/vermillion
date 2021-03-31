@@ -26,7 +26,7 @@ def check_search(params, data, context):
 
     context.response = r
     context.status_code = r.status_code
-    # print(context.status_code, context.response)
+    print(context.status_code, context.response)
 
 
 def check_pub_file(params, files, context):

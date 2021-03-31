@@ -50,13 +50,13 @@ jobs:
 
     - name: Export docker logs to a file
       if: always()
-      run: docker logs vertx >& logs.txt
+      run: docker logs connector >& logs.txt
 
     - name: Upload file 'logs.txt' as an artifact
       if: always()
       uses: actions/upload-artifact@v1
       with:
-        name: pass_file
+        name: connector_logs.txt
         path: logs.txt
 
     - name: redoc-cli test
