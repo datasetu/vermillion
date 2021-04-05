@@ -32,7 +32,7 @@ for i in range(1, 6):
 		i] + " for 1 month"
 for i in range(6, 8):
 	acl_set_policy += "; consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
-		i] + " for 1 month if scope = read"
+		i] + " for 1 second if scope = read"
 
 data = {"policy": acl_set_policy}
 response = requests.post(

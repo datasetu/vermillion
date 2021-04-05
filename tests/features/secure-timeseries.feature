@@ -104,6 +104,11 @@ Feature: Vermillion is able to handle secure timeseries datasets
            When The consumer requests for a standalone authorised ID with invalid token
            Then The response status should be 403
 
+          Scenario: Authorised ID - single
+            Given Vermillion is running
+            When The consumer requests for a standalone authorised ID with unauthorized token
+            Then The response status should be 403
+
        Scenario: Authorised ID - single
             Given Vermillion is running
             When The consumer requests for a standalone authorised ID without token

@@ -1,7 +1,6 @@
 from behave import then
 import os
 import time
-import socket
 import requests
 import urllib3
 

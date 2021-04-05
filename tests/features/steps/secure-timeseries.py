@@ -25,9 +25,9 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "world"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
-    
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
+
 
 @when('The consumer publishes data with a valid token-2')
 def step_impl(context):
@@ -37,7 +37,7 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "india"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -61,7 +61,7 @@ def step_impl(context):
     )
 
     data = '{"data": "True"}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -74,7 +74,7 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "world"}, "hello":"world"}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -86,7 +86,7 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "world"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -98,7 +98,7 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "world"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -110,7 +110,7 @@ def step_impl(context):
     )
 
     # data = '{"data": {"hello": "world"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, "", context)
 
 
@@ -122,7 +122,7 @@ def step_impl(context):
     )
 
     data = ''
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -134,7 +134,7 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "world"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -146,7 +146,7 @@ def step_impl(context):
     )
 
     data = '{"data": {"hello": "world"}}'
-    url= VERMILLION_URL+PUBLISH_ENDPOINT
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
     post_request(url, params, data, context)
 
 
@@ -260,6 +260,26 @@ def step_impl(context):
 def step_impl(context):
     params = (
         ('token', generate_random_chars()),
+
+    )
+    data = {
+        "id":
+            res[3],
+
+        "time": {
+            "start": "2021-01-01",
+            "end": "2021-11-01"
+        }
+    }
+    time.sleep(1)
+    url = VERMILLION_URL + SEARCH_ENDPOINT
+    post_request(url, params, json.dumps(data), context)
+
+
+@when('The consumer requests for a standalone authorised ID with unauthorized token')
+def step_impl(context):
+    params = (
+        ('token', tokens["6_7_read"]),
 
     )
     data = {

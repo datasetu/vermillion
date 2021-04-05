@@ -1,7 +1,5 @@
-import json
 import string
 import random
-
 import requests
 
 VERMILLION_URL = 'https://localhost'
