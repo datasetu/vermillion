@@ -6,7 +6,13 @@ Feature: Vermillion is able to handle secure timeseries datasets
             Given Vermillion is running
             When The consumer publishes data with a valid token 
             Then The response status should be 201
-	
+
+        Scenario: Consumer publishes data with a valid token-2
+
+          Given Vermillion is running
+          When The consumer publishes data with a valid token-2
+          Then The response status should be 201
+
         Scenario: Consumer publishes data with an invalid token 
 		
 	    Given Vermillion is running

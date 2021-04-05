@@ -17,6 +17,11 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
           When The consumer publishes with a valid token(2)
           Then The response status should be 201
 
+        Scenario: Consumer publishes with valid token
+          Given Vermillion is running
+          When The consumer publishes with a valid token(3)
+          Then The response status should be 201
+
 	Scenario: Consumer publishes secure file with file and timeseries data
                 Given Vermillion is running
                 When The consumer publishes secure file with a file and timeseries data
@@ -52,10 +57,26 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
                  When The consumer downloads file by passing a valid reroute link
                 Then The response status should be 200
 
-          Scenario: Download secure-file with only token
+          Scenario: Download secure-file with only token for single auth id
             Given Vermillion is running
-            When The consumer downloads file by passing only token
+            When The consumer downloads file by passing only token for single auth id
             Then The response status should be 200
+
+          Scenario: Download secure-file with valid reroute link for single authorised id
+                  Given Vermillion is running
+                  When The consumer downloads file by passing a valid reroute link for single authorised id
+                  Then The response status should be 200
+
+          Scenario: Download secure-file with only token and requested id is not present
+            Given Vermillion is running
+            When The consumer downloads file by passing only token and requested id is not present
+            Then The response status should be 403
+
+
+          Scenario: Download secure-file with only token
+                  Given Vermillion is running
+                  When The consumer downloads file by passing only token
+                  Then The response status should be 200
 
         Scenario: Download secure-file with invalid token
                 Given Vermillion is running
@@ -82,6 +103,10 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
                 When The consumer downloads file by passing an empty resource id
 		        Then The response status should be 400
 
+        Scenario: Download file with public id and token
+          Given Vermillion is running
+          When The consumer downloads file by passing public id and token
+          Then The response status should be 400
 
 	Scenario: Download secure-file with multiple resource ids and a token
                 Given Vermillion is running

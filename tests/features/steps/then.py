@@ -1,7 +1,7 @@
 from behave import then
 import os
 import time
-
+import socket
 import requests
 import urllib3
 
@@ -32,10 +32,6 @@ def step_impl(context):
     if context.type == 'complex':
         if len(context.response) != 305:
             raise ResponseCountMismatchError(305, len(context.response))
-
-    if context.type == 'latest-api':
-        if len(context.response) != 1:
-            raise ResponseCountMismatchError(1, len(context.response))
 
 
 @then('The response status should be {expected_code}')
@@ -85,7 +81,13 @@ def step_impl(context):
         print(re)
         if dat != re[0]['data']:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+    if context.type == 'authorised_id_multiple':
+        dat = {"hello": "india"}
 
+        re = context.response.json()
+        print(re)
+        if dat != re[1]['data']:
+            raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
 
 @then('The response should contain an auth token')
 def step_impl(context):

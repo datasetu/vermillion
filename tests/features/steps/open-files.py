@@ -7,11 +7,15 @@ from behave import when
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-from auth_vars import res, tokens, id_prefix
-from utils import check_openfiles_pub, generate_random_chars
+from auth_vars import res, tokens
+from utils import generate_random_chars, post_request_publish_public, get_request
 
+VERMILLION_URL = 'https://localhost'
+PUBLISH_ENDPOINT = '/publish'
+url = VERMILLION_URL + PUBLISH_ENDPOINT
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 
 @when('The consumer publishes with a valid token')
 def step_impl(context):
@@ -26,7 +30,8 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
+
 
 
 @when('The consumer publishes without resource id')
@@ -41,7 +46,7 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes without token')
@@ -56,14 +61,14 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with invalid resource id')
 def step_impl(context):
     data = (
 
-        ("id", id_prefix + generate_random_chars() + ".public"),
+        ("id", generate_random_chars() + ".public"),
         ('token', tokens["master"]),
 
     )
@@ -72,7 +77,7 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with empty resource id')
@@ -88,7 +93,7 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with invalid token')
@@ -104,7 +109,7 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with empty token')
@@ -120,7 +125,7 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes by removing file form parameter')
@@ -137,7 +142,7 @@ def step_impl(context):
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with invalid json meta file')
@@ -154,7 +159,7 @@ def step_impl(context):
         'metadata': ('invalidmeta.json', open('invalidmeta.json', 'rb')),
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes by removing metadata form parameter')
@@ -171,7 +176,7 @@ def step_impl(context):
 
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes by using extraneous form parameter')
@@ -191,7 +196,7 @@ def step_impl(context):
     for f in fil:
         os.remove(f)
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with empty form parameter')
@@ -208,7 +213,7 @@ def step_impl(context):
 
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer publishes with more than 2 form parameters')
@@ -226,15 +231,11 @@ def step_impl(context):
 
     }
 
-    check_openfiles_pub(data, files, context)
+    post_request_publish_public(data, files, context)
 
 
 @when('The consumer downloads the file')
 def step_impl(context):
-    urd = 'https://localhost/provider/public/'
-    r = requests.get(url=urd + res[0], verify=False)
+    url = 'https://localhost/provider/public/' + res[0]
+    get_request(url, None, context)
     open('test-resource.public', 'w').write('This is the downloaded file')
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
-

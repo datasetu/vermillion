@@ -2,10 +2,10 @@ import requests
 import urllib3
 
 from behave import when
-# from auth_vars import res, tokens
-from down_vars import res, tokens
+from auth_vars import res, tokens
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import check_pub_file, check_download, generate_random_chars
+from utils import post_request_publish_secure, generate_random_chars, get_request
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -15,51 +15,69 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 @when('The consumer publishes secure file with a valid token')
 def step_impl(context):
     params = (
-        ('id', res[0]),
-        ('token', tokens["down"]),
+        ('id', res[8]),
+        ('token', tokens["8_10_rw"]),
     )
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
-    check_pub_file(params, files, context)
+
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer publishes with a valid token(1)')
 def step_impl(context):
     params = (
 
-        ("id", res[1]),
-        ('token', tokens["down"]),
+        ("id", res[9]),
+        ('token', tokens["8_10_rw"]),
 
     )
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
 
-    check_pub_file(params, files, context)
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer publishes with a valid token(2)')
 def step_impl(context):
     params = (
 
-        ("id", res[2]),
-        ('token', tokens["down"]),
+        ("id", res[10]),
+        ('token', tokens["8_10_rw"]),
 
     )
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
 
-    check_pub_file(params, files, context)
+    post_request_publish_secure(params, context)
+
+
+@when('The consumer publishes with a valid token(3)')
+def step_impl(context):
+    params = (
+
+        ("id", res[11]),
+        ('token', tokens["11_rw"]),
+
+    )
+
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer downloads file by passing a valid reroute link')
 def step_impl(context):
-    param = tokens["down"]
+    param = tokens["8_10_rw"]
+    url = 'https://localhost/consumer/' + param + '/'
+    get_request(url, "", context)
+
+
+@when('The consumer downloads file by passing only token for single auth id')
+def step_impl(context):
+    params = (
+        ('token', tokens["11_rw"]),
+
+    )
+    url = 'https://localhost/download'
+    get_request(url, params, context)
+
+
+@when('The consumer downloads file by passing a valid reroute link for single authorised id')
+def step_impl(context):
+    param = tokens["11_rw"]
 
     r = requests.get('https://localhost/consumer/' + param + '/', verify=False)
     context.response = r
@@ -67,20 +85,31 @@ def step_impl(context):
     print(context.status_code, context.response)
 
 
+@when('The consumer downloads file by passing only token and requested id is not present')
+def step_impl(context):
+    params = (
+        ('token', tokens["12_rw"]),
+
+    )
+    url = 'https://localhost/download'
+    get_request(url, params, context)
+
+
 @when('The consumer downloads file by passing only token')
 def step_impl(context):
     params = (
-        ('token', tokens["down"]),
+        ('token', tokens["8_10_rw"]),
 
     )
-    check_download(params,context)
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer publishes secure file with a file and timeseries data')
 def step_impl(context):
     params = (
-        ('id', res[1]),
-        ('token', tokens["down"]),
+        ('id', res[8]),
+        ('token', tokens["8_10_rw"]),
     )
     data = {"data": {"hello": "world"}}
     headers = {'Content-type': 'multipart/form-data'}
@@ -99,128 +128,120 @@ def step_impl(context):
 @when('The consumer publishes secure file with an invalid token')
 def step_impl(context):
     params = (
-        ('id', res[1]),
+        ('id', res[9]),
         ('token', generate_random_chars()),
     )
 
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
-    check_pub_file(params, files, context)
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer publishes secure file with an empty token')
 def step_impl(context):
     params = (
-        ('id', res[1]),
+        ('id', res[9]),
         ('token', ''),
     )
 
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
-
-    check_pub_file(params, files, context)
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer publishes secure file with an invalid resource id')
 def step_impl(context):
     params = (
         ('id', generate_random_chars() + ".public"),
-        ('token', tokens["down"]),
+        ('token', tokens["8_10_rw"]),
     )
 
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
-
-    check_pub_file(params, files, context)
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer publishes secure file with an empty resource id')
 def step_impl(context):
     params = (
         ('id', ''),
-        ('token', tokens["down"]),
+        ('token', tokens["8_10_rw"]),
     )
 
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
-
-    check_pub_file(params, files, context)
+    post_request_publish_secure(params, context)
 
 
 @when('The consumer downloads file by passing a valid token')
 def step_impl(context):
     params = (
         ('id',
-         res[0]
+         res[8]
          ),
-        ('token', tokens["down"]),
+        ('token', tokens["8_10_rw"]),
     )
-
-    check_download(params,context)
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file by passing an invalid token')
 def step_impl(context):
     params = (
-        ('id', res[2]),
+        ('id', res[8]),
         ('token', generate_random_chars()),
     )
-
-    check_download(params, context)
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file by passing an empty token')
 def step_impl(context):
     params = (
-        ('id', res[2]),
+        ('id', res[8]),
         ('token', ''),
     )
-
-    check_download(params, context)
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file without passing token')
 def step_impl(context):
     params = (
-        ('id', res[2]),
+        ('id', res[8]),
     )
-
-    check_download(params, context)
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file by passing an invalid resource id')
 def step_impl(context):
     params = (
         ('id', generate_random_chars()),
-        ('token', tokens["down"]),
+        ('token', tokens["8_10_rw"]),
 
     )
-
-    check_download(params, context)
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file by passing an empty resource id')
 def step_impl(context):
     params = (
         ('id', ''),
-        ('token', tokens["down"]),
+        ('token', tokens["8_10_rw"]),
     )
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
-    check_download(params, context)
+
+@when('The consumer downloads file by passing public id and token')
+def step_impl(context):
+    params = (
+        ('id', res[8] + ".public"),
+        ('token', tokens["8_10_rw"]),
+    )
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file by passing multiple resource ids and a token')
 def step_impl(context):
-    r = requests.get('https://localhost/download?token=' + tokens["down"] + '&id=' + res[1] + ',' + res[2],
-                     verify=False)
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    params = (
+        ('id', [res[8], res[9]]),
+        ('token', tokens["8_10_rw"]),
+    )
+    url = 'https://localhost/download'
+    get_request(url, params, context)
