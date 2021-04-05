@@ -113,3 +113,7 @@ Feature: VermillhFeature: Vermillion is able to handle secure files
           When The consumer downloads file by passing only token and requested id is not present
           Then The response status should be 403
 
+        Scenario: Download secure-file with id,token and requested id is not present
+          Given Vermillion is running
+          When The consumer downloads file by passing id,token and requested id is not present
+          Then The response status should be 403
