@@ -13,7 +13,7 @@ echo statement5
 mvn jacoco:report
 sleep 10
 echo statement6
-
+cp target/site/jacoco/jacoco.xml ../.github/workflows
 #export CODACY_PROJECT_TOKEN=$secrets.CODACY_KEY
 #bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r target/site/jacoco/jacoco.xml
 
