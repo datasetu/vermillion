@@ -23,6 +23,7 @@ services:
     volumes:
       - ../api-server:/api-server/
       - ${PROVIDER_PATH}:/api-server/webroot/provider/
+      - ../index.html:/api-server/webroot/index.html
     env_file:
       - vermillion.conf
     environment:
@@ -33,7 +34,7 @@ services:
       - JAVA_OPTS=-javaagent:org.jacoco.agent-0.8.6-runtime.jar=destfile=target/jacoco.exec
 
   authenticator:
-    image: iudx/java
+    image: datasetu/java
     container_name: authenticator
     hostname: authenticator
     restart: on-failure
@@ -83,8 +84,8 @@ services:
       - discovery.type=single-node
       #- ELASTICSEARCH_HEAP_SIZE=2048m
 
-  dbconnector:
-    image: iudx/db-connector
+  connector:
+    image: datasetu/db-connector
     container_name: connector
     hostname: connector
     restart: on-failure

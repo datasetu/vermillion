@@ -8,6 +8,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.reactivex.config.ConfigRetriever;
 import io.vertx.reactivex.core.AbstractVerticle;
+import vermillion.broker.BrokerVerticle;
 import vermillion.database.DbVerticle;
 import vermillion.http.HttpServerVerticle;
 
@@ -29,7 +30,9 @@ public class MainVerticle extends AbstractVerticle {
                                 DbVerticle.class.getName(), new DeploymentOptions().setConfig(config))
                         .flatMap(id -> vertx.rxDeployVerticle(
                                 HttpServerVerticle.class.getName(),
-                                new DeploymentOptions().setInstances(cpus).setConfig(config))))
+                                new DeploymentOptions().setInstances(cpus).setConfig(config)))
+                        .flatMap(id -> vertx.rxDeployVerticle(
+                                BrokerVerticle.class.getName(), new DeploymentOptions().setConfig(config))))
                 .subscribe(id -> promise.complete(), promise::fail);
 
         logger.info("Deployed all verticles");

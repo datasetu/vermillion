@@ -25,11 +25,14 @@ public interface DbService {
   }
 
   @Fluent
-  DbService search(JsonObject query, Handler<AsyncResult<JsonArray>> resultHandler);
+  DbService search(JsonObject query, boolean scroll, String scrollDuration, Handler<AsyncResult<JsonObject>> resultHandler);
 
   @Fluent
   DbService secureSearch(
-      JsonObject query, String token, Handler<AsyncResult<JsonArray>> resultHandler);
+      JsonObject query, String token, boolean scroll, String scrollDuration, Handler<AsyncResult<JsonObject>> resultHandler);
+
+  @Fluent
+  DbService scrolledSearch(String scrollId, String scrollDuration, String token, JsonArray authorisedIDs, Handler<AsyncResult<JsonObject>> resultHandler);
 
   @Fluent
   DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler);

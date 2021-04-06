@@ -11,7 +11,6 @@ headers = {
     'Content-Type': 'application/json',
 }
 
-
 def post_request(url, params, data, context):
     r = requests.post(url, headers=headers, params=params, data=data, verify=False)
     context.response = r

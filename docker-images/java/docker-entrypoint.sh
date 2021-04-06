@@ -14,12 +14,12 @@ then
 	rm $JAR_NAME
     fi
     cp target/$JAR_NAME .
-    java $JAVA_OPTS -jar $JAR_NAME
+    java $JAVA_OPTS -jar $JAR_NAME 
 else
     cd $PROJECT_DIR
     mvn $MVN_OPTS clean package
     cp target/$JAR_NAME .
-    java $JAVA_OPTS -jar $JAR_NAME
+    java $JAVA_OPTS -jar $JAR_NAME 
 fi
 
 ENV JAVA_TOOL_OPTIONS

@@ -78,7 +78,7 @@ def step_impl(context):
 
         re = context.response.json()
         print(re)
-        if dat != re[0]['data']:
+        if dat != re['hits'][0]['data']:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
     if context.type == 'authorised_id_multiple':
         dat = {"hello": "india"}

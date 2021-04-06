@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -ae
+source vermillion.conf
+
+echo $RABBITMQ_TCP_PORT
+
+if [ $# == 0 ];
+then
+    echo $RABBITMQ_TCP_PORT
+    docker-compose -f docker-compose.yml -f docker-compose.auth.yml -f docker-compose.kibana.yml restart
+else
+    echo $RABBITMQ_TCP_PORT
+    docker-compose -f docker-compose.yml -f docker-compose.auth.yml -f docker-compose.kibana.yml restart $1
+fi

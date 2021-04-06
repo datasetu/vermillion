@@ -26,6 +26,7 @@ import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.validator.GenericValidator;
+import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.throwables.BadRequestThrowable;
@@ -44,6 +45,7 @@ import java.util.stream.IntStream;
 public class HttpServerVerticle extends AbstractVerticle {
 
     public final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+
     // HTTP Codes
     public final int OK = 200;
     public final int CREATED = 201;
@@ -61,6 +63,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
     public final String WRITE_SCOPE = "write";
     public final String READ_SCOPE = "read";
+
     // Redis constants
     public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
     /* Default port of redis. Port specified in the config file will
@@ -68,22 +71,28 @@ public class HttpServerVerticle extends AbstractVerticle {
     */
     public final String REDIS_PORT = "6379";
     public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
+
     // There are 16 DBs available. Using 1 as the default database number
     public final String DB_NUMBER = "1";
     public final String CONNECTION_STR = "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + "/" + DB_NUMBER;
+
     // public final String CONNECTION_STR =
     //				"redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + ":" + REDIS_PORT + "/" + DB_NUMBER;
     public final int MAX_POOL_SIZE = 10;
     public final int MAX_WAITING_HANDLERS = 32;
+
     // Certificate constants
     public final String SSL_CERT_NAME = System.getenv("SSL_CERT_NAME");
     public final String SSL_CERT_PASSWORD = System.getenv("SSL_CERT_PASSWORD");
+
     // HTTPS port
     public final int HTTPS_PORT = 443;
-    // TODO: Make it final
+    // RabbitMQ default exchange to publish to
+    public final String RABBITMQ_PUBLISH_EXCHANGE = "EXCHANGE";
     public String CONSUMER_PATH = "/consumer/";
     // Service Proxies
     public DbService dbService;
+    public BrokerService brokerService;
     public RedisOptions options;
 
     @Override
@@ -93,10 +102,14 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Redis constr=" + CONNECTION_STR);
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+        brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
 
         Router router = Router.router(vertx);
 
         router.route().handler(BodyHandler.create().setHandleFileUploads(true));
+
+        // Serve API docs at /
+        router.route("/").handler(StaticHandler.create("webroot"));
 
         router.get("/latest").handler(this::latest);
         router.post("/search").handler(this::search);
@@ -115,6 +128,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/download").handler(this::download);
         router.post("/publish").handler(this::publish);
+
+        router.post("/search/scroll").handler(this::scrolledSearch);
 
         options = new RedisOptions()
                 .setConnectionString(CONNECTION_STR)
@@ -228,14 +243,69 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         if (token == null && resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
-            dbService.rxSearch(constructedQuery).subscribe(result -> response.putHeader(
+            dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
                             "content-type", "application/json")
                     .end(result.encode()));
         } else {
             logger.debug("Secure search");
             JsonArray requestedIDs = new JsonArray().add(resourceID);
             checkAuthorisation(token, READ_SCOPE, requestedIDs)
-                    .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token)))
+                    .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token, false, null)))
+                    .subscribe(
+                            result -> response.putHeader("content-type", "application/json")
+                                    .end(result.encode()),
+                            t -> apiFailure(context, t));
+        }
+    }
+
+    // TODO: Should the scroll API need special permissions?
+    // After all, it puts quite a bit of load on the server for large responses
+    public void scrolledSearch(RoutingContext context) {
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+
+        JsonObject requestBody;
+
+        String token = request.getParam("token");
+
+        if (token != null && !isValidToken(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
+            return;
+        }
+
+        try {
+            requestBody = context.getBodyAsJson();
+        } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+            return;
+        }
+
+        logger.debug("Body=" + requestBody.encode());
+
+        if (!requestBody.containsKey("scroll_id")) {
+            apiFailure(context, new BadRequestThrowable("Obtain a scroll_id from the search API first"));
+            return;
+        }
+
+        if (!requestBody.containsKey("scroll_duration")) {
+            apiFailure(context, new BadRequestThrowable("Scroll duration not specified"));
+            return;
+        }
+
+        String scrollId = requestBody.getString("scroll_id");
+        String scrollDuration = requestBody.getString("scroll_duration");
+
+        if (token != null) {
+            checkAuthorisation(token, "read")
+                    .flatMap(
+                            authorisedIDs -> dbService.rxScrolledSearch(scrollId, scrollDuration, token, authorisedIDs))
+                    .subscribe(
+                            result -> response.putHeader("content-type", "application/json")
+                                    .end(result.encode()),
+                            t -> apiFailure(context, t));
+        } else {
+            dbService
+                    .rxScrolledSearch(scrollId, scrollDuration, null, null)
                     .subscribe(
                             result -> response.putHeader("content-type", "application/json")
                                     .end(result.encode()),
@@ -249,6 +319,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerRequest request = context.request();
         HttpServerResponse response = context.response();
         JsonObject requestBody;
+
+        // Init a variable to check if scrolling has been requested
+        boolean scroll = false;
 
         // Read the token if present
         String token = request.getParam("token");
@@ -336,6 +409,32 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             termQuery.getJsonObject("term").put("id.keyword", resourceIDstr);
             filterQuery.add(termQuery);
+        }
+
+        // Response size
+
+        // Init default value of responses to 10k
+        int size = 10000;
+
+        if (requestBody.containsKey("size")) {
+            Object sizeObj = requestBody.getValue("size");
+
+            if (sizeObj instanceof String) {
+                apiFailure(context, new BadRequestThrowable("Response size should be an integer"));
+                return;
+            }
+
+            try {
+                size = NumberUtils.createInteger(sizeObj.toString());
+            } catch (NumberFormatException numberFormatException) {
+                apiFailure(context, new BadRequestThrowable("Response size is not a valid integer"));
+                return;
+            }
+
+            if (size < 0 || size > 10000) {
+                apiFailure(context, new BadRequestThrowable("Response size must be between 0-10000"));
+                return;
+            }
         }
 
         // Geo Query
@@ -553,11 +652,55 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         }
 
-        baseQuery
-                .put("size", 10000)
-                .getJsonObject("query")
-                .getJsonObject("bool")
-                .put("filter", filterQuery);
+        // Scroll feature
+
+        String scrollStr = null;
+        String scrollUnit;
+        String scrollValueStr;
+        int scrollValue;
+
+        if (requestBody.containsKey("scroll")) {
+            scroll = true;
+
+            Object scrollObj = requestBody.getValue("scroll");
+
+            if (!(scrollObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("Scroll parameter must be a string"));
+                return;
+            }
+
+            scrollStr = scrollObj.toString();
+
+            // If the value is 10m, separate out '10' and 'm'
+            scrollUnit = scrollStr.substring(scrollStr.length() - 1);
+            scrollValueStr = scrollStr.substring(0, scrollStr.length() - 1);
+
+            try {
+                scrollValue = NumberUtils.createInteger(scrollValueStr);
+            } catch (NumberFormatException numberFormatException) {
+                apiFailure(context, new BadRequestThrowable("Scroll value is not a valid integer"));
+                return;
+            }
+
+            if (scrollValue <= 0) {
+                apiFailure(context, new BadRequestThrowable("Scroll value cannot be less than or equal to zero"));
+                return;
+            }
+
+            if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
+                    || (scrollUnit.equalsIgnoreCase("m") && scrollValue > 60)
+                    || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
+                apiFailure(
+                        context,
+                        new BadRequestThrowable(
+                                "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
+                return;
+            }
+            logger.debug("Scroll value =" + scrollValue);
+            logger.debug("Scroll unit =" + scrollUnit);
+        }
+
+        baseQuery.put("size", size).getJsonObject("query").getJsonObject("bool").put("filter", filterQuery);
 
         logger.debug(baseQuery.encodePrettily());
 
@@ -571,12 +714,21 @@ public class HttpServerVerticle extends AbstractVerticle {
                 || (resourceIDstr != null && resourceIDstr.endsWith(".public"))
                 || (resourceIDArray != null
                         && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
-            dbService
-                    .rxSearch(baseQuery)
-                    .subscribe(
-                            result -> response.putHeader("content-type", "application/json")
-                                    .end(result.encode()),
-                            t -> apiFailure(context, t));
+            if (scroll) {
+                dbService
+                        .rxSearch(baseQuery, true, scrollStr)
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            } else {
+                dbService
+                        .rxSearch(baseQuery, false, null)
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            }
         } else {
             JsonArray requestedIDs = new JsonArray();
 
@@ -591,12 +743,22 @@ public class HttpServerVerticle extends AbstractVerticle {
                 logger.debug("Requested IDs=" + requestedIDs.encodePrettily());
             }
 
-            checkAuthorisation(token, READ_SCOPE, requestedIDs)
-                    .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token)))
-                    .subscribe(
-                            result -> response.putHeader("content-type", "application/json")
-                                    .end(result.encode()),
-                            t -> apiFailure(context, t));
+            if (scroll) {
+                String finalScrollStr = scrollStr;
+                checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                        .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, true, finalScrollStr)))
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            } else {
+                checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                        .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, false, null)))
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            }
         }
     }
 
@@ -892,7 +1054,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 fileLink = "/download";
             }
 
-            JsonObject dbJson = new JsonObject()
+            JsonObject dbEntryJson = new JsonObject()
                     .put("data", new JsonObject().put("link", fileLink))
                     .put("timestamp", Clock.systemUTC().instant().toString())
                     .put("id", resourceId)
@@ -901,7 +1063,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             if (metaJson != null) {
                 logger.debug("Metadata is not null");
                 // TODO: Cap size of metadata
-                dbJson.getJsonObject("data").put("metadata", metaJson);
+                dbEntryJson.getJsonObject("data").put("metadata", metaJson);
                 try {
                     logger.debug("Metadata path = " + metadata.uploadedFileName());
                     Files.deleteIfExists(Paths.get(metadata.uploadedFileName()));
@@ -923,7 +1085,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         }
                         return Completable.complete();
                     }))
-                    .andThen(dbService.rxInsert(dbJson))
+                    .andThen(brokerService.rxAdminPublish(RABBITMQ_PUBLISH_EXCHANGE, resourceId, dbEntryJson.encode()))
                     .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
             return;
         }
@@ -976,9 +1138,10 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonObject finalRequestBody = requestBody;
 
-        checkAuthorisation(token, WRITE_SCOPE, new JsonArray().add(resourceId))
-                .andThen(Completable.defer(() -> dbService.rxInsert(finalRequestBody)))
-                .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
+        // There is no need for introspect here. It will be done at the rmq auth backend level
+        brokerService
+                .rxPublish(token, RABBITMQ_PUBLISH_EXCHANGE, resourceId, finalRequestBody.encode())
+                .subscribe(() -> response.setStatusCode(202).end(), t -> apiFailure(context, t));
 
         logger.debug("Filename = " + fileName);
     }
@@ -1075,8 +1238,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .toSingle(Optional.empty())
                 .flatMapMaybe(resultArray -> resultArray
                         .map(authorisedIds ->
-                                // TODO: In this case check for methods,
-                                // body, API etc
+                                // TODO: In this case check for methods, body, API etc
                                 Maybe.just(new JsonArray(IntStream.range(0, authorisedIds.size())
                                         .filter(i -> authorisedIds
                                                 .getJsonObject(i)
@@ -1116,7 +1278,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
     }
 
-    // TODO: Add adequate comments everywhere
     private String commonPrefix(JsonArray resourceIds) {
 
         // Getting length of shortest resourceId
