@@ -464,7 +464,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             String distance = geoDistance.getString("distance");
 
-            if (!distance.endsWith("m") && !distance.endsWith("M")) {
+            if (!distance.endsWith("m")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
