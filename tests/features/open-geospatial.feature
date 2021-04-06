@@ -120,7 +120,7 @@ Feature: Vermillion is able to handle geospatial queries
         Scenario: Geo-spatial query
                 Given Vermillion is running
                 When A geo-spatial query is initiated for distance in M
-                Then The response status should be 200
+                Then The response status should be 400
 
 
 
