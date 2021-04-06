@@ -5,7 +5,7 @@ from behave import when
 from auth_vars import res, tokens
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import post_request_publish_secure, generate_random_chars, get_request
+from utils import post_files, generate_random_chars, get_request
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -18,8 +18,11 @@ def step_impl(context):
         ('id', res[8]),
         ('token', tokens["8_10_rw"]),
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer publishes with a valid token(1)')
@@ -30,8 +33,11 @@ def step_impl(context):
         ('token', tokens["8_10_rw"]),
 
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer publishes with a valid token(2)')
@@ -42,8 +48,11 @@ def step_impl(context):
         ('token', tokens["8_10_rw"]),
 
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer publishes with a valid token(3)')
@@ -54,8 +63,11 @@ def step_impl(context):
         ('token', tokens["11_rw"]),
 
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer downloads file by passing multiple resource ids and a token')
@@ -127,8 +139,11 @@ def step_impl(context):
         ('id', res[9]),
         ('token', generate_random_chars()),
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer publishes secure file with an empty token')
@@ -137,8 +152,11 @@ def step_impl(context):
         ('id', res[9]),
         ('token', ''),
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer publishes secure file with an invalid resource id')
@@ -147,8 +165,11 @@ def step_impl(context):
         ('id', generate_random_chars() + ".public"),
         ('token', tokens["8_10_rw"]),
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer publishes secure file with an empty resource id')
@@ -157,8 +178,11 @@ def step_impl(context):
         ('id', ''),
         ('token', tokens["8_10_rw"]),
     )
-
-    post_request_publish_secure(params, context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    post_files(params, files, context)
 
 
 @when('The consumer downloads file by passing a valid token')

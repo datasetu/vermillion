@@ -26,24 +26,8 @@ def get_request(url, params, context):
     print(context.status_code, context.response)
 
 
-def post_request_publish_secure(params, context):
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
+def post_files(params, files, context):
     r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, params=params, files=files, verify=False)
-
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
-
-
-def post_request_publish_public(data, files, context):
-    r = requests.post(url=VERMILLION_URL + PUBLISH_ENDPOINT,
-                      data=data,
-                      files=files,
-                      verify=False)
-
     context.response = r
     context.status_code = r.status_code
     print(context.status_code, context.response)
