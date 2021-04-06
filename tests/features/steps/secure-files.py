@@ -243,6 +243,5 @@ def step_impl(context):
 @when('The consumer downloads file by passing id,token and requested id is not present')
 def step_impl(context):
     param = tokens["12_rw"]
-    id = res[11]
-    url = 'https://localhost/download?token=' + param + '&id=' + id
+    url = 'https://localhost/download?token=' + param + '&id=' + res[11]
     get_request(url, "", context)

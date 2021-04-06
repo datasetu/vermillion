@@ -199,7 +199,7 @@ response = requests.post(
 	cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
 	verify=False)
 # print(response.json())
-id_prefix = "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/"
+
 requested_id.append({
 	"id": id_prefix + resource_ids[11],
 	"scopes": ["read", "write"]
@@ -230,7 +230,7 @@ response = requests.post(
 	cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
 	verify=False)
 # print(response.json())
-id_prefix = "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/"
+
 requested_id.append({
 	"id": id_prefix + resource_ids[12],
 	"scopes": ["read", "write"]
