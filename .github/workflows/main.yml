@@ -48,6 +48,17 @@ jobs:
     - name: Run tests and generate reports
       run:  cd setup && ./coverage.sh
 
+
+  codacy-coverage-reporter:
+    runs-on: ubuntu-latest
+    name: codacy-coverage-reporter
+    steps:
+      - uses: actions/checkout@master
+      - name: Run codacy-coverage-reporter
+        uses: codacy/codacy-coverage-reporter-action@master
+        with:
+          project-token: ${{ secrets.CODACY_TOKEN }}
+          coverage-reports: ../../api-server/target/site/jacoco/jacoco.xml
     - name: Clean Up files
       run:  cd setup && ./cleanup.sh
 

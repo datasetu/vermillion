@@ -15,7 +15,7 @@ sleep 10
 echo statement6
 
 export CODACY_PROJECT_TOKEN=$secrets.CODACY_KEY
-bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r target/site/jacoco/jacoco.xml
+#bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r target/site/jacoco/jacoco.xml
 
 
 
