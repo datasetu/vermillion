@@ -17,9 +17,7 @@ AUTH_JAR="authenticator-fat.jar"
 DEFINITIONS_FILE="../conf/rabbitmq/definitions.json"
 CONF_FILE="vermillion.conf"
 
-cd ../api-server
-wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.6/org.jacoco.agent-0.8.6-runtime.jar
-cd ../setup
+
 
 if ! hash "jq" &>/dev/null; then
 
@@ -53,6 +51,12 @@ function encode_password()
 #Read vermillion.conf
 source vermillion.conf
 
+if [ $ENV == "test" ]; then
+  cd ../api-server
+  wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.6/org.jacoco.agent-0.8.6-runtime.jar
+  cd ../setup
+fi
+
 if [ "$(uname)" == "Darwin" ]; then
 	generate_key="head /dev/urandom | shasum | cut -f1 -d' '"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
@@ -61,6 +65,7 @@ else
 	echo "OS not supported"
 	exit 1
 fi
+
 
 if [ -z $RABBITMQ_ADMIN_PASS ]; then
 	

@@ -80,8 +80,11 @@ def step_impl(context):
         print(re)
         print(len(re['hits']))
         if len(re['hits']) == 1:
-            if dat != re['hits'][0]['data']:
-                raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+            for value in re['hits']:
+                print(value)
+                if 'data' in value and value['data'] != dat:
+                    # if dat != re['hits'][0]['data']:
+                    raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
         else:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
 
@@ -92,11 +95,11 @@ def step_impl(context):
         print(re)
         print(len(re['hits']))
         if len(re['hits']) == 2:
-            if dat1 != re['hits'][0]['data']:
-                raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+            for value in re['hits']:
+                print(value)
+                if 'data' in value and not (value['data'] == dat or value['data'] == dat1):
+                    raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
 
-            if dat != re['hits'][1]['data']:
-                raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
         else:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
 
