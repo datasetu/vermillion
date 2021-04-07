@@ -18,6 +18,7 @@ services:
     restart: on-failure
     ports:
       - "${HTTPS_PORT}:443"
+
     networks:
       - vermillion-net
     volumes:

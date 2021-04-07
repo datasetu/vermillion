@@ -78,7 +78,11 @@ def step_impl(context):
 
         re = context.response.json()
         print(re)
-        if dat != re['hits'][0]['data']:
+        print(len(re['hits']))
+        if len(re['hits']) == 1:
+            if dat != re['hits'][0]['data']:
+                raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+        else:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
 
     if context.type == 'authorised_id_multiple':
@@ -86,9 +90,16 @@ def step_impl(context):
         dat1 = {"hello": "world"}
         re = context.response.json()
         print(re)
-        if dat1 != re['hits'][0]['data']:
+        print(len(re['hits']))
+        if len(re['hits']) == 2:
+            if dat1 != re['hits'][0]['data']:
+                raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
             if dat != re['hits'][1]['data']:
                 raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+        else:
+            raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
 
 @then('The response should contain an auth token')
 def step_impl(context):

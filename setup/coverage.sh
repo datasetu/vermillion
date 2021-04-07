@@ -9,7 +9,7 @@ docker exec vertx kill -15 $PID
 sleep 15
 cd ../api-server
 mvn jacoco:report
-sleep 10
+sleep 15
 echo "Done"
 
 

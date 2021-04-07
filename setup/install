@@ -1,12 +1,11 @@
 #!/bin/bash
 
-cd api-server
-wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.6/org.jacoco.agent-0.8.6-runtime.jar
-cd ..
 set -a
 set -e
+
 dirname=`dirname $0`
 cd $dirname
+
 
 #Initialise few constants
 OWNER="rbccps-iisc"
@@ -17,6 +16,10 @@ AUTH_PATH="../authenticator/target"
 AUTH_JAR="authenticator-fat.jar"
 DEFINITIONS_FILE="../conf/rabbitmq/definitions.json"
 CONF_FILE="vermillion.conf"
+
+cd ../api-server
+wget https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/0.8.6/org.jacoco.agent-0.8.6-runtime.jar
+cd ../setup
 
 if ! hash "jq" &>/dev/null; then
 
