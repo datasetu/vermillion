@@ -30,7 +30,6 @@ import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.throwables.BadRequestThrowable;
-import vermillion.throwables.ConflictThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
@@ -53,7 +52,6 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final int ACCEPTED = 202;
     public final int BAD_REQUEST = 400;
     public final int FORBIDDEN = 403;
-    public final int CONFLICT = 409;
     public final int INTERNAL_SERVER_ERROR = 500;
 
     // Auth server constants
@@ -466,7 +464,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             String distance = geoDistance.getString("distance");
 
-            if (!distance.endsWith("m") && !distance.endsWith("M")) {
+            if (!distance.endsWith("m")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
@@ -619,10 +617,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return;
                 }
 
-                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
-                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
-                    return;
-                }
+//                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
+//                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
+//                    return;
+//                }
 
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
@@ -896,7 +894,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             // Create consumer directory path if it does not exist
                             new File(consumerResourceDir).mkdirs();
-                            logger.debug("Created consumer subdirectory");
+                            logger.debug("Insubdirectory");
 
                             Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                             Path providerResourcePath = Paths.get(basePath + resourceId);
@@ -967,10 +965,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         String[] splitId = resourceId.split("/");
 
         // TODO: Need to define the types of IDs supported
-        if (splitId.length < 5) {
-            apiFailure(context, new UnauthorisedThrowable("Resource ID is invalid"));
-            return;
-        }
 
         // Rationale: resource ids are structured as domain/sha1/rs.com/category/id
         // Since pre-checks have been done, it is safe to get splitId[3]
@@ -1275,13 +1269,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .setStatusCode(FORBIDDEN)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        } else if (t instanceof ConflictThrowable) {
-            logger.debug("In conflict");
-            context.response()
-                    .setStatusCode(CONFLICT)
-                    .putHeader("content-type", "application/json")
-                    .end(t.getMessage());
-        } else {
+        }  else {
             logger.debug("In internal error or ServiceException");
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)

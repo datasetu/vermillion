@@ -13,10 +13,24 @@ then
 	rm $JAR_NAME
     fi
     cp target/$JAR_NAME .
+
+    if [ $VERMILLION_ENV == "test" ];
+    then
+	JAVA_OPTS="$COVERAGE_OPTS $JAVA_OPTS"
+    fi
+
+    echo "COMMAND: java $JAVA_OPTS -jar $JAR_NAME" 
     java $JAVA_OPTS -jar $JAR_NAME 
 else
     cd $PROJECT_DIR
     mvn $MVN_OPTS clean package
     cp target/$JAR_NAME .
+
+    if [ $VERMILLION_ENV == "test" ];
+    then
+	JAVA_OPTS="$COVERAGE_OPTS $JAVA_OPTS"
+    fi
+
+    echo "COMMAND: java $JAVA_OPTS -jar $JAR_NAME"
     java $JAVA_OPTS -jar $JAR_NAME 
 fi

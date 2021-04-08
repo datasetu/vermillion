@@ -1,13 +1,13 @@
 #!/bin/bash
 
-set -a
-set -e
+set -ae
 
 dirname=`dirname $0`
 cd $dirname
 
+
 #Initialise few constants
-OWNER="rbccps-iisc"
+OWNER="datasetu"
 REPO="vermillion"
 APISERVER_PATH="../api-server/target"
 APISERVER_JAR="api-server-fat.jar"
@@ -15,6 +15,8 @@ AUTH_PATH="../authenticator/target"
 AUTH_JAR="authenticator-fat.jar"
 DEFINITIONS_FILE="../conf/rabbitmq/definitions.json"
 CONF_FILE="vermillion.conf"
+JACOCO_VERSION=0.8.6
+
 
 if ! hash "jq" &>/dev/null; then
 
@@ -48,6 +50,13 @@ function encode_password()
 #Read vermillion.conf
 source vermillion.conf
 
+if [ $VERMILLION_ENV == "test" ]; then
+
+  wget -nc https://repo1.maven.org/maven2/org/jacoco/org.jacoco.agent/$JACOCO_VERSION/org.jacoco.agent-$JACOCO_VERSION-runtime.jar -P ../api-server
+  cp ../api-server/org.jacoco.agent-$JACOCO_VERSION-runtime.jar ../authenticator/
+
+fi
+
 if [ "$(uname)" == "Darwin" ]; then
 	generate_key="head /dev/urandom | shasum | cut -f1 -d' '"
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
@@ -56,6 +65,7 @@ else
 	echo "OS not supported"
 	exit 1
 fi
+
 
 if [ -z $RABBITMQ_ADMIN_PASS ]; then
 	
@@ -132,3 +142,5 @@ docker-compose -f docker-compose.yml $DOCKER_OPTS up --remove-orphans -d
 
 #Remove unnecessary backup files
 rm -f vermillion.conf.bak
+
+

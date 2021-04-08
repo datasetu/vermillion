@@ -1,7 +1,6 @@
 from behave import then
 import os
 import time
-
 import requests
 import urllib3
 
@@ -32,10 +31,6 @@ def step_impl(context):
     if context.type == 'complex':
         if len(context.response) != 305:
             raise ResponseCountMismatchError(305, len(context.response))
-
-    if context.type == 'latest-api':
-        if len(context.response) != 1:
-            raise ResponseCountMismatchError(1, len(context.response))
 
 
 @then('The response status should be {expected_code}')
@@ -83,7 +78,29 @@ def step_impl(context):
 
         re = context.response.json()
         print(re)
-        if dat != re['hits'][0]['data']:
+        print(len(re['hits']))
+        if len(re['hits']) == 1:
+            for value in re['hits']:
+                print(value)
+                if 'data' in value and value['data'] != dat:
+                    # if dat != re['hits'][0]['data']:
+                    raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+        else:
+            raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+    if context.type == 'authorised_id_multiple':
+        dat = {"hello": "india"}
+        dat1 = {"hello": "world"}
+        re = context.response.json()
+        print(re)
+        print(len(re['hits']))
+        if len(re['hits']) == 2:
+            for value in re['hits']:
+                print(value)
+                if 'data' in value and not (value['data'] == dat or value['data'] == dat1):
+                    raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+        else:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
 
 

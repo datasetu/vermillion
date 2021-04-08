@@ -36,6 +36,9 @@ jobs:
     - name: Install jq and behave
       run: sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave
 
+    - name: Set vermillion env to "test" in conf file
+      run: sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf
+
     - name: Install Vermillion
       run: ./setup/install
 
@@ -45,8 +48,14 @@ jobs:
     - name: Load sample data into ES
       run: cd setup && ./load_sample_data.sh
 
-    - name: Run tests
-      run:  cd ./tests/ && sudo behave
+    - name: Run tests and generate reports
+      run:  cd setup && ./coverage.sh
+
+    - name: Run codacy-coverage-reporter
+      uses: codacy/codacy-coverage-reporter-action@master
+      with:
+          project-token: ${{ secrets.CODACY_TOKEN }}
+          coverage-reports:  api-server/target/site/jacoco/jacoco.xml
 
     - name: Export vertx logs to a file
       if: always()
@@ -60,15 +69,20 @@ jobs:
       if: always()
       run: docker logs rabbit >& rabbit_logs.txt
 
+    - name: Export es logs to a file
+      if: always()
+      run: docker logs elasticsearch >& es_logs.txt
+
     - name: Upload log files as an artifact
       if: always()
       uses: actions/upload-artifact@v2
       with:
-        name: logs-files
+        name: log-files
         path: |
           vertx_logs.txt
           connector_logs.txt
           rabbit_logs.txt
+          es_logs.txt
 
     - name: redoc-cli test
       uses: seeebiii/redoc-cli-github-action@v10

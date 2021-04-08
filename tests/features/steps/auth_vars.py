@@ -20,7 +20,7 @@ headers = {
 
 resource_ids = []
 
-for i in range(0, 8):
+for i in range(0, 13):
 	resource_ids.append(generate_random_chars(special_chars=False))
 #    print(resource_ids[i])
 
@@ -32,7 +32,7 @@ for i in range(1, 6):
 		i] + " for 1 month"
 for i in range(6, 8):
 	acl_set_policy += "; consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
-		i] + " for 1 month if scope = read"
+		i] + " for 1 second if scope = read"
 
 data = {"policy": acl_set_policy}
 response = requests.post(
@@ -145,4 +145,108 @@ tokens["6_7_read"] = r['token']
 res[0] = id_prefix + resource_ids[0] + ".public"
 for i in range(1, 8):
 	res[i] = id_prefix + resource_ids[i]
+# print(res)
+
+acl_set_policy1 = ""
+req_id= []
+for i in range(8, 10):
+	acl_set_policy1 += "consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
+		i] + " for 1 month;"
+acl_set_policy1 += "consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
+	10] + " for 1 month"
+data = {"policy": acl_set_policy1}
+# print(data)
+response = requests.post(
+	'https://localhost:8443/auth/v1/acl/append',
+	headers=headers,
+	data=json.dumps(data),
+	cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
+	verify=False)
+# print(response)
+
+for i in range(8, 11):
+	res[i] = id_prefix + resource_ids[i]
+	# print(res[i])
+	req_id.append({
+		"id": id_prefix + resource_ids[i],
+		"scopes": ["read", "write"]
+	})
+
+data = {"request": req_id}
+
+response = requests.post(
+	'https://localhost:8443/auth/v1/token',
+	headers=headers,
+	cert=(CONSUMER_CERT_PATH, CONSUMER_KEY_PATH),
+	data=json.dumps(data),
+	verify=False)
+# print(response.json())
+r = response.json()
+tokens["8_10_rw"] = r['token']
+
+for i in range(8, 11):
+	res[i] = id_prefix + resource_ids[i]
+
+requested_id = []
+acl_set_policy2 = "consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
+	11] + " for 1 month"
+data = {"policy": acl_set_policy2}
+# print(data)
+response = requests.post(
+	'https://localhost:8443/auth/v1/acl/append',
+	headers=headers,
+	data=json.dumps(data),
+	cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
+	verify=False)
+# print(response.json())
+
+requested_id.append({
+	"id": id_prefix + resource_ids[11],
+	"scopes": ["read", "write"]
+})
+
+data = {"request": requested_id}
+
+response = requests.post(
+	'https://localhost:8443/auth/v1/token',
+	headers=headers,
+	cert=(CONSUMER_CERT_PATH, CONSUMER_KEY_PATH),
+	data=json.dumps(data),
+	verify=False)
+# print(response.json())
+r = response.json()
+tokens["11_rw"] = r['token']
+res[11] = id_prefix+resource_ids[11]
+
+requested_id = []
+acl_set_policy3 = "consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
+	12] + " for 1 month"
+data = {"policy": acl_set_policy3}
+# print(data)
+response = requests.post(
+	'https://localhost:8443/auth/v1/acl/append',
+	headers=headers,
+	data=json.dumps(data),
+	cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
+	verify=False)
+# print(response.json())
+
+requested_id.append({
+	"id": id_prefix + resource_ids[12],
+	"scopes": ["read", "write"]
+})
+
+data = {"request": requested_id}
+
+response = requests.post(
+	'https://localhost:8443/auth/v1/token',
+	headers=headers,
+	cert=(CONSUMER_CERT_PATH, CONSUMER_KEY_PATH),
+	data=json.dumps(data),
+	verify=False)
+# print(response.json())
+r = response.json()
+tokens["12_rw"] = r['token']
+res[12] = id_prefix+resource_ids[12]
+# print(tokens)
 # print(res)
