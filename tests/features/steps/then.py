@@ -13,7 +13,7 @@ SEARCH_ENDPOINT = '/search'
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-
+s_id=[]
 @then('All matching records are returned')
 def step_impl(context):
     if context.type == 'timeseries':
@@ -32,6 +32,9 @@ def step_impl(context):
         if len(context.response) != 305:
             raise ResponseCountMismatchError(305, len(context.response))
 
+    if context.type == 'scroll-search':
+        if len(context.response) != 500:
+            raise ResponseCountMismatchError(500, len(context.response))
 
 @then('The response status should be {expected_code}')
 def step_impl(context, expected_code):
@@ -102,6 +105,19 @@ def step_impl(context):
 
         else:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+
+@then('The response should contain the scroll id')
+def step_impl(context):
+    if context.type == 'geospatial-scroll':
+        re = context.response.json()
+        print(re['scroll_id'])
+        s_id=re['scroll_id']
+        for value in re['hits']:
+            print(value)
+            if 'scroll_id' not in re:
+                raise UnexpectedBehaviourError('Scroll id not found in response')
+
 
 
 @then('The response should contain an auth token')
