@@ -67,19 +67,7 @@ Feature: Vermillion is able to handle secure timeseries datasets
             When The consumer publishes data with invalid body fields
             Then The response status should be 400
 
-	Scenario: Authorised ID - single
-		
-	    Given Vermillion is running
-            When The consumer requests for a standalone authorised ID 
-	    Then The response status should be 200
-	    And  The response should contain the secure timeseries data	
-	
-	Scenario: Authorised ID - multiple
-	   
-            Given Vermillion is running
-            When The consumer requests for multiple authorised IDs
-            Then The response status should be 200
-	    And The response should contain the secure timeseries data
+
 
 	Scenario: Unauthorised ID - single
             
@@ -113,3 +101,17 @@ Feature: Vermillion is able to handle secure timeseries datasets
             Given Vermillion is running
             When The consumer requests for a standalone authorised ID without token
             Then The response status should be 400
+
+       Scenario: Authorised ID - single
+
+          Given Vermillion is running
+          When The consumer requests for a standalone authorised ID
+          Then The response status should be 200
+          And  The response should contain the secure timeseries data
+
+       Scenario: Authorised ID - multiple
+
+          Given Vermillion is running
+          When The consumer requests for multiple authorised IDs
+          Then The response status should be 200
+          And The response should contain the secure timeseries data

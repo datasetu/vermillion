@@ -82,7 +82,6 @@ def callback(ch, method, properties, body):
     logging.info(body)
     '''
     Format of the message has to be the following
-
     {
         "data": <JSON Object>,
         "id": <resource-id>,
@@ -100,16 +99,16 @@ def callback(ch, method, properties, body):
             },
             "id": {
                 "type":
-                "string",
+                    "string",
                 "pattern":
-                "[a-z_.\-]+\/[a-f0-9]{40}\/[a-z_.\-]+\/[a-zA-Z0-9_.\-]+\/[a-zA-Z0-9_.\-]+"
+                    "[a-z_.\-]+\/[a-f0-9]{40}\/[a-z_.\-]+\/[a-zA-Z0-9_.\-]+\/[a-zA-Z0-9_.\-]+"
             },
             "category": {
                 "type": "string"
             },
             "coordinates": {
                 "type":
-                "array",
+                    "array",
                 "items": [{
                     "type": ["number", "integer"]
                 }, {
