@@ -36,6 +36,9 @@ jobs:
     - name: Install jq and behave
       run: sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave
 
+    - name: Set vermillion env to "test" in conf file
+      run: sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf
+
     - name: Install Vermillion
       run: ./setup/install
 
@@ -53,6 +56,7 @@ jobs:
       with:
           project-token: ${{ secrets.CODACY_TOKEN }}
           coverage-reports:  api-server/target/site/jacoco/jacoco.xml
+
     - name: Clean Up files
       run:  cd setup && ./cleanup.sh
 

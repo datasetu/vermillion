@@ -18,7 +18,6 @@ services:
     restart: on-failure
     ports:
       - "${HTTPS_PORT}:443"
-
     networks:
       - vermillion-net
     volumes:
@@ -32,7 +31,6 @@ services:
       - WAIT_HOSTS_TIMEOUT=120
       - PROJECT_DIR=api-server
       - JAR_NAME=api-server-fat.jar
-      - JACOCO_OPTS=-javaagent:org.jacoco.agent-0.8.6-runtime.jar=destfile=target/jacoco.exec
 
   authenticator:
     image: datasetu/java
