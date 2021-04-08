@@ -2,9 +2,9 @@
 
 set -ex
 
-cd provider && rm -rf ./*
-cd ../../api-server
-rm org.jacoco.agent-0.8.6-runtime.jar
-cd webroot/consumer && rm -rf ./*
-cd ../../../tests
-rm test-resource.public
+rm -rf provider/*
+
+# TODO: Read version var from conf file for all usages
+rm ../api-server/org.jacoco.agent-0.8.6-runtime.jar
+
+rm -rf ../api-server/webroot/consumer/*
