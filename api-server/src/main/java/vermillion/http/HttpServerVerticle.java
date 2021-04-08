@@ -281,7 +281,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 apiFailure(context, new BadRequestThrowable("Body is empty"));
                 return;
             }
-            
+
         } catch (Exception e) {
             apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
             return;
@@ -296,6 +296,16 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         if (!requestBody.containsKey("scroll_duration")) {
             apiFailure(context, new BadRequestThrowable("Scroll duration not specified"));
+            return;
+        }
+
+        Set<String> permittedFieldSet = new HashSet<>();
+        permittedFieldSet.add("scroll_id");
+        permittedFieldSet.add("scroll_duration");
+
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames()))
+        {
+            apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
             return;
         }
 
@@ -367,6 +377,19 @@ public class HttpServerVerticle extends AbstractVerticle {
                 && !requestBody.containsKey("time")
                 && !requestBody.containsKey("attribute")) {
             apiFailure(context, new BadRequestThrowable("Invalid request"));
+            return;
+        }
+
+        Set<String> permittedFieldSet = new HashSet<>();
+        permittedFieldSet.add("geo_distance");
+        permittedFieldSet.add("time");
+        permittedFieldSet.add("attribute");
+        permittedFieldSet.add("size");
+        permittedFieldSet.add("scroll_duration");
+
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames()))
+        {
+            apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
             return;
         }
 
@@ -557,7 +580,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String start = time.getString("start");
             String end = time.getString("end");
-            Locale locale = new Locale("English", "UK");
+            Locale locale = new Locale("English", "IN");
 
             if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
                 apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
