@@ -72,6 +72,10 @@ jobs:
       if: always()
       run: docker logs rabbit >& rabbit_logs.txt
 
+    - name: Export es logs to a file
+      if: always()
+      run: docker logs elasticsearch >& es_logs.txt
+
     - name: Upload log files as an artifact
       if: always()
       uses: actions/upload-artifact@v2
@@ -81,6 +85,7 @@ jobs:
           vertx_logs.txt
           connector_logs.txt
           rabbit_logs.txt
+          es_logs.txt
 
     - name: redoc-cli test
       uses: seeebiii/redoc-cli-github-action@v10
