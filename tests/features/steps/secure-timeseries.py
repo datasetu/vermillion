@@ -167,8 +167,8 @@ def step_impl(context):
             "end": "2021-11-01"
         }
     }
-    
-    # Allow one second for es segement refresh 
+
+    # Allow one second for es segement refresh
     time.sleep(5)
     url = VERMILLION_URL + SEARCH_ENDPOINT
     post_request(url, params, json.dumps(data), context)
