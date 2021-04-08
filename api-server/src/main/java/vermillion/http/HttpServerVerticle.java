@@ -381,6 +381,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
 
         Set<String> permittedFieldSet = new HashSet<>();
+        permittedFieldSet.add("id");
         permittedFieldSet.add("geo_distance");
         permittedFieldSet.add("time");
         permittedFieldSet.add("attribute");
