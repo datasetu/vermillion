@@ -2,7 +2,7 @@
 
 set -ex
 
-cd ../tests && sudo behave
+cd ../tests && sudo behave -i secure-timeseries.feature
 PID=$(docker exec vertx ps -aux | grep java | awk '{print $2}')
 echo "killing $PID"
 docker exec vertx kill -15 $PID
