@@ -275,6 +275,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         try {
             requestBody = context.getBodyAsJson();
+
+            if (requestBody == null)
+            {
+                apiFailure(context, new BadRequestThrowable("Body is empty"));
+                return;
+            }
+            
         } catch (Exception e) {
             apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
             return;
