@@ -57,9 +57,6 @@ jobs:
           project-token: ${{ secrets.CODACY_TOKEN }}
           coverage-reports:  api-server/target/site/jacoco/jacoco.xml
 
-    - name: Clean Up files
-      run:  cd setup && ./cleanup.sh
-
     - name: Export vertx logs to a file
       if: always()
       run: docker logs vertx >& vertx_logs.txt
