@@ -276,8 +276,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         try {
             requestBody = context.getBodyAsJson();
 
-            if (requestBody == null)
-            {
+            if (requestBody == null) {
                 apiFailure(context, new BadRequestThrowable("Body is empty"));
                 return;
             }
@@ -303,8 +302,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         permittedFieldSet.add("scroll_id");
         permittedFieldSet.add("scroll_duration");
 
-        if (!permittedFieldSet.containsAll(requestBody.fieldNames()))
-        {
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
             apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
             return;
         }
@@ -388,8 +386,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         permittedFieldSet.add("size");
         permittedFieldSet.add("scroll_duration");
 
-        if (!permittedFieldSet.containsAll(requestBody.fieldNames()))
-        {
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
             apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
             return;
         }
@@ -648,10 +645,12 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return;
                 }
 
-//                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
-//                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
-//                    return;
-//                }
+                //                if (!NumberUtils.isCreatable(minObj.toString()) ||
+                // !NumberUtils.isCreatable(maxObj.toString())) {
+                //                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid
+                // numbers"));
+                //                    return;
+                //                }
 
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
@@ -866,8 +865,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             String resourceId = authorisedIds.getString(i);
                             // Get the actual file name on disk
 
-                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/"
-                                    + resourceId.substring(0, resourceId.lastIndexOf('/'));
+                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId;
 
                             // Create consumer directory path if it does not exist
                             new File(consumerResourceDir).mkdirs();
@@ -1068,10 +1066,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             // if it does not already exist
             String accessFolder = PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
 
-            String providerDirStructure = accessFolder + resourceId.substring(0, resourceId.lastIndexOf("/"));
+            String providerDirStructure = accessFolder + resourceId;
             logger.debug("Provider dir structure=" + providerDirStructure);
 
-            String providerFilePath = accessFolder + resourceId;
+            String providerFilePath = accessFolder + resourceId + "/" + file.fileName();
             logger.debug("Provider file path=" + providerFilePath);
 
             logger.debug("Source=" + finalFileName);
@@ -1086,7 +1084,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             JsonObject dbEntryJson = new JsonObject()
-                    .put("data", new JsonObject().put("link", fileLink))
+                    .put("data", new JsonObject().put("link", fileLink).put("filename", file.fileName()))
                     .put("timestamp", Clock.systemUTC().instant().toString())
                     .put("id", resourceId)
                     .put("category", category);
@@ -1300,7 +1298,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .setStatusCode(FORBIDDEN)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        }  else {
+        } else {
             logger.debug("In internal error or ServiceException");
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)
