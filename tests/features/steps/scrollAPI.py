@@ -331,10 +331,16 @@ def step_impl(context):
 
 @when('The scroll search query is initiated')
 def step_impl(context):
-    context.type == 'scroll-search'
+    context.type = 'scroll-search'
     payload = {
         "scroll_id": sc_id,
         "scroll_duration": "5s"
 
     }
-    post_request(url, "", json.dumps(payload), context)
+    r = requests.post(url=VERMILLION_URL + SCROLL_ENDPOINT,
+                      headers={'content-type': 'application/json'},
+                      data=json.dumps(payload),
+                      verify=False)
+
+    context.response = r.json()['hits']
+
