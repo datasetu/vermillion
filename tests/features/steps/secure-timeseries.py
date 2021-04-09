@@ -52,6 +52,16 @@ def step_impl(context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
+@when('The consumer publishes data with invalid json body')
+def step_impl(context):
+    params = (
+        ('id', res[0]),
+        ('token', tokens["master"]),
+    )
+
+    data = '{"data" {"hello": "world"'
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
+    post_request(url, params, data, context)
 
 @when('The consumer publishes data with invalid json data')
 def step_impl(context):
@@ -169,7 +179,7 @@ def step_impl(context):
     }
 
     # Allow one second for es segement refresh
-    time.sleep(5)
+    time.sleep(1)
     url = VERMILLION_URL + SEARCH_ENDPOINT
     post_request(url, params, json.dumps(data), context)
 
@@ -211,7 +221,7 @@ def step_impl(context):
             "end": "2021-11-01"
         }
     }
-    time.sleep(5)
+    time.sleep(1)
     url = VERMILLION_URL + SEARCH_ENDPOINT
     post_request(url, params, json.dumps(data), context)
 

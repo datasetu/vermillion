@@ -2,9 +2,8 @@ import requests
 import urllib3
 import json
 from behave import when
-from then import s_id
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import tokens, res
+from auth_vars import tokens, res, sc_id
 from utils import generate_random_chars, post_request
 
 VERMILLION_URL = 'https://localhost'
@@ -35,6 +34,27 @@ def step_impl(context):
     post_request(url, "", json.dumps(payload), context)
 
 
+@when('A geo-spatial query is initiated with scroll field and a token')
+def step_impl(context):
+    params = (
+        ('token', tokens["master"]),
+
+    )
+    payload = {
+        "id":
+            res[1],
+        "scroll_duration": "10m",
+        "size": 500,
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m",
+
+        }
+    }
+    url = VERMILLION_URL + SEARCH_ENDPOINT
+    post_request(url, params, json.dumps(payload), context)
+
+
 @when('A geo-spatial query is initiated with scroll field not a string')
 def step_impl(context):
     payload = {
@@ -44,7 +64,7 @@ def step_impl(context):
         "size": 500,
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
-            "distance": "10000m",
+            "distance": "10000m"
 
         }
     }
@@ -112,12 +132,12 @@ def step_impl(context):
         "size": 500,
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
-            "distance": "10000m",
+            "distance": "10000m"
 
         }
     }
     url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll value greater than 60m')
@@ -129,7 +149,7 @@ def step_impl(context):
         "size": 500,
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
-            "distance": "10000m",
+            "distance": "10000m"
 
         }
     }
@@ -225,7 +245,7 @@ def step_impl(context):
 @when('The scroll search query without body')
 def step_impl(context):
     # payload = {
-    #     # "scroll_id": s_id,
+    #     # "scroll_id": sc_id,
     #     # "scroll_duration": "5s"
     #
     # }
@@ -235,7 +255,7 @@ def step_impl(context):
 @when('The scroll search query with invalid json body')
 def step_impl(context):
     payload = {
-        "scroll_id": s_id,
+        "scroll_id": sc_id,
         "scroll_duration": True
 
     }
@@ -245,10 +265,11 @@ def step_impl(context):
 @when('The scroll search query without scroll duration')
 def step_impl(context):
     payload = {
-        "scroll_id": s_id
+        "scroll_id": sc_id
 
     }
     post_request(url, "", json.dumps(payload), context)
+
 
 @when('The scroll search query without scroll id')
 def step_impl(context):
@@ -257,6 +278,7 @@ def step_impl(context):
 
     }
     post_request(url, "", json.dumps(payload), context)
+
 
 @when('The scroll search query with empty body')
 def step_impl(context):
@@ -273,7 +295,7 @@ def step_impl(context):
 
     )
     payload = {
-        "scroll_id": s_id,
+        "scroll_id": sc_id,
         "scroll_duration": "5s"
 
     }
@@ -286,7 +308,7 @@ def step_impl(context):
         ('token', generate_random_chars()),
     )
     payload = {
-        "scroll_id": s_id,
+        "scroll_id": sc_id,
         "scroll_duration": "5s"
 
     }
@@ -299,7 +321,7 @@ def step_impl(context):
     #     ('token', generate_random_chars()),
     # )
     payload = {
-        "scroll_id": s_id,
+        "scroll_id": sc_id,
         "scroll_duration": "5s",
         "xyz": 123
 
@@ -309,8 +331,9 @@ def step_impl(context):
 
 @when('The scroll search query is initiated')
 def step_impl(context):
+    context.type == 'scroll-search'
     payload = {
-        "scroll_id": s_id,
+        "scroll_id": sc_id,
         "scroll_duration": "5s"
 
     }

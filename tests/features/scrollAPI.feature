@@ -5,6 +5,11 @@ Feature: Vermillion is able to handle scroll search queries
     When A geo-spatial query is initiated with scroll field in body
     Then The response should contain the scroll id
 
+  Scenario: Geo-spatial query along with scroll field and a token
+    Given Vermillion is running
+    When A geo-spatial query is initiated with scroll field and a token
+    Then The response status should be 200
+
   Scenario: Geo-spatial query along with extraneous parameters
     Given Vermillion is running
     When A geo-spatial query is initiated with extraneous parameters
@@ -33,6 +38,16 @@ Feature: Vermillion is able to handle scroll search queries
   Scenario: Geo-spatial query along with scroll value greater than 1hr
     Given Vermillion is running
     When A geo-spatial query is initiated with scroll value greater than 1hr
+    Then The response status should be 400
+
+  Scenario: Geo-spatial query along with scroll value greater than 60m
+    Given Vermillion is running
+    When A geo-spatial query is initiated with scroll value greater than 60m
+    Then The response status should be 400
+
+  Scenario: Geo-spatial query along with scroll value greater than 3600s
+    Given Vermillion is running
+    When A geo-spatial query is initiated with scroll value greater than 3600s
     Then The response status should be 400
 
   Scenario: Geo-spatial query along with invalid response size integer
@@ -70,11 +85,6 @@ Feature: Vermillion is able to handle scroll search queries
     When The scroll search query without scroll id
     Then The response status should be 400
 
-  Scenario: Scroll search query with token
-    Given Vermillion is running
-    When The scroll search query with token
-    Then The response status should be 200
-
   Scenario: Scroll search query with invalid token
     Given Vermillion is running
     When The scroll search query with invalid token
@@ -89,3 +99,8 @@ Feature: Vermillion is able to handle scroll search queries
     Given Vermillion is running
     When The scroll search query is initiated
     Then All matching records are returned
+
+  Scenario: Scroll search query with token
+    Given Vermillion is running
+    When The scroll search query with token
+    Then The response status should be 200
