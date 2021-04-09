@@ -690,10 +690,10 @@ public class HttpServerVerticle extends AbstractVerticle {
         String scrollValueStr;
         int scrollValue;
 
-        if (requestBody.containsKey("scroll")) {
+        if (requestBody.containsKey("scroll_duration")) {
             scroll = true;
 
-            Object scrollObj = requestBody.getValue("scroll");
+            Object scrollObj = requestBody.getValue("scroll_duration");
 
             if (!(scrollObj instanceof String)) {
                 apiFailure(context, new BadRequestThrowable("Scroll parameter must be a string"));

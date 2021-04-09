@@ -5,6 +5,11 @@ Feature: Vermillion is able to handle scroll search queries
     When A geo-spatial query is initiated with scroll field in body
     Then The response should contain the scroll id
 
+  Scenario: Geo-spatial query along with extraneous parameters
+    Given Vermillion is running
+    When A geo-spatial query is initiated with extraneous parameters
+    Then The response status should be 400
+
   Scenario: Geo-spatial query along with scroll field not a string
     Given Vermillion is running
     When A geo-spatial query is initiated with scroll field not a string
@@ -60,6 +65,11 @@ Feature: Vermillion is able to handle scroll search queries
     When The scroll search query without scroll duration
     Then The response status should be 400
 
+  Scenario: Scroll search query without scroll id
+    Given Vermillion is running
+    When The scroll search query without scroll id
+    Then The response status should be 400
+
   Scenario: Scroll search query with token
     Given Vermillion is running
     When The scroll search query with token
@@ -69,6 +79,11 @@ Feature: Vermillion is able to handle scroll search queries
     Given Vermillion is running
     When The scroll search query with invalid token
     Then The response status should be 403
+
+  Scenario: Scroll search query with extraneous parameters
+    Given Vermillion is running
+    When The scroll search query with extraneous parameters
+    Then The response status should be 400
 
   Scenario: Scroll search query
     Given Vermillion is running
