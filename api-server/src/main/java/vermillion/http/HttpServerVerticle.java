@@ -168,15 +168,13 @@ public class HttpServerVerticle extends AbstractVerticle {
         tokenExpiry.subscribe(result-> {
             logger.debug("Value of token:" + result);
             if (result != null && result > 0 && finalConsumerResourcePath != null) {
-                Files.deleteIfExists(finalConsumerResourcePath);
+                boolean isFileSymLinkDeleted = Files.deleteIfExists(finalConsumerResourcePath);
+                logger.debug("Is file directory deleted:" + isFileSymLinkDeleted);
                 apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                return;
             }
-            if(Files.exists(finalConsumerResourcePath)) {
-                context.reroute(String.valueOf(finalConsumerResourcePath));
-            }
-            apiFailure(context, new FileNotFoundException("File not found- Please download it first"));
-        });
-
+            context.reroute(String.valueOf(finalConsumerResourcePath));
+        }, t -> apiFailure(context, t));
     }
 
     private Maybe<Integer> isTokenExpired(String token) {
