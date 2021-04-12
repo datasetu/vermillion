@@ -34,6 +34,7 @@ import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
@@ -52,6 +53,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final int BAD_REQUEST = 400;
     public final int FORBIDDEN = 403;
     public final int CONFLICT = 409;
+    public final int NOT_FOUND = 404;
     public final int INTERNAL_SERVER_ERROR = 500;
 
     // Auth server constants
@@ -169,16 +171,28 @@ public class HttpServerVerticle extends AbstractVerticle {
                 Files.deleteIfExists(finalConsumerResourcePath);
                 apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
             }
-            context.reroute(CONSUMER_PATH);
+            if(Files.exists(finalConsumerResourcePath)) {
+                context.reroute(String.valueOf(finalConsumerResourcePath));
+            }
+            apiFailure(context, new FileNotFoundException("File not found- Please download it first"));
         });
 
     }
 
     private Maybe<Integer> isTokenExpired(String token) {
-        logger.debug("In is token expiry method " + token);
+        logger.debug("In istoken expiry method " + token);
         Single<String> value1 =  getValue(token);
-        return value1.flatMapMaybe(expiryDetails-> Maybe.just(new JsonObject(expiryDetails).getString("expiry")))
-                .flatMap(tokenExpiry-> Maybe.just(Clock.systemUTC().instant().toString().compareTo(tokenExpiry)));
+
+        return value1.flatMapCompletable(
+                tokenDetailsFromCache -> "absent".equalsIgnoreCase(tokenDetailsFromCache) ? introspect(token) : Completable.complete())
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getString("expiry")))
+                .flatMap(tokenExpiry-> {
+                    logger.debug("tokenExpiry:" + tokenExpiry);
+                    return Maybe.just(Clock.systemUTC().instant().toString().compareTo(tokenExpiry));
+                });
     }
 
     // TODO: Check why using a custom conf file fails here
@@ -1325,6 +1339,12 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .setStatusCode(CONFLICT)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
+        } else if (t instanceof FileNotFoundException) {
+        logger.debug("In FileNotFound");
+        context.response()
+                .setStatusCode(NOT_FOUND)
+                .putHeader("content-type", "application/json")
+                .end(t.getMessage());
         } else {
             logger.debug("In internal error or ServiceException");
             context.response()
@@ -1332,6 +1352,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         }
+
     }
 
     // TODO: Add adequate comments everywhere
