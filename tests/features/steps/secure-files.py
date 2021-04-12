@@ -72,14 +72,9 @@ def step_impl(context):
 
 @when('The consumer downloads file by passing multiple resource ids and a token')
 def step_impl(context):
-    params = (
 
-        ("id", (res[8], res[10])),
-        ('token', tokens["8_10_rw"]),
-
-    )
-    url = 'https://localhost/download'
-    get_request(url, params, context)
+    url = 'https://localhost/download?&token=' + tokens["8_10_rw"] + '&id=' + res[8] + ',' + res[10]
+    get_request(url, "", context)
 
 
 @when('The consumer downloads file by passing a valid reroute link')
@@ -265,13 +260,18 @@ def step_impl(context):
 
 @when('The consumer downloads file by passing only token and requested id is not present')
 def step_impl(context):
-    param = tokens["12_rw"]
-    url = 'https://localhost/download?token=' + param
-    get_request(url, "", context)
+    params = (
+        ('token', tokens["12_rw"]),
+    )
+    url = 'https://localhost/download'
+    get_request(url, params, context)
 
 
 @when('The consumer downloads file by passing id,token and requested id is not present')
 def step_impl(context):
-    param = tokens["12_rw"]
-    url = 'https://localhost/download?token=' + param + '&id=' + res[11]
-    get_request(url, "", context)
+    params = (
+        ('token', tokens["12_rw"]),
+        ('id', res[12]),
+    )
+    url = 'https://localhost/download'
+    get_request(url, params, context)

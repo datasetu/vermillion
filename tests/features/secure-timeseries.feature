@@ -121,3 +121,4 @@ Feature: Vermillion is able to handle secure timeseries datasets
           When The consumer requests for multiple authorised IDs
           Then The response status should be 200
           And The response should contain the secure timeseries data
+

@@ -81,3 +81,7 @@ Feature: Vermillion is able to handle static files
 		        And The expected file is returned
 
 
+  Scenario: Consumer publishes with form parameter other than file
+    Given Vermillion is running
+    When The consumer publishes with a valid and invalid form parameter
+    Then The response status should be 201

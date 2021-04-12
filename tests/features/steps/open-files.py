@@ -165,7 +165,7 @@ def step_impl(context):
 def step_impl(context):
     params = (
 
-        ("id", res[1]),
+        ("id", res[0]),
         ('token', tokens["master"]),
     )
 
@@ -238,3 +238,21 @@ def step_impl(context):
     url = 'https://localhost/provider/public/' + res[0]
     get_request(url, None, context)
     open('test-resource.public', 'w').write('This is the downloaded file')
+
+
+@when('The consumer publishes with a valid and invalid form parameter')
+def step_impl(context):
+    params = (
+        ("id", res[0]
+         ),
+        ('token', tokens["master"]),
+
+    )
+    files = {
+         'file': ('sample.txt', open('sample.txt', 'rb')),
+         'fil': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
+
+
+    }
+
+    post_files(params, files, context)

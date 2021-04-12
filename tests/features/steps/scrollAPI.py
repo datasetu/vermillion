@@ -123,6 +123,40 @@ def step_impl(context):
     post_request(url, "", json.dumps(payload), context)
 
 
+@when('A geo-spatial query is initiated with scroll duration equal to null')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "scroll_duration": "",
+        "size": 500,
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m",
+
+        }
+    }
+    url = VERMILLION_URL + SEARCH_ENDPOINT
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('A geo-spatial query is initiated with invalid scroll unit')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "scroll_duration": "1a",
+        "size": 500,
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m",
+
+        }
+    }
+    url = VERMILLION_URL + SEARCH_ENDPOINT
+    post_request(url, "", json.dumps(payload), context)
+
+
 @when('A geo-spatial query is initiated with scroll value greater than 1hr')
 def step_impl(context):
     payload = {
@@ -302,10 +336,10 @@ def step_impl(context):
     post_request(url, params, json.dumps(payload), context)
 
 
-@when('The scroll search query with invalid token')
+@when('The scroll search query with invalid token for public id')
 def step_impl(context):
     params = (
-        ('token', generate_random_chars()),
+        ('token', 'auth.local/' + generate_random_chars()),
     )
     payload = {
         "scroll_id": sc_id,
@@ -317,13 +351,60 @@ def step_impl(context):
 
 @when('The scroll search query with extraneous parameters')
 def step_impl(context):
-    # params = (
-    #     ('token', generate_random_chars()),
-    # )
     payload = {
         "scroll_id": sc_id,
         "scroll_duration": "5s",
         "xyz": 123
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('The scroll search query with scroll id equal to null')
+def step_impl(context):
+    payload = {
+        "scroll_id": "",
+        "scroll_duration": "5s",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('The scroll search query with scroll duration equal to null')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('The scroll search query with invalid scroll id')
+def step_impl(context):
+    payload = {
+        "scroll_id": generate_random_chars(),
+        "scroll_duration": "5s",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('The scroll search query with invalid scroll unit')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "5a",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('The scroll search query with scroll id as integer')
+def step_impl(context):
+    payload = {
+        "scroll_id": 123,
+        "scroll_duration": "5s",
 
     }
     post_request(url, "", json.dumps(payload), context)
@@ -343,4 +424,3 @@ def step_impl(context):
                       verify=False)
 
     context.response = r.json()['hits']
-

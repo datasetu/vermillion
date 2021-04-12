@@ -65,6 +65,16 @@ Feature: Vermillion is able to handle scroll search queries
     When A geo-spatial query is initiated with response size less than 0
     Then The response status should be 400
 
+  Scenario: Geo-spatial query along with scroll duration equal to null
+    Given Vermillion is running
+    When A geo-spatial query is initiated with scroll duration equal to null
+    Then The response status should be 400
+
+  Scenario: Geo-spatial query along with invalid scroll unit
+    Given Vermillion is running
+    When A geo-spatial query is initiated with invalid scroll unit
+    Then The response status should be 400
+
   Scenario: Scroll search query without body
     Given Vermillion is running
     When The scroll search query without body
@@ -73,6 +83,31 @@ Feature: Vermillion is able to handle scroll search queries
   Scenario: Scroll search query with invalid json body
     Given Vermillion is running
     When The scroll search query with invalid json body
+    Then The response status should be 400
+
+  Scenario: Scroll search query with scroll id equal to null
+    Given Vermillion is running
+    When The scroll search query with scroll id equal to null
+    Then The response status should be 400
+
+  Scenario: Scroll search query with scroll duration equal to null
+    Given Vermillion is running
+    When The scroll search query with scroll duration equal to null
+    Then The response status should be 400
+
+  Scenario: Scroll search query with scroll id as integer
+    Given Vermillion is running
+    When The scroll search query with scroll id as integer
+    Then The response status should be 400
+
+  Scenario: Scroll search query with invalid scroll id
+    Given Vermillion is running
+    When The scroll search query with invalid scroll id
+    Then The response status should be 400
+
+  Scenario: Scroll search query with invalid scroll unit
+    Given Vermillion is running
+    When The scroll search query with invalid scroll unit
     Then The response status should be 400
 
   Scenario: Scroll search query without scroll duration
@@ -85,10 +120,10 @@ Feature: Vermillion is able to handle scroll search queries
     When The scroll search query without scroll id
     Then The response status should be 400
 
-  Scenario: Scroll search query with invalid token
+  Scenario: Scroll search query with invalid token for public id
     Given Vermillion is running
-    When The scroll search query with invalid token
-    Then The response status should be 403
+    When The scroll search query with invalid token for public id
+    Then The response status should be 200
 
   Scenario: Scroll search query with extraneous parameters
     Given Vermillion is running

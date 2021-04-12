@@ -47,10 +47,9 @@ def step_impl(context):
         ('id', res[4]),
         ('token', tokens["master"]),
     )
-    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, verify=False)
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    data = '{"dat": {"hello": "india"}}'
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
+    post_request(url, params, data, context)
 
 @when('The consumer publishes data with invalid json body')
 def step_impl(context):
