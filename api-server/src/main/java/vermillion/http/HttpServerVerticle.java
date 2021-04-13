@@ -317,6 +317,11 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        if(!isValidScrollID(scrollId)){
+            apiFailure(context, new BadRequestThrowable("Invalid Scroll Id"));
+            return;
+        }
+
         if("".equals(scrollDuration) || scrollDuration == null){
             apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
             return;
@@ -1429,13 +1434,21 @@ public class HttpServerVerticle extends AbstractVerticle {
         return resourceID.matches(validRegex);
     }
 
+    private boolean isValidScrollID(String scrollID) {
+
+        logger.debug("In isValidScrollId");
+        logger.debug("Received Scroll id = " + scrollID);
+
+        String validRegex = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$";
+        return scrollID.matches(validRegex);
+    }
+
     private boolean isValidToken(String token) {
 
         logger.debug("In isValidToken");
         logger.debug("Received token = " + token);
-        // TODO: Handle sub-categories correctly
-        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
 
+        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
         return token.matches(validRegex);
     }
 }
