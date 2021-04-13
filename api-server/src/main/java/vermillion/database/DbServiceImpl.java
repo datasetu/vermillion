@@ -11,12 +11,13 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.reactivex.CompletableHelper;
 import io.vertx.reactivex.SingleHelper;
+import io.vertx.serviceproxy.ServiceException;
 import org.apache.http.HttpHost;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Request;
 import org.elasticsearch.client.Response;
+import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
-import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 
 import java.io.IOException;
@@ -76,62 +77,52 @@ public class DbServiceImpl implements DbService {
         Response response = null;
         try {
             response = client.performRequest(searchRequest);
+        } catch (ResponseException e) {
+            logger.debug(e.getMessage());
+            resultHandler.handle(
+                    ServiceException.fail(500, "Error while querying DB. Please check your inputs and try again."));
+            return this;
+        } catch (Exception e) {
+            resultHandler.handle(ServiceException.fail(500, "Internal Server Error"));
+            return this;
+        }
+
+        JsonObject responseJson = null;
+        try {
+            responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
+
         } catch (IOException e) {
             logger.debug(e.getMessage());
             resultHandler.handle(
-                    Future.failedFuture(
-                            new InternalErrorThrowable(
-                                    "Error while querying DB. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
+                    ServiceException.fail(500, "Error while querying DB. Please check your inputs and try again."));
             return this;
         }
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            resultHandler.handle(
-                    Future.failedFuture(
-                            new BadRequestThrowable(
-                                    "Malformed query. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
-            return this;
-        } else {
-            JsonObject responseJson = null;
-            try {
-                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
+        JsonObject finalResponseJson = responseJson;
 
-            } catch (IOException e) {
-                logger.debug(e.getMessage());
-                resultHandler.handle(
-                        Future.failedFuture(
-                                new InternalErrorThrowable(
-                                        "Error while querying DB. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
-                return this;
-            }
+        Observable.create(observableEmitter -> {
+                    JsonArray responseHits =
+                            finalResponseJson.getJsonObject("hits").getJsonArray("hits");
 
-            JsonObject finalResponseJson = responseJson;
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseHits.size(); i++) {
+                        observableEmitter.onNext(responseHits.getJsonObject(i).getJsonObject("_source"));
+                    }
+                    observableEmitter.onComplete();
+                })
+                .collect(JsonArray::new, JsonArray::add)
+                .map(hits -> {
+                    JsonObject searchResponse = new JsonObject();
 
-            Observable.create(observableEmitter -> {
-                        JsonArray responseHits =
-                                finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+                    if (scroll) {
+                        searchResponse.put("scroll_id", finalResponseJson.getString("_scroll_id"));
+                    }
 
-                        // TODO: This might be expensive for large responses
-                        for (int i = 0; i < responseHits.size(); i++) {
-                            observableEmitter.onNext(
-                                    responseHits.getJsonObject(i).getJsonObject("_source"));
-                        }
-                        observableEmitter.onComplete();
-                    })
-                    .collect(JsonArray::new, JsonArray::add)
-                    .map(hits -> {
-                        JsonObject searchResponse = new JsonObject();
+                    searchResponse.put("hits", hits);
 
-                        if (scroll) {
-                            searchResponse.put("scroll_id", finalResponseJson.getString("_scroll_id"));
-                        }
-
-                        searchResponse.put("hits", hits);
-
-                        return searchResponse;
-                    })
-                    .subscribe(SingleHelper.toObserver(resultHandler));
-        }
+                    return searchResponse;
+                })
+                .subscribe(SingleHelper.toObserver(resultHandler));
 
         return this;
     }
@@ -156,75 +147,70 @@ public class DbServiceImpl implements DbService {
         Response response = null;
         try {
             response = client.performRequest(searchRequest);
+        } catch (ResponseException e) {
+
+            logger.debug("Error message = " + e.getMessage());
+            resultHandler.handle(ServiceException.fail(
+                    500,
+                    "Error while querying DB. Please check your inputs and try again."));
+            return this;
+        } catch (Exception e) {
+            logger.debug("Exception = " + e.getMessage());
+            resultHandler.handle(ServiceException.fail(500, "Internal Server Error"));
+            return this;
+        }
+
+        JsonObject responseJson = null;
+        try {
+            responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
         } catch (IOException e) {
-            logger.debug(e.getMessage());
-            resultHandler.handle(
-                    Future.failedFuture(
-                            new InternalErrorThrowable(
-                                    "Error while querying DB. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
-            return this;
+            e.printStackTrace();
         }
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            resultHandler.handle(
-                    Future.failedFuture(
-                            new BadRequestThrowable(
-                                    "Malformed query. Please check your inputs and try again. You will be rate-limited very soon if your subsequent queries trigger this error.")));
-            return this;
-        } else {
-            JsonObject responseJson = null;
-            try {
-                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        JsonObject finalResponseJson = responseJson;
 
-            JsonObject finalResponseJson = responseJson;
+        Observable.create(observableEmitter -> {
+                    JsonArray responseHits =
+                            finalResponseJson.getJsonObject("hits").getJsonArray("hits");
 
-            Observable.create(observableEmitter -> {
-                        JsonArray responseHits =
-                                finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseHits.size(); i++) {
 
-                        // TODO: This might be expensive for large responses
-                        for (int i = 0; i < responseHits.size(); i++) {
+                        JsonObject responsedocs = responseHits.getJsonObject(i).getJsonObject("_source");
 
-                            JsonObject responsedocs =
-                                    responseHits.getJsonObject(i).getJsonObject("_source");
+                        JsonObject responseData = responsedocs.getJsonObject("data");
 
-                            JsonObject responseData = responsedocs.getJsonObject("data");
+                        if (responseData.containsKey("link")
+                                && "/download".equalsIgnoreCase(responseData.getString("link"))) {
 
-                            if (responseData.containsKey("link")
-                                    && "/download".equalsIgnoreCase(responseData.getString("link"))) {
+                            String downloadLink = "https://"
+                                    + serverName
+                                    + "/download?token="
+                                    + token
+                                    + "&id="
+                                    + responsedocs.getString("id");
 
-                                String downloadLink = "https://"
-                                        + serverName
-                                        + "/download?token="
-                                        + token
-                                        + "&id="
-                                        + responsedocs.getString("id");
-
-                                responsedocs.getJsonObject("data").put("link", downloadLink);
-                            }
-                            observableEmitter.onNext(responsedocs);
+                            responsedocs.getJsonObject("data").put("link", downloadLink);
                         }
-                        observableEmitter.onComplete();
-                    })
-                    .collect(JsonArray::new, JsonArray::add)
-                    .map(hits -> {
-                        JsonObject searchResponse = new JsonObject();
+                        observableEmitter.onNext(responsedocs);
+                    }
+                    observableEmitter.onComplete();
+                })
+                .collect(JsonArray::new, JsonArray::add)
+                .map(hits -> {
+                    JsonObject searchResponse = new JsonObject();
 
-                        if (scroll) {
-                            searchResponse.put("scroll_id", finalResponseJson.getString("_scroll_id"));
-                        }
+                    if (scroll) {
+                        searchResponse.put("scroll_id", finalResponseJson.getString("_scroll_id"));
+                    }
 
-                        searchResponse.put("hits", hits);
+                    searchResponse.put("hits", hits);
 
-                        return searchResponse;
-                    })
-                    .subscribe(SingleHelper.toObserver(resultHandler));
+                    return searchResponse;
+                })
+                .subscribe(SingleHelper.toObserver(resultHandler));
 
-            return this;
-        }
+        return this;
     }
 
     @Override
@@ -238,8 +224,7 @@ public class DbServiceImpl implements DbService {
         logger.debug("In scrolled search");
         logger.debug("Scroll ID = " + scrollId);
 
-        if(authorisedIDs!=null)
-        {
+        if (authorisedIDs != null) {
             logger.debug("Authorised IDs = " + authorisedIDs.encodePrettily());
         }
 
@@ -254,74 +239,80 @@ public class DbServiceImpl implements DbService {
         Response response = null;
         try {
             response = client.performRequest(scrollRequest);
-        } catch (IOException e) {
-            logger.debug(e.getMessage());
-            resultHandler.handle(Future.failedFuture(
-                    new InternalErrorThrowable("Error while querying DB. Please check your inputs and try again.")));
-            return this;
-        }
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            resultHandler.handle(Future.failedFuture(new BadRequestThrowable("Reached end of pagination and/or incorrect scroll ID and/or expired scroll ID")));
-            return this;
-        } else {
-            JsonObject responseJson = null;
-            try {
-                responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
-            } catch (IOException e) {
-                e.printStackTrace();
+        } catch (ResponseException e) {
+            int statusCode = e.getResponse().getStatusLine().getStatusCode();
+
+            if (statusCode == 404) {
+                resultHandler.handle(
+                        ServiceException.fail(404, "Reached end of pagination or incorrect/expired scroll ID"));
+                return this;
+            } else {
+                resultHandler.handle(ServiceException.fail(
+                        statusCode, "Error while querying DB. Please check your inputs and try again."));
+                return this;
             }
-
-            JsonObject finalResponseJson = responseJson;
-
-            Observable.create(observableEmitter -> {
-                        JsonArray responseHits =
-                                finalResponseJson.getJsonObject("hits").getJsonArray("hits");
-
-                        // TODO: This might be expensive for large responses
-                        for (int i = 0; i < responseHits.size(); i++) {
-
-                            JsonObject responseDoc =
-                                    responseHits.getJsonObject(i).getJsonObject("_source");
-
-                            String resourceID = responseDoc.getString("id");
-
-                            // The data being accessed is a secure dataset
-                            if (!resourceID.endsWith(".public")) {
-                                if (token != null && authorisedIDs.contains(resourceID)) {
-                                    JsonObject responseData = responseDoc.getJsonObject("data");
-
-                                    if (responseData.containsKey("link")
-                                            && "/download".equalsIgnoreCase(responseData.getString("link"))) {
-
-                                        String downloadLink = "https://"
-                                                + serverName
-                                                + "/download?token="
-                                                + token
-                                                + "&id="
-                                                + responseDoc.getString("id");
-
-                                        responseDoc.getJsonObject("data").put("link", downloadLink);
-                                    }
-                                } else {
-                                    continue;
-                                }
-                            }
-
-                            observableEmitter.onNext(responseDoc);
-                        }
-                        observableEmitter.onComplete();
-                    })
-                    .collect(JsonArray::new, JsonArray::add)
-                    .map(hits -> new JsonObject()
-                            .put("scroll_id", finalResponseJson.getString("_scroll_id"))
-                            .put("hits", hits))
-                    .subscribe(SingleHelper.toObserver(resultHandler));
-
+        } catch (Exception e) {
+            resultHandler.handle(ServiceException.fail(500, "Internal Server Error"));
             return this;
         }
+
+        JsonObject responseJson = null;
+        try {
+            responseJson = new JsonObject(EntityUtils.toString(response.getEntity()));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        JsonObject finalResponseJson = responseJson;
+
+        Observable.create(observableEmitter -> {
+                    JsonArray responseHits =
+                            finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseHits.size(); i++) {
+
+                        JsonObject responseDoc = responseHits.getJsonObject(i).getJsonObject("_source");
+
+                        String resourceID = responseDoc.getString("id");
+
+                        // The data being accessed is a secure dataset
+                        if (!resourceID.endsWith(".public")) {
+                            if (token != null && authorisedIDs.contains(resourceID)) {
+                                JsonObject responseData = responseDoc.getJsonObject("data");
+
+                                if (responseData.containsKey("link")
+                                        && "/download".equalsIgnoreCase(responseData.getString("link"))) {
+
+                                    String downloadLink = "https://"
+                                            + serverName
+                                            + "/download?token="
+                                            + token
+                                            + "&id="
+                                            + responseDoc.getString("id");
+
+                                    responseDoc.getJsonObject("data").put("link", downloadLink);
+                                }
+                            } else {
+                                continue;
+                            }
+                        }
+
+                        observableEmitter.onNext(responseDoc);
+                    }
+                    observableEmitter.onComplete();
+                })
+                .collect(JsonArray::new, JsonArray::add)
+                .map(hits -> new JsonObject()
+                        .put("scroll_id", finalResponseJson.getString("_scroll_id"))
+                        .put("hits", hits))
+                .subscribe(SingleHelper.toObserver(resultHandler));
+
+        return this;
     }
 
+    // TODO: No longer used. Check occurrences and remove.
     @Override
     public DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler) {
         // TODO: Don't insert into db directly use rabbitmq

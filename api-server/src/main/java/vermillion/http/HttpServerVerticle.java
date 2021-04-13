@@ -24,6 +24,7 @@ import io.vertx.reactivex.ext.web.handler.StaticHandler;
 import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
+import io.vertx.serviceproxy.ServiceException;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.validator.GenericValidator;
 import vermillion.broker.reactivex.BrokerService;
@@ -276,8 +277,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         try {
             requestBody = context.getBodyAsJson();
 
-            if (requestBody == null)
-            {
+            if (requestBody == null) {
                 apiFailure(context, new BadRequestThrowable("Body is empty"));
                 return;
             }
@@ -303,8 +303,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         permittedFieldSet.add("scroll_id");
         permittedFieldSet.add("scroll_duration");
 
-        if (!permittedFieldSet.containsAll(requestBody.fieldNames()))
-        {
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
             apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
             return;
         }
@@ -388,8 +387,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         permittedFieldSet.add("size");
         permittedFieldSet.add("scroll_duration");
 
-        if (!permittedFieldSet.containsAll(requestBody.fieldNames()))
-        {
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
             apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
             return;
         }
@@ -648,10 +646,12 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return;
                 }
 
-//                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
-//                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
-//                    return;
-//                }
+                //                if (!NumberUtils.isCreatable(minObj.toString()) ||
+                // !NumberUtils.isCreatable(maxObj.toString())) {
+                //                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid
+                // numbers"));
+                //                    return;
+                //                }
 
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
@@ -690,10 +690,10 @@ public class HttpServerVerticle extends AbstractVerticle {
         String scrollValueStr;
         int scrollValue;
 
-        if (requestBody.containsKey("scroll")) {
+        if (requestBody.containsKey("scroll_duration")) {
             scroll = true;
 
-            Object scrollObj = requestBody.getValue("scroll");
+            Object scrollObj = requestBody.getValue("scroll_duration");
 
             if (!(scrollObj instanceof String)) {
                 apiFailure(context, new BadRequestThrowable("Scroll parameter must be a string"));
@@ -1295,13 +1295,38 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof UnauthorisedThrowable) {
-            logger.debug("In unauthroised");
+            logger.debug("In unauthorised");
             context.response()
                     .setStatusCode(FORBIDDEN)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        }  else {
-            logger.debug("In internal error or ServiceException");
+        } else if (t instanceof ServiceException) {
+
+        	  logger.debug("Service exception");
+        	  ServiceException serviceException = (ServiceException) t;
+
+            if (serviceException.failureCode() == 404) {
+                context.response()
+                        .setStatusCode(BAD_REQUEST)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject()
+                                .put("status", "error")
+                                .put("message", serviceException.getMessage())
+                                .encode());
+            }
+            else
+            {
+	            context.response()
+					            .setStatusCode(INTERNAL_SERVER_ERROR)
+					            .putHeader("content-type", "application/json")
+					            .end(new JsonObject()
+									            .put("status", "error")
+									            .put("message", serviceException.getMessage())
+									            .encode());
+            }
+        } else {
+            logger.debug("In internal error");
+
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)
                     .putHeader("content-type", "application/json")
