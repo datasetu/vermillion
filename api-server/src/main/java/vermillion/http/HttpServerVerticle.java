@@ -701,7 +701,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             scrollStr = scrollObj.toString();
-
+            if ("".equals(scrollStr) || scrollStr == null){
+                apiFailure(context, new BadRequestThrowable("Scroll parameter is empty"));
+                return;
+            }
             // If the value is 10m, separate out '10' and 'm'
             scrollUnit = scrollStr.substring(scrollStr.length() - 1);
             scrollValueStr = scrollStr.substring(0, scrollStr.length() - 1);
@@ -725,6 +728,13 @@ public class HttpServerVerticle extends AbstractVerticle {
                         context,
                         new BadRequestThrowable(
                                 "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
+                return;
+            }
+            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equalsIgnoreCase("m") && !scrollUnit.equalsIgnoreCase("s")) {
+                apiFailure(
+                        context,
+                        new BadRequestThrowable(
+                                "Scroll unit is invalid"));
                 return;
             }
             logger.debug("Scroll value =" + scrollValue);
