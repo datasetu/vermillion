@@ -266,6 +266,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerResponse response = context.response();
 
         JsonObject requestBody;
+        int scrollValue;
 
         String token = request.getParam("token");
 
@@ -310,6 +311,48 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String scrollId = requestBody.getString("scroll_id");
         String scrollDuration = requestBody.getString("scroll_duration");
+
+        if("".equals(scrollId) || scrollId == null){
+            apiFailure(context, new BadRequestThrowable("Scroll Id is empty"));
+            return;
+        }
+
+        if("".equals(scrollDuration) || scrollDuration == null){
+            apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
+            return;
+        }
+
+        String scrollUnit = scrollDuration.substring(scrollDuration.length() - 1);
+        String scrollValueStr = scrollDuration.substring(0, scrollDuration.length() - 1);
+
+        try {
+            scrollValue = NumberUtils.createInteger(scrollValueStr);
+        } catch (NumberFormatException numberFormatException) {
+            apiFailure(context, new BadRequestThrowable("Scroll value is not a valid integer"));
+            return;
+        }
+
+        if (scrollValue <= 0) {
+            apiFailure(context, new BadRequestThrowable("Scroll value cannot be less than or equal to zero"));
+            return;
+        }
+
+        if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
+                || (scrollUnit.equalsIgnoreCase("m") && scrollValue > 60)
+                || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
+            apiFailure(
+                    context,
+                    new BadRequestThrowable(
+                            "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
+            return;
+        }
+        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equalsIgnoreCase("m") && !scrollUnit.equalsIgnoreCase("s")) {
+            apiFailure(
+                    context,
+                    new BadRequestThrowable(
+                            "Scroll unit is invalid"));
+            return;
+        }
 
         if (token != null) {
             checkAuthorisation(token, "read")
