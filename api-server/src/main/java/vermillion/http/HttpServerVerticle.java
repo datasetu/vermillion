@@ -309,7 +309,24 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        Object scrollIdObj = requestBody.getValue("scroll_id");
+
+        if (!(scrollIdObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Scroll ID is not valid"));
+            return;
+        }
+
+        Object scrollDurationObj = requestBody.getValue("scroll_duration");
+
+        if (!(scrollDurationObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Scroll Duration is not valid"));
+            return;
+        }
+
         String scrollId = requestBody.getString("scroll_id");
+
         String scrollDuration = requestBody.getString("scroll_duration");
 
         if("".equals(scrollId) || scrollId == null){
@@ -343,7 +360,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
 
         if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
-                || (scrollUnit.equalsIgnoreCase("m") && scrollValue > 60)
+                || (scrollUnit.equals("m") && scrollValue > 60)
                 || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
             apiFailure(
                     context,
@@ -351,7 +368,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
             return;
         }
-        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equalsIgnoreCase("m") && !scrollUnit.equalsIgnoreCase("s")) {
+        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
             apiFailure(
                     context,
                     new BadRequestThrowable(
@@ -508,8 +525,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
-            if (size < 0 || size > 10000) {
-                apiFailure(context, new BadRequestThrowable("Response size must be between 0-10000"));
+            if (size <= 0 || size > 10000) {
+                apiFailure(context, new BadRequestThrowable("Response size must be between 1-10000"));
                 return;
             }
         }
@@ -770,7 +787,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
-                    || (scrollUnit.equalsIgnoreCase("m") && scrollValue > 60)
+                    || (scrollUnit.equals("m") && scrollValue > 60)
                     || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
                 apiFailure(
                         context,
@@ -778,7 +795,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
                 return;
             }
-            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equalsIgnoreCase("m") && !scrollUnit.equalsIgnoreCase("s")) {
+            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
@@ -1359,9 +1376,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof ServiceException) {
-
-            logger.debug("Service exception");
-            ServiceException serviceException = (ServiceException) t;
+        	  logger.debug("Service exception");
+        	  ServiceException serviceException = (ServiceException) t;
 
             if (serviceException.failureCode() == 404) {
                 context.response()
@@ -1374,13 +1390,13 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             else
             {
-                context.response()
-                        .setStatusCode(INTERNAL_SERVER_ERROR)
-                        .putHeader("content-type", "application/json")
-                        .end(new JsonObject()
-                                .put("status", "error")
-                                .put("message", serviceException.getMessage())
-                                .encode());
+	              context.response()
+					            .setStatusCode(INTERNAL_SERVER_ERROR)
+					            .putHeader("content-type", "application/json")
+					            .end(new JsonObject()
+									            .put("status", "error")
+									            .put("message", serviceException.getMessage())
+									            .encode());
             }
         } else {
             logger.debug("In internal error");

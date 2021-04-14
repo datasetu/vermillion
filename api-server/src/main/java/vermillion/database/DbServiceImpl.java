@@ -101,15 +101,15 @@ public class DbServiceImpl implements DbService {
         JsonObject finalResponseJson = responseJson;
 
         Observable.create(observableEmitter -> {
-            JsonArray responseHits =
-                    finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+                    JsonArray responseHits =
+                            finalResponseJson.getJsonObject("hits").getJsonArray("hits");
 
-            // TODO: This might be expensive for large responses
-            for (int i = 0; i < responseHits.size(); i++) {
-                observableEmitter.onNext(responseHits.getJsonObject(i).getJsonObject("_source"));
-            }
-            observableEmitter.onComplete();
-        })
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseHits.size(); i++) {
+                        observableEmitter.onNext(responseHits.getJsonObject(i).getJsonObject("_source"));
+                    }
+                    observableEmitter.onComplete();
+                })
                 .collect(JsonArray::new, JsonArray::add)
                 .map(hits -> {
                     JsonObject searchResponse = new JsonObject();
@@ -170,32 +170,32 @@ public class DbServiceImpl implements DbService {
         JsonObject finalResponseJson = responseJson;
 
         Observable.create(observableEmitter -> {
-            JsonArray responseHits =
-                    finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+                    JsonArray responseHits =
+                            finalResponseJson.getJsonObject("hits").getJsonArray("hits");
 
-            // TODO: This might be expensive for large responses
-            for (int i = 0; i < responseHits.size(); i++) {
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseHits.size(); i++) {
 
-                JsonObject responsedocs = responseHits.getJsonObject(i).getJsonObject("_source");
+                        JsonObject responsedocs = responseHits.getJsonObject(i).getJsonObject("_source");
 
-                JsonObject responseData = responsedocs.getJsonObject("data");
+                        JsonObject responseData = responsedocs.getJsonObject("data");
 
-                if (responseData.containsKey("link")
-                        && "/download".equalsIgnoreCase(responseData.getString("link"))) {
+                        if (responseData.containsKey("link")
+                                && "/download".equalsIgnoreCase(responseData.getString("link"))) {
 
-                    String downloadLink = "https://"
-                            + serverName
-                            + "/download?token="
-                            + token
-                            + "&id="
-                            + responsedocs.getString("id");
+                            String downloadLink = "https://"
+                                    + serverName
+                                    + "/download?token="
+                                    + token
+                                    + "&id="
+                                    + responsedocs.getString("id");
 
-                    responsedocs.getJsonObject("data").put("link", downloadLink);
-                }
-                observableEmitter.onNext(responsedocs);
-            }
-            observableEmitter.onComplete();
-        })
+                            responsedocs.getJsonObject("data").put("link", downloadLink);
+                        }
+                        observableEmitter.onNext(responsedocs);
+                    }
+                    observableEmitter.onComplete();
+                })
                 .collect(JsonArray::new, JsonArray::add)
                 .map(hits -> {
                     JsonObject searchResponse = new JsonObject();
@@ -267,42 +267,42 @@ public class DbServiceImpl implements DbService {
         JsonObject finalResponseJson = responseJson;
 
         Observable.create(observableEmitter -> {
-            JsonArray responseHits =
-                    finalResponseJson.getJsonObject("hits").getJsonArray("hits");
+                    JsonArray responseHits =
+                            finalResponseJson.getJsonObject("hits").getJsonArray("hits");
 
-            // TODO: This might be expensive for large responses
-            for (int i = 0; i < responseHits.size(); i++) {
+                    // TODO: This might be expensive for large responses
+                    for (int i = 0; i < responseHits.size(); i++) {
 
-                JsonObject responseDoc = responseHits.getJsonObject(i).getJsonObject("_source");
+                        JsonObject responseDoc = responseHits.getJsonObject(i).getJsonObject("_source");
 
-                String resourceID = responseDoc.getString("id");
+                        String resourceID = responseDoc.getString("id");
 
-                // The data being accessed is a secure dataset
-                if (!resourceID.endsWith(".public")) {
-                    if (token != null && authorisedIDs.contains(resourceID)) {
-                        JsonObject responseData = responseDoc.getJsonObject("data");
+                        // The data being accessed is a secure dataset
+                        if (!resourceID.endsWith(".public")) {
+                            if (token != null && authorisedIDs.contains(resourceID)) {
+                                JsonObject responseData = responseDoc.getJsonObject("data");
 
-                        if (responseData.containsKey("link")
-                                && "/download".equalsIgnoreCase(responseData.getString("link"))) {
+                                if (responseData.containsKey("link")
+                                        && "/download".equalsIgnoreCase(responseData.getString("link"))) {
 
-                            String downloadLink = "https://"
-                                    + serverName
-                                    + "/download?token="
-                                    + token
-                                    + "&id="
-                                    + responseDoc.getString("id");
+                                    String downloadLink = "https://"
+                                            + serverName
+                                            + "/download?token="
+                                            + token
+                                            + "&id="
+                                            + responseDoc.getString("id");
 
-                            responseDoc.getJsonObject("data").put("link", downloadLink);
+                                    responseDoc.getJsonObject("data").put("link", downloadLink);
+                                }
+                            } else {
+                                continue;
+                            }
                         }
-                    } else {
-                        continue;
-                    }
-                }
 
-                observableEmitter.onNext(responseDoc);
-            }
-            observableEmitter.onComplete();
-        })
+                        observableEmitter.onNext(responseDoc);
+                    }
+                    observableEmitter.onComplete();
+                })
                 .collect(JsonArray::new, JsonArray::add)
                 .map(hits -> new JsonObject()
                         .put("scroll_id", finalResponseJson.getString("_scroll_id"))
