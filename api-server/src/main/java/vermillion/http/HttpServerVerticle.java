@@ -525,8 +525,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
-            if (size < 0 || size > 10000) {
-                apiFailure(context, new BadRequestThrowable("Response size must be between 0-10000"));
+            if (size <= 0 || size > 10000) {
+                apiFailure(context, new BadRequestThrowable("Response size must be between 1-10000"));
                 return;
             }
         }
