@@ -878,7 +878,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         String token = request.getParam("token");
         String idParam = request.getParam("id");
 
-        logger.info("token=" + token);
+        logger.debug("token=" + token);
 
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
@@ -941,8 +941,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             String resourceId = authorisedIds.getString(i);
                             // Get the actual file name on disk
 
-                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/"
-                                    + resourceId.substring(0, resourceId.lastIndexOf('/'));
+                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId;
 
                             // Create consumer directory path if it does not exist
                             new File(consumerResourceDir).mkdirs();
@@ -1143,10 +1142,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             // if it does not already exist
             String accessFolder = PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
 
-            String providerDirStructure = accessFolder + resourceId.substring(0, resourceId.lastIndexOf("/"));
+            String providerDirStructure = accessFolder + resourceId;
             logger.debug("Provider dir structure=" + providerDirStructure);
 
-            String providerFilePath = accessFolder + resourceId;
+            String providerFilePath = accessFolder + resourceId + "/" + file.fileName();
             logger.debug("Provider file path=" + providerFilePath);
 
             logger.debug("Source=" + finalFileName);
@@ -1161,7 +1160,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             JsonObject dbEntryJson = new JsonObject()
-                    .put("data", new JsonObject().put("link", fileLink))
+                    .put("data", new JsonObject().put("link", fileLink).put("filename", file.fileName()))
                     .put("timestamp", Clock.systemUTC().instant().toString())
                     .put("id", resourceId)
                     .put("category", category);
@@ -1401,7 +1400,6 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         } else {
             logger.debug("In internal error");
-
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)
                     .putHeader("content-type", "application/json")
