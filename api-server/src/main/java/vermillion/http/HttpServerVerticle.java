@@ -878,7 +878,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         String token = request.getParam("token");
         String idParam = request.getParam("id");
 
-        logger.info("token=" + token);
+        logger.debug("token=" + token);
 
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
