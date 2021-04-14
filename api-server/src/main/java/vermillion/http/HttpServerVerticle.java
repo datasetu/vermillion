@@ -309,7 +309,24 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        Object scrollIdObj = requestBody.getValue("scroll_id");
+
+        if (!(scrollIdObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Scroll ID is not valid"));
+            return;
+        }
+
+        Object scrollDurationObj = requestBody.getValue("scroll_duration");
+
+        if (!(scrollDurationObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Scroll Duration is not valid"));
+            return;
+        }
+
         String scrollId = requestBody.getString("scroll_id");
+
         String scrollDuration = requestBody.getString("scroll_duration");
 
         if("".equals(scrollId) || scrollId == null){
@@ -343,7 +360,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
 
         if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
-                || (scrollUnit.equalsIgnoreCase("m") && scrollValue > 60)
+                || (scrollUnit.equals("m") && scrollValue > 60)
                 || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
             apiFailure(
                     context,
@@ -351,7 +368,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
             return;
         }
-        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equalsIgnoreCase("m") && !scrollUnit.equalsIgnoreCase("s")) {
+        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
             apiFailure(
                     context,
                     new BadRequestThrowable(
@@ -770,7 +787,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
-                    || (scrollUnit.equalsIgnoreCase("m") && scrollValue > 60)
+                    || (scrollUnit.equals("m") && scrollValue > 60)
                     || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
                 apiFailure(
                         context,
@@ -778,7 +795,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
                 return;
             }
-            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equalsIgnoreCase("m") && !scrollUnit.equalsIgnoreCase("s")) {
+            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
