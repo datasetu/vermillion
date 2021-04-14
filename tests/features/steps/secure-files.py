@@ -1,5 +1,6 @@
 import requests
 import urllib3
+import os
 
 from behave import when
 from auth_vars import res, tokens
@@ -72,7 +73,6 @@ def step_impl(context):
 
 @when('The consumer downloads file by passing multiple resource ids and a token')
 def step_impl(context):
-
     url = 'https://localhost/download?&token=' + tokens["8_10_rw"] + '&id=' + res[8] + ',' + res[10]
     get_request(url, "", context)
 
@@ -194,6 +194,7 @@ def step_impl(context):
          ),
         ('token', tokens["8_10_rw"]),
     )
+
     url = 'https://localhost/download'
     get_request(url, params, context)
 
@@ -273,5 +274,19 @@ def step_impl(context):
         ('token', tokens["12_rw"]),
         ('id', res[12]),
     )
+
     url = 'https://localhost/download'
     get_request(url, params, context)
+
+@when('The consumer publishes with a valid token and could not move files')
+def step_impl(context):
+    params = (
+        ('id', res[8]),
+        ('token', tokens["8_10_rw"]),
+    )
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    os.chmod("../setup/provider", 0o444)
+    post_files(params, files, context)

@@ -256,3 +256,20 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+
+@when('The consumer publishes with more than 2 form parameters-1')
+def step_impl(context):
+    params = (
+        ("id", res[0]),
+        ('token', tokens["master"]),
+    )
+
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+        'fille': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
+        'fie': ('samplepdf.pdf', open('samplepdf.pdf', 'rb'))
+
+    }
+
+    post_files(params, files, context)

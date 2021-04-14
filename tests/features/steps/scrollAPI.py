@@ -10,6 +10,7 @@ VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
 SCROLL_ENDPOINT = '/search/scroll'
 url = VERMILLION_URL + SCROLL_ENDPOINT
+url_search = VERMILLION_URL + SEARCH_ENDPOINT
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -30,8 +31,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll field and a token')
@@ -51,8 +52,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, params, json.dumps(payload), context)
+
+    post_request(url_search, params, json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll field not a string')
@@ -68,8 +69,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with extraneous parameters')
@@ -85,8 +86,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with invalid scroll value')
@@ -102,8 +103,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll value equal to 0')
@@ -119,8 +120,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll duration equal to null')
@@ -136,8 +137,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with invalid scroll unit')
@@ -153,8 +154,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll value greater than 1hr')
@@ -170,8 +171,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll value greater than 60m')
@@ -187,8 +188,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with scroll value greater than 3600s')
@@ -204,8 +205,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with response size as string')
@@ -221,8 +222,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with invalid response size integer')
@@ -238,8 +239,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with response size greater than 10000')
@@ -255,8 +256,8 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('A geo-spatial query is initiated with response size less than 0')
@@ -272,17 +273,12 @@ def step_impl(context):
 
         }
     }
-    url = VERMILLION_URL + SEARCH_ENDPOINT
-    post_request(url, "", json.dumps(payload), context)
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 
 @when('The scroll search query without body')
 def step_impl(context):
-    # payload = {
-    #     # "scroll_id": sc_id,
-    #     # "scroll_duration": "5s"
-    #
-    # }
     post_request(url, "", None, context)
 
 
@@ -294,6 +290,19 @@ def step_impl(context):
 
     }
     post_request(url, "", payload, context)
+
+
+@when('The scroll search query with invalid token')
+def step_impl(context):
+    params = (
+        ('token', generate_random_chars()),
+    )
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": True
+
+    }
+    post_request(url, params, payload, context)
 
 
 @when('The scroll search query without scroll duration')
@@ -339,7 +348,7 @@ def step_impl(context):
 @when('The scroll search query with invalid token for public id')
 def step_impl(context):
     params = (
-        ('token', 'auth.local/' + generate_random_chars()),
+        ('token', 'auth.local/' + generate_random_chars(special_chars=False)),
     )
     payload = {
         "scroll_id": sc_id,
@@ -379,6 +388,50 @@ def step_impl(context):
     }
     post_request(url, "", json.dumps(payload), context)
 
+@when('The scroll search query with scroll duration equal to 0m')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "0m",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+@when('The scroll search query with scroll duration having invalid integer')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "0",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+@when('The scroll search query with scroll duration greater than 1hr')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "2h",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+@when('The scroll search query with scroll duration greater than 60m')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "100m",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+@when('The scroll search query with scroll duration greater than 3600s')
+def step_impl(context):
+    payload = {
+        "scroll_id": sc_id,
+        "scroll_duration": "7200s",
+
+    }
+    post_request(url, "", json.dumps(payload), context)
 
 @when('The scroll search query with invalid scroll id')
 def step_impl(context):

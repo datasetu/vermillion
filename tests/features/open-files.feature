@@ -81,6 +81,11 @@ Feature: Vermillion is able to handle static files
 		        And The expected file is returned
 
 
+  Scenario: Consumer publishes with more than 2 form parameters
+    Given Vermillion is running
+    When The consumer publishes with more than 2 form parameters-1
+    Then The response status should be 400
+
   Scenario: Consumer publishes with form parameter other than file
     Given Vermillion is running
     When The consumer publishes with a valid and invalid form parameter
