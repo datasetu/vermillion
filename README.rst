@@ -8,7 +8,7 @@
    :target: https://github.com/rbccps-iisc/vermillion/actions         
 .. |license| image:: https://img.shields.io/badge/license-ISC-orange
    :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/ab0fe028560a4f96a0b764dd842efa82
+.. |codacy| image:: https://api.codacy.com/project/badge/Grade/ab0fe028560a4f96a0b764dd842efa82?branch=scroll-api
    :alt: Codacy Badge
    :target: https://app.codacy.com/gh/datasetu/vermillion?utm_source=github.com&utm_medium=referral&utm_content=datasetu/vermillion&utm_campaign=Badge_Grade
 .. |coverage| image:: https://app.codacy.com/project/badge/Coverage/2eabe4553ff84ff0ab3e8cfca6734125

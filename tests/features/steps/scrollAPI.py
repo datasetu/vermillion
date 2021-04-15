@@ -607,7 +607,7 @@ def step_impl(context):
 
     )
     payload = {
-        "scroll_id": sc_id,
+        "scroll_id": s_id,
         "scroll_duration": "5s",
 
     }

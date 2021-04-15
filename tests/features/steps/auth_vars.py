@@ -278,7 +278,7 @@ params = (
 )
 payload = {
     "id": res[1],
-    "scroll_duration": "1s",
+    "scroll_duration": "1000s",
     "size": 500,
     "geo_distance": {
         "coordinates": [82.9739, 25.3176],
