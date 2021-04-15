@@ -25,7 +25,7 @@ def step_impl(context):
     payload = {
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
-        "scroll_duration": "10s",
+        "scroll_duration": "1000s",
         "size": 500,
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
@@ -113,6 +113,7 @@ def step_impl(context):
     }
 
     post_request(url_search, "", json.dumps(payload), context)
+
 
 @when('A geo-spatial query is initiated with scroll value and distance is equal to 0m')
 def step_impl(context):
@@ -438,9 +439,26 @@ def step_impl(context):
     headers = {
         'Content-Type': 'application/json',
     }
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "scroll_duration": "1s",
+        "size": 500,
+        "geo_distance": {
+            "coordinates": [82.9739, 25.3176],
+            "distance": "10000m",
+
+        }
+    }
+
+    ur1 = VERMILLION_URL + SEARCH_ENDPOINT
+    response = requests.post(ur1, headers=headers, data=json.dumps(payload), verify=False)
+    r = response.json()
+    sc_id0 = r['scroll_id']
     url_scroll = "https://localhost/search/scroll"
     payload1 = {
-        "scroll_id": sc_id,
+        "scroll_id": sc_id0,
         "scroll_duration": "1s",
 
     }
@@ -589,7 +607,7 @@ def step_impl(context):
 
     )
     payload = {
-        "scroll_id": s_id,
+        "scroll_id": sc_id,
         "scroll_duration": "5s",
 
     }

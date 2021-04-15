@@ -257,7 +257,7 @@ s_id = []
 payload = {
     "id":
         "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
-    "scroll_duration": "1s",
+    "scroll_duration": "1000s",
     "size": 500,
     "geo_distance": {
         "coordinates": [82.9739, 25.3176],
