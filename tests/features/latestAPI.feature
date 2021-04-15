@@ -42,3 +42,8 @@ Feature: Vermillion is able to handle latest API
     Given Vermillion is running
     When A latest API query is with invalid token
     Then The response status should be 400
+
+  Scenario: Latest API query with expired token
+    Given Vermillion is running
+    When A latest API query is with expired token
+    Then The response status should be 403

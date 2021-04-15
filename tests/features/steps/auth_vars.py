@@ -253,10 +253,11 @@ res[12] = id_prefix + resource_ids[12]
 # print(tokens)
 # print(res)
 sc_id = []
+s_id = []
 payload = {
     "id":
         "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
-    "scroll_duration": "10s",
+    "scroll_duration": "1s",
     "size": 500,
     "geo_distance": {
         "coordinates": [82.9739, 25.3176],
@@ -270,3 +271,21 @@ response = requests.post(url, headers=headers, data=json.dumps(payload), verify=
 r = response.json()
 sc_id = r['scroll_id']
 # print(sc_id)
+
+params = (
+    ('token', tokens["1_2_read_write"]),
+
+)
+payload = {
+    "id": res[1],
+    "scroll_duration": "1s",
+    "size": 500,
+    "geo_distance": {
+        "coordinates": [82.9739, 25.3176],
+        "distance": "10000m",
+
+    }
+}
+response = requests.post(url, params=params, headers=headers, data=json.dumps(payload), verify=False)
+r = response.json()
+s_id = r['scroll_id']

@@ -10,14 +10,39 @@ Feature: Vermillion is able to handle scroll search queries
     When A geo-spatial query is initiated with scroll field and a token
     Then The response status should be 200
 
+  Scenario: Geo-spatial query for secured resource
+    Given Vermillion is running
+    When A geo-spatial query is initiated for secured resource
+    Then The response status should be 200
+
+  Scenario: Geo-spatial query for expired token
+    Given Vermillion is running
+    When A geo-spatial query is initiated for expired token
+    Then The response status should be 403
+
+  Scenario: Geo-spatial query along with scroll field value and distance is equal to 0m
+    Given Vermillion is running
+    When A geo-spatial query is initiated with scroll value and distance is equal to 0m
+    Then The response status should be 500
+
   Scenario: Geo-spatial query along with extraneous parameters
     Given Vermillion is running
     When A geo-spatial query is initiated with extraneous parameters
     Then The response status should be 400
 
+  Scenario: Geo-spatial query along with invalid id
+    Given Vermillion is running
+    When A geo-spatial query is initiated with invalid id
+    Then The response status should be 400
+
   Scenario: Geo-spatial query along with scroll field not a string
     Given Vermillion is running
     When A geo-spatial query is initiated with scroll field not a string
+    Then The response status should be 400
+
+  Scenario: Geo-spatial query along with scroll duration equal to null
+    Given Vermillion is running
+    When A geo-spatial query is initiated with scroll duration equal to null
     Then The response status should be 400
 
   Scenario: Geo-spatial query along with response size as string
@@ -114,10 +139,16 @@ Feature: Vermillion is able to handle scroll search queries
     Given Vermillion is running
     When The scroll search query with scroll duration greater than 3600s
     Then The response status should be 400
-#  Scenario: Scroll search query with scroll id as integer
-#    Given Vermillion is running
-#    When The scroll search query with scroll id as integer
-#    Then The response status should be 400
+
+  Scenario: Scroll search query with scroll id as integer
+    Given Vermillion is running
+    When The scroll search query with scroll id as integer
+    Then The response status should be 400
+
+  Scenario: Scroll search query with scroll duration as integer
+    Given Vermillion is running
+    When The scroll search query with scroll duration as integer
+    Then The response status should be 400
 
   Scenario: Scroll search query with invalid scroll id
     Given Vermillion is running
@@ -144,22 +175,34 @@ Feature: Vermillion is able to handle scroll search queries
     When The scroll search query without scroll id
     Then The response status should be 400
 
-#  Scenario: Scroll search query with invalid token for public id
-#    Given Vermillion is running
-#    When The scroll search query with invalid token for public id
-#    Then The response status should be 200
-
   Scenario: Scroll search query with extraneous parameters
     Given Vermillion is running
     When The scroll search query with extraneous parameters
     Then The response status should be 400
+
+
+
+  Scenario: Scroll search query for secured resource
+    Given Vermillion is running
+    When The scroll search query for secured resource
+    Then The response status should be 200
+
+  Scenario: Scroll search query with token
+    Given Vermillion is running
+    When The scroll search query with token
+    Then The response status should be 200
+
+  Scenario: Scroll search query with expired token
+    Given Vermillion is running
+    When The scroll search query with expired token
+    Then The response status should be 403
 
   Scenario: Scroll search query
     Given Vermillion is running
     When The scroll search query is initiated
     Then All matching records are returned
 
-  Scenario: Scroll search query with token
+  Scenario: Scroll search query with expired scroll id
     Given Vermillion is running
-    When The scroll search query with token
-    Then The response status should be 200
+    When The scroll search query with expired scroll id
+    Then The response status should be 400

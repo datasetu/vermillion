@@ -99,3 +99,14 @@ def step_impl(context):
     })
 
     get_request(url, params, context)
+
+
+@when('A latest API query is with expired token')
+def step_impl(context):
+    params = ({
+        "id": res[1],
+        "token": tokens["6_7_read"]
+
+    })
+
+    get_request(url, params, context)
