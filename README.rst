@@ -8,10 +8,10 @@
    :target: https://github.com/rbccps-iisc/vermillion/actions         
 .. |license| image:: https://img.shields.io/badge/license-ISC-orange
    :target: https://github.com/rbccps-iisc/vermillion/blob/master/LICENSE
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/ab0fe028560a4f96a0b764dd842efa82?branch=scroll-api
+.. |codacy| image:: https://api.codacy.com/project/badge/Grade/ab0fe028560a4f96a0b764dd842efa82
    :alt: Codacy Badge
    :target: https://app.codacy.com/gh/datasetu/vermillion?utm_source=github.com&utm_medium=referral&utm_content=datasetu/vermillion&utm_campaign=Badge_Grade
-.. |coverage| image:: https://app.codacy.com/project/badge/Coverage/2eabe4553ff84ff0ab3e8cfca6734125?branch=scroll-api
+.. |coverage| image:: https://app.codacy.com/project/badge/Coverage/2eabe4553ff84ff0ab3e8cfca6734125
     :target: https://www.codacy.com/gh/datasetu/vermillion/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=datasetu/vermillion&amp;utm_campaign=Badge_Coverage
 .. |dependabot| image:: https://img.shields.io/badge/dependabot-enabled-yellow
    :target: https://dependabot.com/

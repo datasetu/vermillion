@@ -278,15 +278,15 @@ def step_impl(context):
     url = 'https://localhost/download'
     get_request(url, params, context)
 
-@when('The consumer publishes with a valid token and could not move files')
-def step_impl(context):
-    params = (
-        ('id', res[8]),
-        ('token', tokens["8_10_rw"]),
-    )
-    files = {
-        'file': ('sample.txt', open('sample.txt', 'rb')),
-        'metadata': ('meta.json', open('meta.json', 'rb')),
-    }
-    os.chmod("../setup/provider", 0o444)
-    post_files(params, files, context)
+# @when('The consumer publishes with a valid token and could not move files')
+# def step_impl(context):
+#     params = (
+#         ('id', res[8]),
+#         ('token', tokens["8_10_rw"]),
+#     )
+#     files = {
+#         'file': ('sample.txt', open('sample.txt', 'rb')),
+#         'metadata': ('meta.json', open('meta.json', 'rb')),
+#     }
+#     os.chmod("../setup/provider", 0o444)
+#     post_files(params, files, context)

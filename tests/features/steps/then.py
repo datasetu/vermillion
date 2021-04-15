@@ -43,9 +43,9 @@ def step_impl(context, expected_code):
         raise UnexpectedStatusCodeError(int(expected_code), context.status_code, context.response)
 
 
-@then('The file permission is reset')
-def step_impl(context):
-    os.chmod("../setup/provider", 0o755)
+# @then('The file permission is reset')
+# def step_impl(context):
+#     os.chmod("../setup/provider", 0o755)
 
 
 @then('The expected file is returned')
