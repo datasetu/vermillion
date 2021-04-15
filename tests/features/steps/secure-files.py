@@ -1,10 +1,7 @@
 import requests
 import urllib3
-import os
-
 from behave import when
 from auth_vars import res, tokens
-
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from utils import post_files, generate_random_chars, get_request
 
