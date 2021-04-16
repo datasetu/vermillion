@@ -111,7 +111,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         .setAllowRootFileSystemAccess(false)
                         .setDirectoryListing(true));
 
-        router.get("/consume").handler(this::getConsumerSecureFiles);
+        router.get("/consumer").handler(this::getConsumerSecureFiles);
 
         // The path described by the regex is /provider/public/<domain>/<sha1>/<rs_name>/*
         router.routeWithRegex("\\/provider\\/public\\/?.*")
@@ -152,8 +152,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("In getConsumerSecureFiles");
         HttpServerRequest request = context.request();
         String token = request.getParam("token");
+        String resourceId = request.getParam("id");
 
-        logger.info("token=" + token);
+        logger.info("token=" + token + " resourceId=" + resourceId);
 
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
@@ -163,17 +164,37 @@ public class HttpServerVerticle extends AbstractVerticle {
             apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
             return;
         }
+        if (resourceId == null) {
+            logger.debug("Resource id is null");
+            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            return;
+        }
+
+        if (!isValidResourceID(resourceId)) {
+            logger.debug("Resource is is malformed");
+            apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
+            return;
+        }
+
         Maybe<Integer> tokenExpiry = isTokenExpired(token);
-        Path finalConsumerResourcePath = Path.of(CONSUMER_PATH + token);
+        Path finalConsumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+        CONSUMER_PATH += token ;
+        boolean doesFileExist = Files.exists(finalConsumerResourcePath);
+        logger.debug("Does file exists:" + doesFileExist);
         tokenExpiry.subscribe(result-> {
             logger.debug("Value of token:" + result);
-            if (result != null && result > 0 && finalConsumerResourcePath != null) {
+            if (result != null && 1 > 0 && doesFileExist) {
                 boolean isFileSymLinkDeleted = Files.deleteIfExists(finalConsumerResourcePath);
                 logger.debug("Is file directory deleted:" + isFileSymLinkDeleted);
                 apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
                 return;
             }
-            context.reroute(String.valueOf(finalConsumerResourcePath));
+            if (!doesFileExist) {
+                logger.info("The file requested is deleted as token is expired");
+                apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                return;
+            }
+            context.reroute(CONSUMER_PATH);
         }, t -> apiFailure(context, t));
     }
 
@@ -899,7 +920,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                             logger.debug("Value of token:" + result);
                             if (result != null && result > 0 && finalConsumerResourcePath != null) {
                                 Files.deleteIfExists(finalConsumerResourcePath);
-                                apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
                             }
                         });
 
@@ -964,7 +984,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                         logger.debug("Value of token:" + result);
                         if (result != null && result > 0 && finalConsumerResourcePath != null) {
                                 Files.deleteIfExists(finalConsumerResourcePath);
-                                apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
                             }
                         });
 
