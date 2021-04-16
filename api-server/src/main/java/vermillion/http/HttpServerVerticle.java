@@ -183,7 +183,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Does file exists:" + doesFileExist);
         tokenExpiry.subscribe(result-> {
             logger.debug("Value of token:" + result);
-            if (result != null && 1 > 0 && doesFileExist) {
+            if (result != null && result > 0 && doesFileExist) {
                 boolean isFileSymLinkDeleted = Files.deleteIfExists(finalConsumerResourcePath);
                 logger.debug("Is file directory deleted:" + isFileSymLinkDeleted);
                 apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
