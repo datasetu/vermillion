@@ -163,9 +163,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         String userAgent = request.getHeader("User-Agent");
         logger.debug("User agent is:" + userAgent);
 
-        String path = routingContext.normalisedPath();
-        logger.debug("Normalized path:" + path);
-        String token = path.substring(10, 53);
+        String token = getFinalTokenFromNormalisedPath(routingContext);
         logger.debug("Final token:" + token);
 
         Single<Integer> tokenExpiry = isTokenExpired(token);
@@ -199,10 +197,27 @@ public class HttpServerVerticle extends AbstractVerticle {
         }, t -> apiFailure(routingContext, t));
     }
 
+    private String getFinalTokenFromNormalisedPath(RoutingContext routingContext) {
+        String path = routingContext.normalisedPath();
+        logger.debug("Normalized path:" + path);
+        Map<Integer, String> paramsMap = new HashMap<>();
+        String[] pathParams = path.split("/");
+        int counter = 1;
+        for (String param: pathParams) {
+            paramsMap.put(counter++, param);
+        }
+        String token, authServer, tokenHash;
+        authServer = paramsMap.get(3);
+        tokenHash = paramsMap.get(4);
+        token = authServer + "/" + tokenHash;
+        logger.debug("Final paramsMap: " + paramsMap);
+        return token;
+    }
+
     boolean deleteDirectory(File directoryToBeDeleted )  {
-        File[] allContents = directoryToBeDeleted.listFiles();
-        if (allContents != null) {
-            for (File file : allContents) {
+        File[] filesInTheDirectory = directoryToBeDeleted.listFiles();
+        if (filesInTheDirectory != null) {
+            for (File file : filesInTheDirectory) {
                 deleteDirectory(file);
             }
         }
