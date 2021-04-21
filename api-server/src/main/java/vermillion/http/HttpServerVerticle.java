@@ -107,11 +107,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         // The path described by the regex is /consumer/<auth_server>/<token>/*
         router.routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[0-9a-f]+\\/?.*")
-                .handler(StaticHandler.create()
-                        .setAllowRootFileSystemAccess(false)
-                        .setDirectoryListing(true));
+                .handler(routingContext -> getStaticHandler(routingContext));
 
-        router.get("/consumer").handler(this::getConsumerSecureFiles);
 
         // The path described by the regex is /provider/public/<domain>/<sha1>/<rs_name>/*
         router.routeWithRegex("\\/provider\\/public\\/?.*")
@@ -147,70 +144,89 @@ public class HttpServerVerticle extends AbstractVerticle {
                         });
     }
 
-    private void getConsumerSecureFiles(RoutingContext context) {
+    private void getStaticHandler(RoutingContext routingContext) {
 
-        logger.debug("In getConsumerSecureFiles");
-        HttpServerRequest request = context.request();
-        String token = request.getParam("token");
-        String resourceId = request.getParam("id");
-
-        logger.info("token=" + token + " resourceId=" + resourceId);
-
-        if (token == null) {
-            apiFailure(context, new BadRequestThrowable("No access token found in request"));
+        logger.debug("In existing consumer API");
+        String origin = routingContext.get("origin");
+        logger.debug("Origin:" + origin);
+        boolean isOriginValid = "download".equalsIgnoreCase(origin);
+        logger.debug("Is origin valid:" + isOriginValid);
+        StaticHandler staticHandler;
+        if(isOriginValid) {
+            staticHandler = StaticHandler.create()
+                    .setAllowRootFileSystemAccess(false)
+                    .setDirectoryListing(true);
+            staticHandler.handle(routingContext);
             return;
         }
-        if (!isValidToken(token)) {
-            apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
-            return;
-        }
-        if (resourceId == null) {
-            logger.debug("Resource id is null");
-            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
-            return;
-        }
+        HttpServerRequest request = routingContext.request();
+        String userAgent = request.getHeader("User-Agent");
+        logger.debug("User agent is:" + userAgent);
 
-        if (!isValidResourceID(resourceId)) {
-            logger.debug("Resource is is malformed");
-            apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
-            return;
-        }
+        String path = routingContext.normalisedPath();
+        logger.debug("Normalized path:" + path);
+        String token = path.substring(10, 53);
+        logger.debug("Final token:" + token);
 
-        Maybe<Integer> tokenExpiry = isTokenExpired(token);
-        Path finalConsumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
-        CONSUMER_PATH += token ;
+        Single<Integer> tokenExpiry = isTokenExpired(token);
+
+        Path finalConsumerResourcePath = Paths.get(WEBROOT + "consumer/" + token);
+        File fileToBeDeleted = new File(String.valueOf(finalConsumerResourcePath));
+        logger.debug("File directory to be deleted:" + fileToBeDeleted);
         boolean doesFileExist = Files.exists(finalConsumerResourcePath);
         logger.debug("Does file exists:" + doesFileExist);
-        tokenExpiry.subscribe(result-> {
+
+        String FINAL_CONSUMER_PATH = "/consumer/" + token ;
+        tokenExpiry.subscribe(result -> {
             logger.debug("Value of token:" + result);
             if (result != null && result > 0 && doesFileExist) {
-                boolean isFileSymLinkDeleted = Files.deleteIfExists(finalConsumerResourcePath);
+                boolean isFileSymLinkDeleted = deleteDirectory(fileToBeDeleted);
                 logger.debug("Is file directory deleted:" + isFileSymLinkDeleted);
-                apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                apiFailure(routingContext, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
                 return;
             }
-            if (!doesFileExist) {
+            if (!doesFileExist && result != null && result > 0) {
                 logger.info("The file requested is deleted as token is expired");
-                apiFailure(context, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                apiFailure(routingContext, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
                 return;
             }
-            context.reroute(CONSUMER_PATH);
-        }, t -> apiFailure(context, t));
+            logger.debug("Consumer path :" + FINAL_CONSUMER_PATH);
+            StaticHandler staticHandlerForConsumer = StaticHandler.create()
+                    .setAllowRootFileSystemAccess(false)
+                    .setDirectoryListing(true);
+            staticHandlerForConsumer.handle(routingContext);
+
+        }, t -> apiFailure(routingContext, t));
     }
 
-    private Maybe<Integer> isTokenExpired(String token) {
-        logger.debug("In istoken expiry method " + token);
-        Single<String> value1 =  getValue(token);
+    boolean deleteDirectory(File directoryToBeDeleted )  {
+        File[] allContents = directoryToBeDeleted.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteDirectory(file);
+            }
+        }
+        return directoryToBeDeleted.delete();
+    }
 
-        return value1.flatMapCompletable(
+    private Single<Integer> isTokenExpired(String token) {
+        logger.debug("In token expiry method " + token);
+        Single<String> tokenDetailsFromRedis =  getValue(token);
+
+        return tokenDetailsFromRedis.flatMapCompletable(
                 tokenDetailsFromCache -> "absent".equalsIgnoreCase(tokenDetailsFromCache) ? introspect(token) : Completable.complete())
                 .andThen(Single.defer(() -> getValue(token)))
                 .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
                         ? Maybe.empty()
                         : Maybe.just(new JsonObject(result).getString("expiry")))
-                .flatMap(tokenExpiry-> {
-                    logger.debug("tokenExpiry:" + tokenExpiry);
-                    return Maybe.just(Clock.systemUTC().instant().toString().compareTo(tokenExpiry));
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMap(tokenExpiry -> {          // handle the empty scenario from above flatMapMaybe
+                    if(tokenExpiry.isPresent()) {
+                        logger.debug("tokenExpiry:" + tokenExpiry);
+                        return Single.just(Clock.systemUTC().instant().toString().compareTo(String.valueOf(tokenExpiry)));
+                    }
+                   return Single.error(new UnauthorisedThrowable("The access token details are not present in cache"));
                 });
     }
 
@@ -826,6 +842,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public void download(RoutingContext context) {
 
         HttpServerRequest request = context.request();
+        context.put("origin", "download");
 
         // If token is valid for resources apart from secure 'files' then specify list of ids in the
         // request
@@ -914,7 +931,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 return Completable.error(new InternalErrorThrowable("Could not create symlinks"));
                             }
                         }
-                        Maybe<Integer> tokenExpiry = isTokenExpired(token);
+                        Single<Integer> tokenExpiry = isTokenExpired(token);
                         Path finalConsumerResourcePath = consumerResourcePath;
                         tokenExpiry.subscribe(result-> {
                             logger.debug("Value of token:" + result);
@@ -978,7 +995,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             }
                         }
 
-                        Maybe<Integer> tokenExpiry = isTokenExpired(token);
+                        Single<Integer> tokenExpiry = isTokenExpired(token);
                         Path finalConsumerResourcePath = consumerResourcePath;
                         tokenExpiry.subscribe(result-> {
                         logger.debug("Value of token:" + result);
