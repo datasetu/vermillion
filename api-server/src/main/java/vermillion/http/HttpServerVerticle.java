@@ -571,11 +571,18 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("Is a valid number ?" + NumberUtils.isCreatable(distanceQuantity));
 
             // If the number preceding m, km, cm etc is a valid number
-            if (!NumberUtils.isCreatable(distanceQuantity)) {
+            int geoDistanceQuantity;
+            try{
+                geoDistanceQuantity = Integer.parseInt(distanceQuantity);
+                if(geoDistanceQuantity < 1){
+                    apiFailure(context, new BadRequestThrowable("Distance less than 1m"));
+                    return;
+                }
+            }
+            catch(NumberFormatException ex){
                 apiFailure(context, new BadRequestThrowable("Distance is not valid."));
                 return;
             }
-
             Object coordinatesObj = geoDistance.getValue("coordinates");
 
             if (!(coordinatesObj instanceof JsonArray)) {
