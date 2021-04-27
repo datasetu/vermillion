@@ -1,6 +1,7 @@
 import os
 import glob
-
+from os import path
+import shutil
 import requests
 import urllib3
 from behave import when
@@ -29,7 +30,12 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    directory = "public"
+    parent = "../setup/provider/"
+    path_dir = os.path.join(parent, directory)
+    if path.exists(path_dir):
 
+        shutil.rmtree(path_dir)
     post_files(params, files, context)
 
 

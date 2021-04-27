@@ -1,5 +1,8 @@
+from os import path
+import shutil
 import requests
 import urllib3
+import os
 from behave import when
 from auth_vars import res, tokens
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -20,6 +23,12 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    directory = "secure"
+    parent = "../setup/provider/"
+    path_dir = os.path.join(parent, directory)
+    if path.exists(path_dir):
+
+        shutil.rmtree(path_dir)
     post_files(params, files, context)
 
 
@@ -275,15 +284,16 @@ def step_impl(context):
     url = 'https://localhost/download'
     get_request(url, params, context)
 
-# @when('The consumer publishes with a valid token and could not move files')
-# def step_impl(context):
-#     params = (
-#         ('id', res[8]),
-#         ('token', tokens["8_10_rw"]),
-#     )
-#     files = {
-#         'file': ('sample.txt', open('sample.txt', 'rb')),
-#         'metadata': ('meta.json', open('meta.json', 'rb')),
-#     }
-#     os.chmod("../setup/provider", 0o444)
-#     post_files(params, files, context)
+
+@when('The consumer publishes with a valid token and could not move files')
+def step_impl(context):
+    params = (
+        ('id', res[8]),
+        ('token', tokens["8_10_rw"]),
+    )
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    os.chmod("../setup/provider", 0o444)
+    post_files(params, files, context)

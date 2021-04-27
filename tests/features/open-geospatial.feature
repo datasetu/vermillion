@@ -36,6 +36,11 @@ Feature: Vermillion is able to handle geospatial queries
                 When The geospatial query coordinates are invalid
                 Then The response status should be 400
 
+#        Scenario: Geo-spatial query for coordinates as string
+#                Given Vermillion is running
+#                When The geospatial query coordinates as string
+#                Then The response status should be 500
+
         Scenario: Geo-spatial query for empty coordinates
                 Given Vermillion is running
                 When The geospatial query coordinates are empty

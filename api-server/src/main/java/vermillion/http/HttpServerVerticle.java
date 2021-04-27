@@ -242,7 +242,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         logger.debug("Latest query = " + constructedQuery.encodePrettily());
 
-        if (token == null && resourceID.endsWith(".public")) {
+        if ("".equals(token) && resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
             dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
                     "content-type", "application/json")
@@ -329,7 +329,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String scrollDuration = requestBody.getString("scroll_duration");
 
-        if("".equals(scrollId) || scrollId == null){
+        if("".equals(scrollId)){
             apiFailure(context, new BadRequestThrowable("Scroll Id is empty"));
             return;
         }
@@ -339,7 +339,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if("".equals(scrollDuration) || scrollDuration == null){
+        if("".equals(scrollDuration)){
             apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
             return;
         }
@@ -687,7 +687,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String attributeName = attribute.getString("term");
 
-            if (attributeName == null || "".equals(attributeName)) {
+            if ("".equals(attributeName)) {
                 apiFailure(context, new BadRequestThrowable("Term parameter is empty"));
                 return;
             }
@@ -766,7 +766,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             scrollStr = scrollObj.toString();
-            if ("".equals(scrollStr) || scrollStr == null){
+            if ("".equals(scrollStr) ){
                 apiFailure(context, new BadRequestThrowable("Scroll parameter is empty"));
                 return;
             }
@@ -953,6 +953,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             // TODO: This could take a very long time for multiple large files
                             try {
+                                logger.debug("Inside 956");
                                 Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
                             } catch (FileAlreadyExistsException ignored) {
 
@@ -1007,8 +1008,11 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             // TODO: This could take a very long time for multiple large files
                             try {
+                                logger.debug("Inside 1011");
                                 Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
+                                logger.debug("Inside 1013");
                             } catch (FileAlreadyExistsException ignored) {
+                                logger.debug("Inside 1015");
 
                             } catch (Exception e) {
                                 return Completable.error(new InternalErrorThrowable("Could not create symlinks"));
@@ -1094,6 +1098,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 // Delete uploaded files if inputs are not as required
                 fileUploads.forEach((k, v) -> {
                     try {
+                        logger.debug("Inside check 1097");
                         Files.deleteIfExists(Paths.get(v.uploadedFileName()));
                     } catch (IOException e) {
                         e.printStackTrace();

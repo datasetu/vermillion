@@ -1,13 +1,12 @@
 Feature: Vermillion is able to handle static files
 
 
-        
-	Scenario: Consumer publishes with valid token
+
+	Scenario: Consumer publishes open-files with valid token
 		      Given Vermillion is running
 		      When The consumer publishes with a valid token
 		      Then The response status should be 201
-
-
+              And The file gets uploaded in the provider public directory
 
     Scenario: Consumer publishes without resource id
             Given Vermillion is running

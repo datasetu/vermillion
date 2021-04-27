@@ -32,6 +32,14 @@ def step_impl(context):
         if len(context.response) != 305:
             raise ResponseCountMismatchError(305, len(context.response))
 
+    if context.type == 'latest_search':
+        if len(context.response) != 1:
+            raise ResponseCountMismatchError(1, len(context.response))
+
+    if context.type == 'latest_public':
+        if len(context.response.json()) != 1:
+            raise ResponseCountMismatchError(1, len(context.response))
+
     if context.type == 'scroll-search':
         if len(context.response) != 500:
             raise ResponseCountMismatchError(500, len(context.response))
@@ -43,9 +51,9 @@ def step_impl(context, expected_code):
         raise UnexpectedStatusCodeError(int(expected_code), context.status_code, context.response)
 
 
-# @then('The file permission is reset')
-# def step_impl(context):
-#     os.chmod("../setup/provider", 0o755)
+@then('The file permission is reset')
+def step_impl(context):
+    os.chmod("../setup/provider", 0o755)
 
 
 @then('The expected file is returned')
@@ -69,16 +77,36 @@ def step_impl(context):
     ])
     counter = 0
     # Slowing down by running checks for the deletion of files to happen
-    while (number_of_files > 0 and counter < 60):
+    while number_of_files > 0 and counter < 60:
         number_of_files = len([
             name for name in os.listdir(DIR)
             if os.path.isfile(os.path.join(DIR, name))
         ])
         time.sleep(1)
     print(number_of_files)
-    if (number_of_files > 0):
+    if number_of_files > 0:
         raise UnexpectedBehaviourError('Files have not been deleted')
 
+
+@then('The file gets uploaded in the provider public directory')
+def step_impl(context):
+    DIR = '../setup/provider/public/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/'
+    number_of_files = len([
+        name for name in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, name))
+    ])
+    if number_of_files != 1:
+        raise UnexpectedBehaviourError('Files have not been created')
+
+@then('The file gets uploaded in the provider secure directory')
+def step_impl(context):
+    DIR = '../setup/provider/secure/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/'
+    number_of_files = len([
+        name for name in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, name))
+    ])
+    if number_of_files != 1:
+        raise UnexpectedBehaviourError('Files have not been created')
 
 @then('The response should contain the secure timeseries data')
 def step_impl(context):

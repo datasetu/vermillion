@@ -5,6 +5,7 @@ Feature: Vermillion is able to handle secure files
          Given Vermillion is running
          When The consumer publishes secure file with a valid token
          Then The response status should be 201
+         And The file gets uploaded in the provider secure directory
 
         Scenario: Consumer publishes with valid token
           Given Vermillion is running
@@ -116,8 +117,9 @@ Feature: Vermillion is able to handle secure files
           When The consumer downloads file by passing id,token and requested id is not present
           Then The response status should be 404
 
-#        Scenario: Consumer publishes with valid token and could not move files
-#          Given Vermillion is running
-#          When The consumer publishes with a valid token and could not move files
-#          Then The response status should be 500
-#          And  The file permission is reset
+        Scenario: Consumer publishes with valid token and could not move files
+          Given Vermillion is running
+          When The consumer publishes with a valid token and could not move files
+          Then The response status should be 500
+          And  The file permission is reset
+
