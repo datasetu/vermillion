@@ -853,8 +853,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         // 2. When token is provided but ID is a public ID
         // 3. When token is provided but ID is a list of public IDs
         // Don't know why anyone would do 2 & 3, but you never know
-        if ((token == null)
-                || (resourceIDstr != null && resourceIDstr.endsWith(".public"))
+        if ((resourceIDstr != null && resourceIDstr.endsWith(".public"))
                 || (resourceIDArray != null
                         && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
             if (scroll) {
