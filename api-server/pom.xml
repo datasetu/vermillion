@@ -19,6 +19,7 @@
     <main.verticle>vermillion.MainVerticle</main.verticle>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jacoco.version>0.8.6</jacoco.version>
+    <joda-time-version>2.10.10</joda-time-version>
   </properties>
   <dependencies>
 
@@ -79,6 +80,11 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
       <version>3.11</version>
+    </dependency>
+    <dependency>
+      <groupId>joda-time</groupId>
+      <artifactId>joda-time</artifactId>
+      <version>${joda-time-version}</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/commons-validator/commons-validator -->
     <dependency>

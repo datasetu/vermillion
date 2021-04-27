@@ -38,10 +38,15 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
+
+import org.joda.time.format.ISODateTimeFormat;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
@@ -242,7 +247,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         logger.debug("Latest query = " + constructedQuery.encodePrettily());
 
-        if (token == null && resourceID.endsWith(".public")) {
+        if (resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
             dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
                             "content-type", "application/json")
@@ -657,9 +662,30 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String start = time.getString("start");
             String end = time.getString("end");
-            Locale locale = new Locale("English", "IN");
+//            Locale locale = new Locale("English", "IN");
+//
+//            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+//                apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
+//                return;
+//            }
+//            /(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))/
 
-            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+            DateTimeFormatter fmt = ISODateTimeFormat.dateTimeParser();
+
+            DateTime startDate;
+            DateTime endDate;
+            try
+            {
+                startDate = fmt.parseDateTime(start);
+                endDate = fmt.parseDateTime(end);
+                if(endDate.getMillis() - startDate.getMillis() < 0)
+                {
+                    apiFailure(context, new BadRequestThrowable("End date is smaller than start date"));
+                    return;
+                }
+            }
+            catch (Exception ex){
+                ex.printStackTrace();
                 apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
                 return;
             }
@@ -698,7 +724,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
-            String attributeName = attribute.getString("term");
+            String attributeName = attribute.getString("term").trim();
 
             if (attributeName == null || "".equals(attributeName)) {
                 apiFailure(context, new BadRequestThrowable("Term parameter is empty"));
@@ -724,12 +750,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return;
                 }
 
-                //                if (!NumberUtils.isCreatable(minObj.toString()) ||
-                // !NumberUtils.isCreatable(maxObj.toString())) {
-                //                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid
-                // numbers"));
-                //                    return;
-                //                }
+                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
+                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
+                    return;
+                }
 
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
@@ -1062,21 +1086,32 @@ public class HttpServerVerticle extends AbstractVerticle {
         String token;
         JsonObject requestBody = null;
 
+        HashMap<String, FileUpload> fileUploads = new HashMap<>();
+
+        logger.debug("File uploads = " + context.fileUploads().size());
+        logger.debug("Is empty = " + context.fileUploads().isEmpty());
+        if (!context.fileUploads().isEmpty()) {
+            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
+            logger.debug(fileUploads.toString());
+        }
+
         // TODO: Check for invalid IDs
         resourceId = request.getParam("id");
         token = request.getParam("token");
-
         if (resourceId == null) {
             apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            deleteUploads(fileUploads);
             return;
         }
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            deleteUploads(fileUploads);
             return;
         }
 
         if (!isValidToken(token) || !isValidResourceID(resourceId)) {
             apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
+            deleteUploads(fileUploads);
             return;
         }
 
@@ -1090,28 +1125,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonArray requestedIdList = new JsonArray().add(resourceId);
 
-        HashMap<String, FileUpload> fileUploads = new HashMap<>();
-
-        logger.debug("File uploads = " + context.fileUploads().size());
-        logger.debug("Is empty = " + context.fileUploads().isEmpty());
-        if (!context.fileUploads().isEmpty()) {
-            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
-            logger.debug(fileUploads.toString());
-        }
-
         if (context.fileUploads().size() > 0) {
 
             if (context.fileUploads().size() > 2 || !fileUploads.containsKey("file")) {
                 apiFailure(context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
                 // Delete uploaded files if inputs are not as required
-                fileUploads.forEach((k, v) -> {
-                    try {
-                        Files.deleteIfExists(Paths.get(v.uploadedFileName()));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-
+                deleteUploads(fileUploads);
                 return;
             } else {
                 file = fileUploads.get("file");
@@ -1392,7 +1411,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         	  logger.debug("Service exception");
         	  ServiceException serviceException = (ServiceException) t;
 
-            if (serviceException.failureCode() == 404) {
+            if (serviceException.failureCode() == 400 || serviceException.failureCode() == 404) {
                 context.response()
                         .setStatusCode(BAD_REQUEST)
                         .putHeader("content-type", "application/json")
@@ -1478,5 +1497,15 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
         return token.matches(validRegex);
+    }
+
+    private void deleteUploads(HashMap<String, FileUpload> fileUploads){
+        fileUploads.forEach((k, v) -> {
+            try {
+                Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 }
