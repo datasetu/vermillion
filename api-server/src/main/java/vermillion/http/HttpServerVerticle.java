@@ -600,6 +600,12 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
+            if((coordinates.getValue(0) instanceof String) || (coordinates.getValue(1) instanceof String))
+            {
+                apiFailure(context, new BadRequestThrowable("Coordinates are not valid numbers"));
+                return;
+            }
+
             logger.debug("Coordinates lat check = "
                     + NumberUtils.isCreatable(coordinates.getValue(0).toString()));
             logger.debug("Coordinates lon check = "
@@ -644,7 +650,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             Object startObj = time.getValue("start");
             Object endObj = time.getValue("end");
 
-            if (!(startObj instanceof String) && !(endObj instanceof String)) {
+            if (!(startObj instanceof String) || !(endObj instanceof String)) {
                 apiFailure(context, new BadRequestThrowable("Start and end objects are not strings"));
                 return;
             }
