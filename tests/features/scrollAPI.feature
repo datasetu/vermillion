@@ -23,7 +23,7 @@ Feature: Vermillion is able to handle scroll search queries
   Scenario: Geo-spatial query along with scroll field value and distance is equal to 0m
     Given Vermillion is running
     When A geo-spatial query is initiated with scroll value and distance is equal to 0m
-    Then The response status should be 500
+    Then The response status should be 400
 
   Scenario: Geo-spatial query along with extraneous parameters
     Given Vermillion is running

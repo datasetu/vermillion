@@ -5,6 +5,7 @@ import shutil
 import requests
 import urllib3
 from behave import when
+import json
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -26,6 +27,11 @@ def step_impl(context):
         ('token', tokens["master"]),
 
     )
+    f = open("sample.txt", "w")
+    f.write("hi, welcome to datasetu!")
+    data = {"hello": "world"}
+    with open('meta.json', 'w') as f:
+        json.dump(data, f)
 
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
@@ -35,7 +41,6 @@ def step_impl(context):
     parent = "../setup/provider/"
     path_dir = os.path.join(parent, directory)
     if path.exists(path_dir):
-
         shutil.rmtree(path_dir)
     post_files(params, files, context)
 
@@ -260,13 +265,13 @@ def step_impl(context):
 
     )
     files = {
-         'file': ('sample.txt', open('sample.txt', 'rb')),
-         'fil': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
-
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'fil': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
 
     }
 
     post_files(params, files, context)
+
 
 @when('The consumer publishes with more than 2 form parameters-1')
 def step_impl(context):

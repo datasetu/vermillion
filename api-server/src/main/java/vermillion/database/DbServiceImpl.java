@@ -78,10 +78,20 @@ public class DbServiceImpl implements DbService {
         try {
             response = client.performRequest(searchRequest);
         } catch (ResponseException e) {
-            logger.debug(e.getMessage());
-            resultHandler.handle(
-                    ServiceException.fail(500, "Error while querying DB. Please check your inputs and try again."));
-            return this;
+            int responseCode = e.getResponse().getStatusLine().getStatusCode();
+
+            if(responseCode == 400)
+            {
+                resultHandler.handle(ServiceException.fail(
+                        400,
+                        "Malformed inputs"));
+                return this;
+            } else {
+                logger.debug(e.getMessage());
+                resultHandler.handle(
+                        ServiceException.fail(500, "Error while querying DB. Please check your inputs and try again."));
+                return this;
+            }
         } catch (Exception e) {
             resultHandler.handle(ServiceException.fail(500, "Internal Server Error"));
             return this;
@@ -149,11 +159,20 @@ public class DbServiceImpl implements DbService {
             response = client.performRequest(searchRequest);
         } catch (ResponseException e) {
 
-            logger.debug("Error message = " + e.getMessage());
-            resultHandler.handle(ServiceException.fail(
-                    500,
-                    "Error while querying DB. Please check your inputs and try again."));
-            return this;
+            int responseCode = e.getResponse().getStatusLine().getStatusCode();
+
+            if(responseCode == 400)
+            {
+                resultHandler.handle(ServiceException.fail(
+                        400,
+                        "Malformed inputs"));
+                return this;
+            } else {
+                logger.debug("Error message = " + e.getMessage());
+                resultHandler.handle(
+                        ServiceException.fail(500, "Error while querying DB. Please check your inputs and try again."));
+                return this;
+            }
         } catch (Exception e) {
             logger.debug("Exception = " + e.getMessage());
             resultHandler.handle(ServiceException.fail(500, "Internal Server Error"));

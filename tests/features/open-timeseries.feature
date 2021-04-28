@@ -55,20 +55,20 @@ Feature: Vermillion is able to handle timeseries queries
 		When Timeseries query start and end date is not string
 		Then The response status should be 400
 
-#	Scenario: Timeseries query for start and end date is an integer
-#		Given Vermillion is running
-#		When Timeseries query start and end date is an integer
-#		Then The response status should be 400
+	Scenario: Timeseries query for start and end date is an integer
+		Given Vermillion is running
+		When Timeseries query start and end date is an integer
+		Then The response status should be 400
 
-#	Scenario: Timeseries query for start date greater than end date
-#		Given Vermillion is running
-#		When Timeseries query start date greater than end date
-#		Then The response status should be 400
+	Scenario: Timeseries query for start date greater than end date
+		Given Vermillion is running
+		When Timeseries query start date greater than end date
+		Then The response status should be 400
 
-#	Scenario: Timeseries query for year greater than 9999
-#		Given Vermillion is running
-#		When Timeseries query year greater than 9999
-#		Then The response status should be 400
+	Scenario: Timeseries query for year greater than 9999
+		Given Vermillion is running
+		When Timeseries query year greater than 9999
+		Then The response status should be 400
 
 
 	Scenario: Timeseries query for month greater than 12
@@ -81,10 +81,10 @@ Feature: Vermillion is able to handle timeseries queries
 		When Timeseries query day greater than 31
 		Then The response status should be 400
 
-#	Scenario: Timeseries query for date in invalid format
-#		Given Vermillion is running
-#		When Timeseries query date in invalid format
-#		Then The response status should be 400
+	Scenario: Timeseries query for date in invalid format
+		Given Vermillion is running
+		When Timeseries query date in invalid format
+		Then The response status should be 400
 
 	Scenario: Timeseries query with just resource id as payload
 		Given Vermillion is running

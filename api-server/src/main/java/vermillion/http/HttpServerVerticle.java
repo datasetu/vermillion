@@ -38,10 +38,15 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
+
+import org.joda.time.format.ISODateTimeFormat;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
@@ -242,7 +247,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         logger.debug("Latest query = " + constructedQuery.encodePrettily());
 
-        if ("".equals(token) && resourceID.endsWith(".public")) {
+        if (resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
             dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
                     "content-type", "application/json")
@@ -334,10 +339,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if(!isValidScrollID(scrollId)){
-            apiFailure(context, new BadRequestThrowable("Invalid Scroll Id"));
-            return;
-        }
+//        if(!isValidScrollID(scrollId)){
+//            apiFailure(context, new BadRequestThrowable("Invalid Scroll Id"));
+//            return;
+//        }
 
         if("".equals(scrollDuration)){
             apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
@@ -571,11 +576,18 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("Is a valid number ?" + NumberUtils.isCreatable(distanceQuantity));
 
             // If the number preceding m, km, cm etc is a valid number
-            if (!NumberUtils.isCreatable(distanceQuantity)) {
+            int geoDistanceQuantity;
+            try{
+                geoDistanceQuantity = Integer.parseInt(distanceQuantity);
+                if(geoDistanceQuantity < 1){
+                    apiFailure(context, new BadRequestThrowable("Distance less than 1m"));
+                    return;
+                }
+            }
+            catch(NumberFormatException ex){
                 apiFailure(context, new BadRequestThrowable("Distance is not valid."));
                 return;
             }
-
             Object coordinatesObj = geoDistance.getValue("coordinates");
 
             if (!(coordinatesObj instanceof JsonArray)) {
@@ -590,6 +602,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             if (coordinates.size() != 2) {
                 apiFailure(context, new BadRequestThrowable("Invalid coordinates"));
+                return;
+            }
+
+            if((coordinates.getValue(0) instanceof String) || (coordinates.getValue(1) instanceof String))
+            {
+                apiFailure(context, new BadRequestThrowable("Coordinates are not valid numbers"));
                 return;
             }
 
@@ -637,16 +655,37 @@ public class HttpServerVerticle extends AbstractVerticle {
             Object startObj = time.getValue("start");
             Object endObj = time.getValue("end");
 
-            if (!(startObj instanceof String) && !(endObj instanceof String)) {
+            if (!(startObj instanceof String) || !(endObj instanceof String)) {
                 apiFailure(context, new BadRequestThrowable("Start and end objects are not strings"));
                 return;
             }
 
             String start = time.getString("start");
             String end = time.getString("end");
-            Locale locale = new Locale("English", "IN");
+//            Locale locale = new Locale("English", "IN");
+//
+//            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+//                apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
+//                return;
+//            }
+//            /(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))/
 
-            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+            DateTimeFormatter fmt = ISODateTimeFormat.dateTimeParser();
+
+            DateTime startDate;
+            DateTime endDate;
+            try
+            {
+                startDate = fmt.parseDateTime(start);
+                endDate = fmt.parseDateTime(end);
+                if(endDate.getMillis() - startDate.getMillis() < 0)
+                {
+                    apiFailure(context, new BadRequestThrowable("End date is smaller than start date"));
+                    return;
+                }
+            }
+            catch (Exception ex){
+                ex.printStackTrace();
                 apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
                 return;
             }
@@ -685,7 +724,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
-            String attributeName = attribute.getString("term");
+            String attributeName = attribute.getString("term").trim();
 
             if ("".equals(attributeName)) {
                 apiFailure(context, new BadRequestThrowable("Term parameter is empty"));
@@ -711,12 +750,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                     return;
                 }
 
-                //                if (!NumberUtils.isCreatable(minObj.toString()) ||
-                // !NumberUtils.isCreatable(maxObj.toString())) {
-                //                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid
-                // numbers"));
-                //                    return;
-                //                }
+                if (!NumberUtils.isCreatable(minObj.toString()) || !NumberUtils.isCreatable(maxObj.toString())) {
+                    apiFailure(context, new BadRequestThrowable("Min and max values are not valid numbers"));
+                    return;
+                }
 
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
@@ -766,7 +803,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             scrollStr = scrollObj.toString();
-            if ("".equals(scrollStr) ){
+            if ("".equals(scrollStr)){
                 apiFailure(context, new BadRequestThrowable("Scroll parameter is empty"));
                 return;
             }
@@ -816,8 +853,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         // 2. When token is provided but ID is a public ID
         // 3. When token is provided but ID is a list of public IDs
         // Don't know why anyone would do 2 & 3, but you never know
-        if ((token == null)
-                || (resourceIDstr != null && resourceIDstr.endsWith(".public"))
+        if ((resourceIDstr != null && resourceIDstr.endsWith(".public"))
                 || (resourceIDArray != null
                 && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
             if (scroll) {
@@ -878,7 +914,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         String token = request.getParam("token");
         String idParam = request.getParam("id");
 
-        logger.info("token=" + token);
+        logger.debug("token=" + token);
 
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
@@ -941,8 +977,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             String resourceId = authorisedIds.getString(i);
                             // Get the actual file name on disk
 
-                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/"
-                                    + resourceId.substring(0, resourceId.lastIndexOf('/'));
+                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId;
 
                             // Create consumer directory path if it does not exist
                             new File(consumerResourceDir).mkdirs();
@@ -953,7 +988,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             // TODO: This could take a very long time for multiple large files
                             try {
-                                logger.debug("Inside 956");
                                 Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
                             } catch (FileAlreadyExistsException ignored) {
 
@@ -1008,11 +1042,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             // TODO: This could take a very long time for multiple large files
                             try {
-                                logger.debug("Inside 1011");
                                 Files.createSymbolicLink(consumerResourcePath, providerResourcePath);
-                                logger.debug("Inside 1013");
                             } catch (FileAlreadyExistsException ignored) {
-                                logger.debug("Inside 1015");
 
                             } catch (Exception e) {
                                 return Completable.error(new InternalErrorThrowable("Could not create symlinks"));
@@ -1054,21 +1085,32 @@ public class HttpServerVerticle extends AbstractVerticle {
         String token;
         JsonObject requestBody = null;
 
+        HashMap<String, FileUpload> fileUploads = new HashMap<>();
+
+        logger.debug("File uploads = " + context.fileUploads().size());
+        logger.debug("Is empty = " + context.fileUploads().isEmpty());
+        if (!context.fileUploads().isEmpty()) {
+            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
+            logger.debug(fileUploads.toString());
+        }
+
         // TODO: Check for invalid IDs
         resourceId = request.getParam("id");
         token = request.getParam("token");
-
         if (resourceId == null) {
             apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            deleteUploads(fileUploads);
             return;
         }
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            deleteUploads(fileUploads);
             return;
         }
 
         if (!isValidToken(token) || !isValidResourceID(resourceId)) {
             apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
+            deleteUploads(fileUploads);
             return;
         }
 
@@ -1082,29 +1124,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonArray requestedIdList = new JsonArray().add(resourceId);
 
-        HashMap<String, FileUpload> fileUploads = new HashMap<>();
-
-        logger.debug("File uploads = " + context.fileUploads().size());
-        logger.debug("Is empty = " + context.fileUploads().isEmpty());
-        if (!context.fileUploads().isEmpty()) {
-            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
-            logger.debug(fileUploads.toString());
-        }
-
         if (context.fileUploads().size() > 0) {
 
             if (context.fileUploads().size() > 2 || !fileUploads.containsKey("file")) {
                 apiFailure(context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
                 // Delete uploaded files if inputs are not as required
-                fileUploads.forEach((k, v) -> {
-                    try {
-                        logger.debug("Inside check 1097");
-                        Files.deleteIfExists(Paths.get(v.uploadedFileName()));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-
+                deleteUploads(fileUploads);
                 return;
             } else {
                 file = fileUploads.get("file");
@@ -1148,10 +1173,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             // if it does not already exist
             String accessFolder = PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
 
-            String providerDirStructure = accessFolder + resourceId.substring(0, resourceId.lastIndexOf("/"));
+            String providerDirStructure = accessFolder + resourceId;
             logger.debug("Provider dir structure=" + providerDirStructure);
 
-            String providerFilePath = accessFolder + resourceId;
+            String providerFilePath = accessFolder + resourceId + "/" + file.fileName();
             logger.debug("Provider file path=" + providerFilePath);
 
             logger.debug("Source=" + finalFileName);
@@ -1166,7 +1191,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             JsonObject dbEntryJson = new JsonObject()
-                    .put("data", new JsonObject().put("link", fileLink))
+                    .put("data", new JsonObject().put("link", fileLink).put("filename", file.fileName()))
                     .put("timestamp", Clock.systemUTC().instant().toString())
                     .put("id", resourceId)
                     .put("category", category);
@@ -1381,10 +1406,11 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof ServiceException) {
-        	  logger.debug("Service exception");
-        	  ServiceException serviceException = (ServiceException) t;
 
-            if (serviceException.failureCode() == 404) {
+            logger.debug("Service exception");
+            ServiceException serviceException = (ServiceException) t;
+
+            if (serviceException.failureCode() == 400 || serviceException.failureCode() == 404) {
                 context.response()
                         .setStatusCode(BAD_REQUEST)
                         .putHeader("content-type", "application/json")
@@ -1395,17 +1421,16 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             else
             {
-	              context.response()
-					            .setStatusCode(INTERNAL_SERVER_ERROR)
-					            .putHeader("content-type", "application/json")
-					            .end(new JsonObject()
-									            .put("status", "error")
-									            .put("message", serviceException.getMessage())
-									            .encode());
+                context.response()
+                        .setStatusCode(INTERNAL_SERVER_ERROR)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject()
+                                .put("status", "error")
+                                .put("message", serviceException.getMessage())
+                                .encode());
             }
         } else {
             logger.debug("In internal error");
-
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)
                     .putHeader("content-type", "application/json")
@@ -1455,14 +1480,14 @@ public class HttpServerVerticle extends AbstractVerticle {
         return resourceID.matches(validRegex);
     }
 
-    private boolean isValidScrollID(String scrollID) {
-
-        logger.debug("In isValidScrollId");
-        logger.debug("Received Scroll id = " + scrollID);
-
-        String validRegex = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$";
-        return scrollID.matches(validRegex);
-    }
+//    private boolean isValidScrollID(String scrollID) {
+//
+//        logger.debug("In isValidScrollId");
+//        logger.debug("Received Scroll id = " + scrollID);
+//
+//        String validRegex = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$";
+//        return scrollID.matches(validRegex);
+//    }
 
     private boolean isValidToken(String token) {
 
@@ -1471,5 +1496,15 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
         return token.matches(validRegex);
+    }
+
+    private void deleteUploads(HashMap<String, FileUpload> fileUploads){
+        fileUploads.forEach((k, v) -> {
+            try {
+                Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 }
