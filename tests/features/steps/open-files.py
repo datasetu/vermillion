@@ -27,11 +27,6 @@ def step_impl(context):
         ('token', tokens["master"]),
 
     )
-    f = open("sample.txt", "w")
-    f.write("hi, welcome to datasetu!")
-    data = {"hello": "world"}
-    with open('meta.json', 'w') as f:
-        json.dump(data, f)
 
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
@@ -206,10 +201,6 @@ def step_impl(context):
         'abc': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
         'efg': ('samplepdf.pdf', open('samplepdf.pdf', 'rb')),
     }
-    # This part of code removes the files present in the file-uploads folder that existed previously
-    fil = glob.glob('../api-server/file-uploads/*')
-    for f in fil:
-        os.remove(f)
 
     post_files(params, files, context)
 

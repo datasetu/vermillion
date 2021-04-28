@@ -76,14 +76,14 @@ def step_impl(context):
         name for name in os.listdir(DIR)
         if os.path.isfile(os.path.join(DIR, name))
     ])
-    counter = 0
-    # Slowing down by running checks for the deletion of files to happen
-    while number_of_files > 0 and counter < 60:
-        number_of_files = len([
-            name for name in os.listdir(DIR)
-            if os.path.isfile(os.path.join(DIR, name))
-        ])
-        time.sleep(1)
+    # counter = 0
+    # # Slowing down by running checks for the deletion of files to happen
+    # while number_of_files > 0 and counter < 60:
+    #     number_of_files = len([
+    #         name for name in os.listdir(DIR)
+    #         if os.path.isfile(os.path.join(DIR, name))
+    #     ])
+    #     time.sleep(1)
     print(number_of_files)
     if number_of_files > 0:
         raise UnexpectedBehaviourError('Files have not been deleted')

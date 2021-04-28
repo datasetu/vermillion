@@ -1,6 +1,7 @@
 import requests
 import urllib3
 from behave import when
+import json
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from auth_vars import res, tokens
 from utils import generate_random_chars, get_request, post_files
@@ -23,6 +24,11 @@ def step_impl(context):
         ('token', tokens["2_5_write"]),
 
     )
+    f = open("sample.txt", "w")
+    f.write("hi, welcome to datasetu!")
+    data = {"hello": "world"}
+    with open('meta.json', 'w') as f:
+        json.dump(data, f)
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
