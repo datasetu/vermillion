@@ -26,6 +26,7 @@ def step_impl(context):
         ('token', tokens["master"]),
 
     )
+
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
@@ -157,7 +158,8 @@ def step_impl(context):
         ("id", res[0]),
         ('token', tokens["master"]),
     )
-
+    f = open("invalidmeta.json", "w")
+    f.write("{ hi, ")
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
 
@@ -192,6 +194,9 @@ def step_impl(context):
         ('token', tokens["master"]),
 
     )
+    f = open("samplecsv.csv", "w")
+    f = open("samplepdf.pdf", "w")
+
     files = {
         'abc': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
         'efg': ('samplepdf.pdf', open('samplepdf.pdf', 'rb')),

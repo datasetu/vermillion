@@ -8,34 +8,34 @@ Feature: Vermillion is able to handle static files
 		      Then The response status should be 201
               And The file gets uploaded in the provider public directory
 
-    Scenario: Consumer publishes without resource id
+    Scenario: Consumer publishes open-files without resource id
             Given Vermillion is running
             When The consumer publishes without resource id
             Then The response status should be 400
 
-  Scenario: Consumer publishes without token
+  Scenario: Consumer publishes open-files without token
            Given Vermillion is running
             When The consumer publishes without token
             Then The response status should be 400
 
-	Scenario: Consumer publishes with invalid resource id
+	Scenario: Consumer publishes open-files with invalid resource id
                 Given Vermillion is running
                 When The consumer publishes with invalid resource id
                 Then The response status should be 403
 
 		
-        Scenario: Consumer publishes with empty resource id
+        Scenario: Consumer publishes open-files with empty resource id
                 Given Vermillion is running
                 When The consumer publishes with empty resource id
                 Then The response status should be 403
 		
 	
-	Scenario: Consumer publishes with invalid token
+	Scenario: Consumer publishes open-files with invalid token
                 Given Vermillion is running
                 When The consumer publishes with invalid token
-		Then The response status should be 403
+		        Then The response status should be 403
 
- 	Scenario: Consumer publishes with empty token
+ 	Scenario: Consumer publishes open-files with empty token
                 Given Vermillion is running
                 When The consumer publishes with empty token
                 Then The response status should be 403
@@ -79,11 +79,6 @@ Feature: Vermillion is able to handle static files
                 Then The response status should be 200
 		        And The expected file is returned
 
-
-  Scenario: Consumer publishes with more than 2 form parameters
-    Given Vermillion is running
-    When The consumer publishes with more than 2 form parameters-1
-    Then The response status should be 400
 
   Scenario: Consumer publishes with form parameter other than file
     Given Vermillion is running

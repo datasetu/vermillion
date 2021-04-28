@@ -49,7 +49,7 @@ def step_impl(context):
 def step_impl(context):
     context.type = 'latest_public'
     params = (
-                 ("id", res[0]),
+                 ("id", "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"),
 
     )
     r = requests.get(url, headers=headers, params=params, verify=False)

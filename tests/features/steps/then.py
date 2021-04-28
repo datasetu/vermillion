@@ -3,6 +3,7 @@ import os
 import time
 import requests
 import urllib3
+from auth_vars import tokens
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from error_definitions import ResponseCountMismatchError, UnexpectedStatusCodeError, UnexpectedBehaviourError
@@ -106,6 +107,12 @@ def step_impl(context):
         if os.path.isfile(os.path.join(DIR, name))
     ])
     if number_of_files != 1:
+        raise UnexpectedBehaviourError('Files have not been created')
+
+@then('The file gets uploaded in the consumer directory')
+def step_impl(context):
+    DIR = '../api-server/webroot/consumer/'+tokens["8_10_rw"]+'/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/'
+    if not os.path.exists(DIR):
         raise UnexpectedBehaviourError('Files have not been created')
 
 @then('The response should contain the secure timeseries data')
