@@ -134,6 +134,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/download").handler(this::download);
         router.post("/publish").handler(this::publish);
+        router.post("/unpublish").handler(this::unpublish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
 
@@ -273,13 +274,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         JsonObject requestBody;
         int scrollValue;
 
-        String token = request.getParam("token");
-
-        if (token != null && !isValidToken(token)) {
-            apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
-            return;
-        }
-
         try {
             requestBody = context.getBodyAsJson();
 
@@ -307,6 +301,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         Set<String> permittedFieldSet = new HashSet<>();
         permittedFieldSet.add("scroll_id");
+        permittedFieldSet.add("token");
         permittedFieldSet.add("scroll_duration");
 
         if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
@@ -381,7 +376,26 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if (token != null) {
+        if (requestBody.containsKey("token")) {
+            Object tokenObj = requestBody.getValue("token");
+
+            if (!(tokenObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("token is not valid"));
+                return;
+            }
+
+            String token = requestBody.getString("token");
+
+            if("".equals(token) || token == null){
+                apiFailure(context, new BadRequestThrowable("token is empty"));
+                return;
+            }
+
+            if (token != null && !isValidToken(token)) {
+                apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
+                return;
+            }
+
             checkAuthorisation(token, "read")
                     .flatMap(
                             authorisedIDs -> dbService.rxScrolledSearch(scrollId, scrollDuration, token, authorisedIDs))
@@ -408,14 +422,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         // Init a variable to check if scrolling has been requested
         boolean scroll = false;
-
-        // Read the token if present
-        String token = request.getParam("token");
-
-        if (token != null && !isValidToken(token)) {
-            apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
-            return;
-        }
 
         Queries queries = new Queries();
 
@@ -451,6 +457,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         Set<String> permittedFieldSet = new HashSet<>();
         permittedFieldSet.add("id");
+        permittedFieldSet.add("token");
         permittedFieldSet.add("geo_distance");
         permittedFieldSet.add("time");
         permittedFieldSet.add("attribute");
@@ -484,7 +491,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                     return;
                 }
-                if (!(((String) o).endsWith(".public")) && token == null) {
+                if (!(((String) o).endsWith(".public")) && !requestBody.containsKey("token")) {
                     apiFailure(context, new BadRequestThrowable("No token found in request"));
                     return;
                 }
@@ -502,7 +509,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                 return;
             }
-            if (!resourceIDstr.endsWith(".public") && token == null) {
+            if (!resourceIDstr.endsWith(".public") && !requestBody.containsKey("token")) {
                 apiFailure(context, new BadRequestThrowable("No token found in request"));
                 return;
             }
@@ -872,6 +879,24 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 t -> apiFailure(context, t));
             }
         } else {
+            Object tokenObj = requestBody.getValue("token");
+
+            if (!(tokenObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("token is not valid"));
+                return;
+            }
+
+            String token = requestBody.getString("token");
+
+            if("".equals(token) || token == null){
+                apiFailure(context, new BadRequestThrowable("token is empty"));
+                return;
+            }
+
+            if (token != null && !isValidToken(token)) {
+                apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
+                return;
+            }
             JsonArray requestedIDs = new JsonArray();
 
             if (resourceIDstr != null) {
@@ -1084,6 +1109,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         String resourceId;
         String token;
         JsonObject requestBody = null;
+        JsonObject finalRequestBody = new JsonObject();
 
         HashMap<String, FileUpload> fileUploads = new HashMap<>();
 
@@ -1094,36 +1120,6 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug(fileUploads.toString());
         }
 
-        // TODO: Check for invalid IDs
-        resourceId = request.getParam("id");
-        token = request.getParam("token");
-        if (resourceId == null) {
-            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
-            deleteUploads(fileUploads);
-            return;
-        }
-        if (token == null) {
-            apiFailure(context, new BadRequestThrowable("No access token found in request"));
-            deleteUploads(fileUploads);
-            return;
-        }
-
-        if (!isValidToken(token) || !isValidResourceID(resourceId)) {
-            apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
-            deleteUploads(fileUploads);
-            return;
-        }
-
-        String[] splitId = resourceId.split("/");
-
-        // TODO: Need to define the types of IDs supported
-
-        // Rationale: resource ids are structured as domain/sha1/rs.com/category/id
-        // Since pre-checks have been done, it is safe to get splitId[3]
-        String category = splitId[3];
-
-        JsonArray requestedIdList = new JsonArray().add(resourceId);
-
         if (context.fileUploads().size() > 0) {
 
             if (context.fileUploads().size() > 2 || !fileUploads.containsKey("file")) {
@@ -1131,39 +1127,68 @@ public class HttpServerVerticle extends AbstractVerticle {
                 // Delete uploaded files if inputs are not as required
                 deleteUploads(fileUploads);
                 return;
-            } else {
-                file = fileUploads.get("file");
-
-                if (fileUploads.containsKey("metadata")) {
-                    metadata = fileUploads.get("metadata");
-
-                    // TODO: Rxify this
-                    // TODO: File size could crash server. Need to handle this
-                    Buffer metaBuffer = vertx.fileSystem().readFileBlocking(metadata.uploadedFileName());
-
-                    try {
-                        metaJson = metaBuffer.toJsonObject();
-                    } catch (Exception e) {
-                        apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
-                        return;
-                    }
-                    logger.debug("Metadata = " + metaJson.encode());
-                } else {
-                    // Delete all other files except 'file' and 'metadata'
-                    fileUploads.forEach((k, v) -> {
-                        if (!"file".equalsIgnoreCase(k)) {
-                            try {
-                                Files.deleteIfExists(Paths.get(v.uploadedFileName()));
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    });
-                }
             }
+            file = fileUploads.get("file");
+
+            if (fileUploads.containsKey("metadata")) {
+                metadata = fileUploads.get("metadata");
+
+                // TODO: Rxify this
+                // TODO: File size could crash server. Need to handle this
+                Buffer metaBuffer = vertx.fileSystem().readFileBlocking(metadata.uploadedFileName());
+
+                try {
+                    metaJson = metaBuffer.toJsonObject();
+                } catch (Exception e) {
+                    apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
+                    deleteUploads(fileUploads);
+                    return;
+                }
+                logger.debug("Metadata = " + metaJson.encode());
+            }
+            // Delete all other files except 'file' and 'metadata'
+            fileUploads.forEach((k, v) -> {
+                if (!"file".equalsIgnoreCase(k)) {
+                    try {
+                        Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
         }
 
         if (file != null) {
+
+            // TODO: Check for invalid IDs
+            resourceId = request.getParam("id");
+            token = request.getParam("token");
+            if ("".equals(resourceId) || resourceId == null) {
+                apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+                deleteUploads(fileUploads);
+                return;
+            }
+            if ("".equals(token) || token == null) {
+                apiFailure(context, new BadRequestThrowable("No access token found in request"));
+                deleteUploads(fileUploads);
+                return;
+            }
+
+            if (!isValidToken(token) || !isValidResourceID(resourceId)) {
+                apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
+                deleteUploads(fileUploads);
+                return;
+            }
+
+            String[] splitId = resourceId.split("/");
+
+            // TODO: Need to define the types of IDs supported
+
+            // Rationale: resource ids are structured as domain/sha1/rs.com/category/id
+            // Since pre-checks have been done, it is safe to get splitId[3]
+            String category = splitId[3];
+
+            JsonArray requestedIdList = new JsonArray().add(resourceId);
 
             fileName = file.uploadedFileName();
 
@@ -1249,30 +1274,82 @@ public class HttpServerVerticle extends AbstractVerticle {
             permittedFieldSet.add("data");
             permittedFieldSet.add("timestamp");
             permittedFieldSet.add("coordinates");
+            permittedFieldSet.add("id");
+            permittedFieldSet.add("token");
+
+            if (!requestBody.containsKey("id")) {
+                apiFailure(context, new BadRequestThrowable("No id found in body"));
+                return;
+            }
+
+            if (!requestBody.containsKey("token")) {
+                apiFailure(context, new BadRequestThrowable("No token in body"));
+                return;
+            }
 
             if (!requestBody.containsKey("data")) {
                 apiFailure(context, new BadRequestThrowable("No data field in body"));
                 return;
             }
+
+            if (!(requestBody.getValue("id") instanceof String))
+            {
+                apiFailure(context, new BadRequestThrowable("ID is not valid"));
+                return;
+            }
+
+            if (!(requestBody.getValue("token") instanceof String))
+            {
+                apiFailure(context, new BadRequestThrowable("Token is not valid"));
+                return;
+            }
+
             if (!(requestBody.getValue("data") instanceof JsonObject)) {
                 apiFailure(context, new BadRequestThrowable("Data field is not a JSON object"));
                 return;
             }
+
             if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
                 apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
                 return;
             }
 
-            if (!requestBody.containsKey("timestamp")) {
-                requestBody.put("timestamp", Clock.systemUTC().instant().toString());
+            // TODO: Check for invalid IDs
+            resourceId = requestBody.getString("id");
+            token = requestBody.getString("token");
+            if ("".equals(resourceId) || resourceId == null) {
+                apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+                return;
+            }
+            if ("".equals(token) || token == null) {
+                apiFailure(context, new BadRequestThrowable("No access token found in request"));
+                return;
             }
 
-            requestBody.put("id", resourceId);
-            requestBody.put("category", category);
-            requestBody.put("mime-type", "application/json");
-        }
+            if (!isValidToken(token) || !isValidResourceID(resourceId)) {
+                apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
+                return;
+            }
 
-        JsonObject finalRequestBody = requestBody;
+            String[] splitId = resourceId.split("/");
+
+            // TODO: Need to define the types of IDs supported
+
+            // Rationale: resource ids are structured as domain/sha1/rs.com/category/id
+            // Since pre-checks have been done, it is safe to get splitId[3]
+            String category = splitId[3];
+
+            if(requestBody.containsKey("coordinates")){
+                finalRequestBody.put("coordinates",requestBody.getValue("coordinates"));
+            }
+
+            finalRequestBody
+                    .put("data",requestBody.getValue("data"))
+                    .put("timestamp", requestBody.getValue("timestamp", Clock.systemUTC().instant().toString()))
+                    .put("id", resourceId)
+                    .put("category", category)
+                    .put("mime-type", "application/json");
+        }
 
         // There is no need for introspect here. It will be done at the rmq auth backend level
         brokerService
@@ -1280,6 +1357,153 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .subscribe(() -> response.setStatusCode(202).end(), t -> apiFailure(context, t));
 
         logger.debug("Filename = " + fileName);
+    }
+
+    public void unpublish(RoutingContext context) {
+
+        logger.debug("In unpublish API");
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+
+        JsonObject requestBody = null;
+        String resourceId;
+        String token;
+        JsonArray files;
+
+        try {
+            requestBody = context.getBodyAsJson();
+        } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+            return;
+        }
+
+        if (requestBody == null) {
+            apiFailure(context, new BadRequestThrowable("Body is null"));
+            return;
+        }
+
+        Set<String> permittedFieldSet = new HashSet<>();
+        permittedFieldSet.add("files");
+        permittedFieldSet.add("id");
+        permittedFieldSet.add("token");
+
+        if (!requestBody.containsKey("id")) {
+            apiFailure(context, new BadRequestThrowable("No id found in body"));
+            return;
+        }
+
+        if (!requestBody.containsKey("token")) {
+            apiFailure(context, new BadRequestThrowable("No token in body"));
+            return;
+        }
+
+        if (!requestBody.containsKey("files")) {
+            apiFailure(context, new BadRequestThrowable("No files in body"));
+            return;
+        }
+
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
+            apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
+            return;
+        }
+
+        Object idObj = requestBody.getValue("id");
+
+        if (!(idObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("ID is not valid"));
+            return;
+        }
+
+        Object tokenObj = requestBody.getValue("token");
+
+        if (!(tokenObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Token is not valid"));
+            return;
+        }
+
+        Object filesObj = requestBody.getValue("files");
+
+        if (!(filesObj instanceof JsonArray)){
+            apiFailure(context, new BadRequestThrowable("files is not valid"));
+            return;
+        }
+
+        resourceId = requestBody.getString("id");
+        token = requestBody.getString("token");
+        files = requestBody.getJsonArray("files");
+
+        if ("".equals(resourceId) || resourceId == null) {
+            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            return;
+        }
+
+        if ("".equals(token) || token == null) {
+            apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            return;
+        }
+
+        if (!isValidToken(token) || !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
+            return;
+        }
+
+        logger.debug("files=" + files.encodePrettily());
+
+        logger.debug("files size = " + files.size());
+
+        if (files.size() == 0) {
+            apiFailure(context, new BadRequestThrowable("Invalid files"));
+            return;
+        }
+
+        for (int i = 0; i < files.size(); i++) {
+            if (!(files.getValue(i) instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("files are not valid String"));
+                return;
+            }
+        }
+
+        JsonArray requestedIdList = new JsonArray().add(resourceId);
+
+        Queries queries = new Queries();
+
+        JsonObject baseQuery = queries.getBaseQuery();
+        JsonArray filterQuery = queries.getFilterQuery();
+        JsonObject termQuery = queries.getTermQuery();
+        JsonObject filesQuery = queries.getFilesQuery();
+        checkAuthorisation(token, WRITE_SCOPE, requestedIdList)
+                .andThen(Completable.defer(() -> {
+                    JsonArray finalFiles = new JsonArray();
+                    for (int i = 0; i < files.size(); i++) {
+                        String accessFolder = PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
+
+                        String providerDirStructure = accessFolder + resourceId;
+                        logger.debug("Provider dir structure=" + providerDirStructure);
+
+                        String providerFilePath = accessFolder + resourceId + "/" + files.getString(i);
+                        try {
+                            if (Files.exists(Paths.get(providerFilePath))) {
+                                finalFiles.add(files.getString(i));
+                                Files.delete(Paths.get(providerFilePath));
+                            }
+                        } catch (IOException e) {
+                            return Completable.error(new InternalErrorThrowable("Could not delete files"));
+                        }
+                    }
+
+                    termQuery.getJsonObject("term").put("id.keyword", resourceId);
+                    filesQuery.getJsonObject("terms").put("data.filename.keyword", finalFiles);
+                    filterQuery.add(termQuery);
+                    filterQuery.add(filesQuery);
+                    baseQuery.getJsonObject("query").getJsonObject("bool").put("filter", filterQuery);
+
+                    return Completable.complete();
+                }))
+                .andThen(dbService.rxUnpublish(baseQuery))
+                .subscribe((result) -> response.setStatusCode(200).end("Ok"), t -> apiFailure(context, t));
+        return;
     }
 
     // TODO: Handle server token

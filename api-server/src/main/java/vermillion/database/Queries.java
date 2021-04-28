@@ -13,6 +13,7 @@ public class Queries {
   public JsonObject termQuery;
 
   public JsonObject termsQuery;
+  public JsonObject filesQuery;
 
   public Queries() {
     baseQuery =
@@ -40,6 +41,7 @@ public class Queries {
 
     // Used only for Multi-ID queries
     termsQuery = new JsonObject().put("terms", new JsonObject().put("id.keyword", new JsonArray()));
+    filesQuery = new JsonObject().put("terms", new JsonObject().put("data.filename.keyword", new JsonArray()));
   }
 
   public JsonObject getBaseQuery() {
@@ -77,5 +79,9 @@ public class Queries {
 
   public JsonObject getTermsQuery() {
     return termsQuery;
+  }
+
+  public JsonObject getFilesQuery() {
+    return filesQuery;
   }
 }

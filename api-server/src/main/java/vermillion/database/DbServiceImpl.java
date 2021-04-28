@@ -41,6 +41,10 @@ public class DbServiceImpl implements DbService {
     private String insertMethod;
     private Request insertRequest;
 
+    private String unpublishEndpoint;
+    private String unpublishMethod;
+    private Request unpublishRequest;
+
     public DbServiceImpl(String esHost, int esPort, String index, Handler<AsyncResult<DbService>> resultHandler) {
 
         client = RestClient.builder(new HttpHost(esHost, esPort, "http")).build();
@@ -54,10 +58,14 @@ public class DbServiceImpl implements DbService {
         this.insertEndpoint = "/" + this.index + "/_doc";
         this.insertMethod = "POST";
 
+        this.unpublishEndpoint = "/" + this.index + "/_delete_by_query";
+        this.unpublishMethod = "POST";
+
         // TODO: Have a retry mechanism
         this.searchRequest = new Request(searchMethod, searchEndpoint);
         this.insertRequest = new Request(insertMethod, insertEndpoint);
         this.scrollRequest = new Request(scrollEndpoint, scrollMethod);
+        this.unpublishRequest = new Request(unpublishMethod, unpublishEndpoint);
 
         resultHandler.handle(Future.succeededFuture(this));
     }
@@ -348,6 +356,26 @@ public class DbServiceImpl implements DbService {
                     return Completable.complete();
                 })
                 .subscribe(CompletableHelper.toObserver(resultHandler));
+
+        return this;
+    }
+
+    @Override
+    public DbService unpublish(JsonObject query, Handler<AsyncResult<JsonObject>> resultHandler) {
+
+        logger.debug("In Unpublish");
+        logger.debug("Query=" + query.encode());
+
+        Completable.fromCallable(() -> {
+            unpublishRequest.setJsonEntity(query.encode());
+            Response response = client.performRequest(unpublishRequest);
+            logger.debug("Response=" + response);
+            if (response.getStatusLine().getStatusCode() != 200)
+                return Completable.error(new InternalErrorThrowable("Errored while deleting"));
+
+            return Completable.complete();
+        })
+        .subscribe(CompletableHelper.toObserver(resultHandler));
 
         return this;
     }

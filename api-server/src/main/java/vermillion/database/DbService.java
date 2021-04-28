@@ -36,4 +36,7 @@ public interface DbService {
 
   @Fluent
   DbService insert(JsonObject query, Handler<AsyncResult<Void>> resultHandler);
+
+  @Fluent
+  DbService unpublish(JsonObject query, Handler<AsyncResult<JsonObject>> resultHandler);
 }
