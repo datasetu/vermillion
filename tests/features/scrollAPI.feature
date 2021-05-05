@@ -10,6 +10,11 @@ Feature: Vermillion is able to handle scroll search queries
     When A geo-spatial query is initiated with scroll field and a token
     Then The response status should be 200
 
+  Scenario: Geo-spatial query along with invalid coordinate value
+    Given Vermillion is running
+    When A geo-spatial query is initiated with invalid coordinate value
+    Then The response status should be 400
+
   Scenario: Geo-spatial query for secured resource
     Given Vermillion is running
     When A geo-spatial query is initiated for secured resource
@@ -196,6 +201,11 @@ Feature: Vermillion is able to handle scroll search queries
     Given Vermillion is running
     When The scroll search query with expired token
     Then The response status should be 403
+
+  Scenario: Scroll search query with scroll id not present in db
+    Given Vermillion is running
+    When The scroll search query with scroll id not present in db
+    Then The response status should be 500
 
   Scenario: Scroll search query
     Given Vermillion is running

@@ -270,7 +270,7 @@ def step_impl(context):
 @when('The consumer requests for a standalone authorised ID with invalid token')
 def step_impl(context):
     params = (
-        ('token', generate_random_chars()),
+        ('token', generate_random_chars(special_chars=False)),
 
     )
     data = {

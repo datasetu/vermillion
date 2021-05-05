@@ -327,6 +327,15 @@ def step_impl(context):
 
     post_request(url, "", json.dumps(payload), context)
 
+@when('A geo-spatial query without body')
+def step_impl(context):
+
+    r = requests.post(url=VERMILLION_URL + SEARCH_ENDPOINT,
+                      verify=False)
+    context.response=r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
 
 @when('A geo-spatial query is initiated')
 def step_impl(context):
@@ -358,6 +367,20 @@ def step_impl(context):
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
             "distance": "10000M",
+
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
+
+@when('A geo-spatial query geodistance with invalid coordinate number')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "geo_distance": {
+            "coordinates": [True, 25.3176],
+            "distance": "10000m",
 
         }
     }

@@ -56,6 +56,22 @@ def step_impl(context):
 
     post_request(url_search, params, json.dumps(payload), context)
 
+@when('A geo-spatial query is initiated with invalid coordinate value')
+def step_impl(context):
+
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "scroll_duration": "1000s",
+        "size": 500,
+        "geo_distance": {
+            "coordinates": [0E0, 99],
+            "distance": "10000m",
+
+        }
+    }
+
+    post_request(url_search, "", json.dumps(payload), context)
 
 @when('A geo-spatial query is initiated for expired token')
 def step_impl(context):
@@ -595,6 +611,16 @@ def step_impl(context):
     payload = {
         "scroll_id": sc_id,
         "scroll_duration": 123,
+
+    }
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('The scroll search query with scroll id not present in db')
+def step_impl(context):
+    payload = {
+        "scroll_id": "FGluY2x1ZGVfY29udGV4dF91dWlkDXF1ZXJ5QW5kRmV0Y2gBFFV6WGJJWGtCYUdjd1JiYXNYZW04AAAAAAAAEF8WLVM2am9NcmVSZk9IaHJNTlFDbXlxZw==",
+        "scroll_duration": "10m",
 
     }
     post_request(url, "", json.dumps(payload), context)

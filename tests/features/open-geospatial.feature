@@ -112,6 +112,11 @@ Feature: Vermillion is able to handle geospatial queries
                 When A geo-spatial query geodistance with invalid json object
                 Then The response status should be 400
 
+        Scenario: Geo-spatial query geodistance with invalid coordinate number
+                Given Vermillion is running
+                When A geo-spatial query geodistance with invalid coordinate number
+                Then The response status should be 400
+
         Scenario: Geo-spatial query coordinates with invalid json array
                 Given Vermillion is running
                 When A geo-spatial query coordinates with invalid json array
@@ -127,12 +132,15 @@ Feature: Vermillion is able to handle geospatial queries
                 When A geo-spatial query is initiated
                 Then All matching records are returned
 
-        Scenario: Geo-spatial query
+        Scenario: Geo-spatial query for distance in M
                 Given Vermillion is running
                 When A geo-spatial query is initiated for distance in M
                 Then The response status should be 400
 
-
+        Scenario: Geo-spatial query without body
+                Given Vermillion is running
+                When A geo-spatial query without body
+                Then The response status should be 400
 
 
 
