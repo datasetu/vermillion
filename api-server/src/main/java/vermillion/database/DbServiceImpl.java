@@ -339,14 +339,14 @@ public class DbServiceImpl implements DbService {
         logger.debug("Query=" + query.encode());
 
         Completable.fromCallable(() -> {
-                    insertRequest.setJsonEntity(query.encode());
-                    Response response = client.performRequest(insertRequest);
+            insertRequest.setJsonEntity(query.encode());
+            Response response = client.performRequest(insertRequest);
 
-                    if (response.getStatusLine().getStatusCode() != 200)
-                        return Completable.error(new InternalErrorThrowable("Errored while inserting"));
+            if (response.getStatusLine().getStatusCode() != 200)
+                return Completable.error(new InternalErrorThrowable("Errored while inserting"));
 
-                    return Completable.complete();
-                })
+            return Completable.complete();
+        })
                 .subscribe(CompletableHelper.toObserver(resultHandler));
 
         return this;

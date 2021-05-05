@@ -1,9 +1,11 @@
 import os
 import glob
-
+from os import path
+import shutil
 import requests
 import urllib3
 from behave import when
+import json
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
@@ -25,11 +27,16 @@ def step_impl(context):
         ('token', tokens["master"]),
 
     )
+
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
-
+    directory = "public"
+    parent = "../setup/provider/"
+    path_dir = os.path.join(parent, directory)
+    if path.exists(path_dir):
+        shutil.rmtree(path_dir)
     post_files(params, files, context)
 
 
@@ -151,7 +158,8 @@ def step_impl(context):
         ("id", res[0]),
         ('token', tokens["master"]),
     )
-
+    f = open("invalidmeta.json", "w")
+    f.write("{ hi, ")
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
 
@@ -165,7 +173,7 @@ def step_impl(context):
 def step_impl(context):
     params = (
 
-        ("id", res[1]),
+        ("id", res[0]),
         ('token', tokens["master"]),
     )
 
@@ -186,14 +194,13 @@ def step_impl(context):
         ('token', tokens["master"]),
 
     )
+    f = open("samplecsv.csv", "w")
+    f = open("samplepdf.pdf", "w")
+
     files = {
         'abc': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
         'efg': ('samplepdf.pdf', open('samplepdf.pdf', 'rb')),
     }
-    # This part of code removes the files present in the file-uploads folder that existed previously
-    fil = glob.glob('../api-server/file-uploads/*')
-    for f in fil:
-        os.remove(f)
 
     post_files(params, files, context)
 
@@ -238,3 +245,38 @@ def step_impl(context):
     url = 'https://localhost/provider/public/' + res[0]
     get_request(url, None, context)
     open('test-resource.public', 'w').write('This is the downloaded file')
+
+
+@when('The consumer publishes with a valid and invalid form parameter')
+def step_impl(context):
+    params = (
+        ("id", res[0]
+         ),
+        ('token', tokens["master"]),
+
+    )
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'fil': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
+
+    }
+
+    post_files(params, files, context)
+
+
+@when('The consumer publishes with more than 2 form parameters-1')
+def step_impl(context):
+    params = (
+        ("id", res[0]),
+        ('token', tokens["master"]),
+    )
+
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+        'fille': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
+        'fie': ('samplepdf.pdf', open('samplepdf.pdf', 'rb'))
+
+    }
+
+    post_files(params, files, context)

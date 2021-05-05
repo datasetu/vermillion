@@ -47,11 +47,20 @@ def step_impl(context):
         ('id', res[4]),
         ('token', tokens["master"]),
     )
-    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, headers=headers, params=params, verify=False)
-    context.response = r
-    context.status_code = r.status_code
-    print(context.status_code, context.response)
+    data = '{"dat": {"hello": "india"}}'
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
+    post_request(url, params, data, context)
 
+@when('The consumer publishes data with invalid json body')
+def step_impl(context):
+    params = (
+        ('id', res[0]),
+        ('token', tokens["master"]),
+    )
+
+    data = '{"data" {"hello": "world"'
+    url = VERMILLION_URL + PUBLISH_ENDPOINT
+    post_request(url, params, data, context)
 
 @when('The consumer publishes data with invalid json data')
 def step_impl(context):
@@ -169,7 +178,7 @@ def step_impl(context):
     }
 
     # Allow one second for es segement refresh
-    time.sleep(5)
+    time.sleep(1)
     url = VERMILLION_URL + SEARCH_ENDPOINT
     post_request(url, params, json.dumps(data), context)
 
@@ -211,7 +220,7 @@ def step_impl(context):
             "end": "2021-11-01"
         }
     }
-    time.sleep(5)
+    time.sleep(1)
     url = VERMILLION_URL + SEARCH_ENDPOINT
     post_request(url, params, json.dumps(data), context)
 
@@ -261,7 +270,7 @@ def step_impl(context):
 @when('The consumer requests for a standalone authorised ID with invalid token')
 def step_impl(context):
     params = (
-        ('token', generate_random_chars()),
+        ('token', generate_random_chars(special_chars=False)),
 
     )
     data = {

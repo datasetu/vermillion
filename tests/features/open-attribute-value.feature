@@ -56,6 +56,11 @@ Feature: Vermillion is able to handle attribute queries
                 When The attribute value query without min and max values
                 Then The response status should be 400
 
+        Scenario: Attribute value query with invalid min and max numbers
+                Given Vermillion is running
+                When The attribute value query with invalid min and max numbers
+                Then The response status should be 400
+
         Scenario: Attribute value query without min value
                 Given Vermillion is running
                 When The attribute value query without min value
