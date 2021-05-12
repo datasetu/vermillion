@@ -186,7 +186,6 @@ Feature: Vermillion is able to handle scroll search queries
     Then The response status should be 400
 
 
-
   Scenario: Scroll search query for secured resource
     Given Vermillion is running
     When The scroll search query for secured resource

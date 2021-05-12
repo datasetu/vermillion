@@ -21,7 +21,7 @@ Feature: Vermillion is able to handle secure timeseries datasets
 	
 	Scenario: Consumer publishes data with an empty token
     
-	          Given Vermillion is running
+            Given Vermillion is running
             When The consumer publishes data with an empty token
             Then The response status should be 403
 	
