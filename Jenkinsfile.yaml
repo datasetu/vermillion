@@ -1,96 +1,45 @@
+pipeline:
+  agent:
+    any:
+    stages:
+      - stage: Set log level to "FINE" in apiserver
+        - steps:
+            - sh sed -i 's/INFO/FINEST/g' api-server/src/main/resources/vertx-default-jul-logging.properties
 
-name: test-suite
+      - stage: Set log level to "FINE" in authenticator
+        - steps:
+           - sh sed -i 's/INFO/FINEST/g' authenticator//src/main/resources/vertx-default-jul-logging.properties
 
-on: [push]
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+      - stage: Compile api server source files
+        - steps:
+           - sh cd api-server && mvn clean package
 
-    steps:
-      - uses: actions/checkout@v1
-        with:
-          submodules: 'true'
-      - uses: actions/setup-java@v1
-        with:
-          java-version: '11' # The JDK version to make available on the path.
-          java-package: jdk # (jre, jdk, or jdk+fx) - defaults to jdk
-          architecture: x64 # (x64 or x86) - defaults to x64
-      - uses: actions/setup-python@v1
-        with:
-          python-version: '3.8' # Version range or exact version of a Python version to use, using SemVer's version range syntax
-          architecture: 'x64'
+      - stage: Compile authenticator source files
+        - steps:
+          - sh cd authenticator && mvn clean package
 
-      - name: Set log level to "FINE" in apiserver
-        run: sed -i 's/INFO/FINEST/g' api-server/src/main/resources/vertx-default-jul-logging.properties
+      - stage: Install jq and behave
+        - steps:
+          - sh sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave
 
-      - name: Set log level to "FINE" in authenticator
-        run: sed -i 's/INFO/FINEST/g' authenticator//src/main/resources/vertx-default-jul-logging.properties
+      - stage: Set vermillion env to "test" in conf file
+        - steps:
+          - sh sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf
 
-      - name: Compile api server source files
-        run: cd api-server && mvn clean package
+      - stage: Install Vermillion
+        - steps:
+          - sh ./setup/install
 
-      - name: Compile authenticator source files
-        run: cd authenticator && mvn clean package
+      - stage: Wait for the middleware to be available
+        - steps:
+          - sh cd setup && ./wait.sh
 
-      - name: Install jq and behave
-        run: sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave
+      - stage: Load sample data into ES
+        - steps:
+          - sh cd setup && ./load_sample_data.sh
 
-      - name: Set vermillion env to "test" in conf file
-        run: sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf
+      - stage: Run tests and generate reports
+        - steps:
+          - sh cd setup && ./coverage.sh
 
-      - name: Install Vermillion
-        run: ./setup/install
-
-      - name: Wait for the middleware to be available
-        run:  cd setup && ./wait.sh
-
-      - name: Load sample data into ES
-        run: cd setup && ./load_sample_data.sh
-
-      - name: Run tests and generate reports
-        run:  cd setup && ./coverage.sh
-
-      - name: Run codacy-coverage-reporter
-        uses: codacy/codacy-coverage-reporter-action@master
-        with:
-          project-token: ${{ secrets.CODACY_TOKEN }}
-          coverage-reports:  api-server/target/site/jacoco/jacoco.xml
-
-      - name: Export vertx logs to a file
-        if: always()
-        run: docker logs vertx >& vertx_logs.txt
-
-      - name: Export connector logs to a file
-        if: always()
-        run: docker logs connector >& connector_logs.txt
-
-      - name: Export rabbit logs to a file
-        if: always()
-        run: docker logs rabbit >& rabbit_logs.txt
-
-      - name: Export es logs to a file
-        if: always()
-        run: docker logs elasticsearch >& es_logs.txt
-
-      - name: Upload log files as an artifact
-        if: always()
-        uses: actions/upload-artifact@v2
-        with:
-          name: log-files
-          path: |
-            vertx_logs.txt
-            connector_logs.txt
-            rabbit_logs.txt
-            es_logs.txt
-
-      - name: redoc-cli test
-        uses: seeebiii/redoc-cli-github-action@v10
-        with:
-          args: 'bundle api-docs/openapi.yml -o index.html'
-
-      - name: check result
-        run: |
-          ls -al
-          test -f index.html || (echo "Missing index.html from previous step." && exit 1)
