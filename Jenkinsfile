@@ -8,7 +8,7 @@ pipeline {
     sh 'sed -i \'s/INFO/FINEST/g\' api-server/src/main/resources/vertx-default-jul-logging.properties'
 
     echo 'Set log level to "FINE" in authenticator'
-    sh 'sh sed -i \'s/INFO/FINEST/g\' api-server/src/main/resources/vertx-default-jul-logging.properties'
+    sh "sed -i 's/INFO/FINEST/g' authenticator/src/main/resources/vertx-default-jul-logging.properties"
 
     echo 'Compile api server source files'
     sh 'cd api-server && mvn clean package'
