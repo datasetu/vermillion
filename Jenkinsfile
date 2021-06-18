@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        dockerfile true
+    }
     tools {
             maven 'Maven3.8'
             jdk 'openjdk17'
@@ -20,8 +22,8 @@ pipeline {
     echo 'Compile authenticator source files'
     sh 'cd authenticator && mvn clean package'
 
-    echo 'Install jq and behave'
-    sh 'sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave'
+//     echo 'Install jq and behave'
+//     sh 'sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave'
 
     echo 'Set vermillion env to "test" in conf file'
     sh "sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf"
