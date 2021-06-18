@@ -10,6 +10,16 @@ pipeline {
     stages {
     stage('Build') {
     steps {
+    sh """
+        docker build -t build_img .
+    """
+    }
+    }
+    stage('Run') {
+        steps {
+        sh """
+        docker run --rm build_img
+    """
     echo 'Set log level to "FINE" in apiserver'
     sh  "sed -i '' 's/INFO/FINEST/g' api-server/src/main/resources/vertx-default-jul-logging.properties"
 
@@ -22,8 +32,6 @@ pipeline {
     echo 'Compile authenticator source files'
     sh 'cd authenticator && mvn clean package'
 
-//     echo 'Install jq and behave'
-//     sh 'sudo apt-get -y install jq && sudo apt-get install python3-setuptools && sudo python3 -m pip install behave'
 
     echo 'Set vermillion env to "test" in conf file'
     sh "sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf"
