@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        dockerfile true
-    }
+    agent { label "linux" }
     tools {
             maven 'Maven3.8'
             jdk 'openjdk17'
