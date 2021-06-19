@@ -22,7 +22,7 @@ if ! hash "jq" &>/dev/null; then
 
     	if [ "$(uname)" == "Darwin" ]; then
 
-		/usr/local/bin/brew install jq
+		brew install jq
 	elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 		sudo apt -y install jq
 	else
