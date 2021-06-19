@@ -12,6 +12,3 @@ RUN apt-get -y install python3-setuptools
 RUN python3 -m pip install behave
 RUN git clone https://github.com/Homebrew/linuxbrew.git ~/.linuxbrew
 
-export PATH="$HOME/.linuxbrew/bin:$PATH"
-export MANPATH="$HOME/.linuxbrew/share/man:$MANPATH"
-export INFOPATH="$HOME/.linuxbrew/share/info:$INFOPATH"
