@@ -21,7 +21,8 @@ JACOCO_VERSION=0.8.6
 if ! hash "jq" &>/dev/null; then
 
     	if [ "$(uname)" == "Darwin" ]; then
-		brew install jq
+
+		/usr/local/bin/brew install jq
 	elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 		sudo apt -y install jq
 	else
