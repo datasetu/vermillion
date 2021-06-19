@@ -36,5 +36,17 @@ node {
 
     echo 'Set vermillion env to "test" in conf file'
     sh "sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf"
-          }
-}
+
+    echo 'Install Vermillion'
+    sh "./setup/install"
+
+    echo 'Wait for the middleware to be available'
+    sh "cd setup && ./wait.sh"
+
+    echo 'Load sample data into ES'
+    sh "cd setup && ./load_sample_data.sh"
+
+    echo 'Run tests and generate reports'
+    sh "cd setup && ./coverage.sh"
+    }
+    }
