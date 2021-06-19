@@ -10,5 +10,6 @@ RUN python3 -m pip install --upgrade pip
 RUN apt-get -y install jq python3-setuptools
 RUN apt-get -y install python3-setuptools
 RUN python3 -m pip install behave
+RUN apt-get install git
 RUN git clone https://github.com/Homebrew/linuxbrew.git ~/.linuxbrew
 
