@@ -1,22 +1,24 @@
-pipeline {
-    agent { label "linux" }
-    tools {
-            maven 'Maven3.8'
-            jdk 'openjdk17'
-            docker 'MyDocker'
-        }
+node {
 
-    stages {
-    stage('Build') {
-    steps {
-    sh """
+    stage('Initialize')
+    {   def javaHome = tool 'openjdk17'
+        def dockerHome = tool 'MyDocker'
+        def mavenHome  = tool 'Maven3.8'
+        env.PATH = "${dockerHome}/bin:${mavenHome}/bin:${env.PATH}"
+    }
+
+
+
+    stage('Build')
+           {
+            sh """
         docker build -t build_img .
     """
-    }
-    }
-    stage('Run') {
-        steps {
-        sh """
+          }
+
+    stage('Run')
+           {
+            sh """
         docker run --rm build_img
     """
     echo 'Set log level to "FINE" in apiserver'
@@ -34,19 +36,5 @@ pipeline {
 
     echo 'Set vermillion env to "test" in conf file'
     sh "sed -i 's/VERMILLION_ENV=prod/VERMILLION_ENV=test/g' setup/vermillion.conf"
-
-    echo 'Install Vermillion'
-    sh "./setup/install"
-
-    echo 'Wait for the middleware to be available'
-    sh "cd setup && ./wait.sh"
-
-    echo 'Load sample data into ES'
-    sh "cd setup && ./load_sample_data.sh"
-
-    echo 'Run tests and generate reports'
-    sh "cd setup && ./coverage.sh"
-    }
-    }
-   }
+          }
 }
