@@ -639,7 +639,18 @@ def step_impl(context):
     }
     post_request(url, params, json.dumps(payload), context)
 
+@when('The scroll search query for secured resource and invalid id')
+def step_impl(context):
+    params = (
+        ('token', tokens["1_2_read_write"]),
 
+    )
+    payload = {
+        "scroll_id": generate_random_chars(),
+        "scroll_duration": "5s",
+
+    }
+    post_request(url, params, json.dumps(payload), context)
 @when('The scroll search query is initiated')
 def step_impl(context):
     context.type = 'scroll-search'

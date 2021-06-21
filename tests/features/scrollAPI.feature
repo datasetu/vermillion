@@ -191,10 +191,20 @@ Feature: Vermillion is able to handle scroll search queries
     When The scroll search query for secured resource
     Then The response status should be 200
 
+  Scenario: Scroll search query for secured resource and invalid id
+    Given Vermillion is running
+    When The scroll search query for secured resource and invalid id
+    Then The response status should be 400
+
   Scenario: Scroll search query with token
     Given Vermillion is running
     When The scroll search query with token
     Then The response status should be 200
+
+  Scenario: Scroll search query with empty body
+    Given Vermillion is running
+    When The scroll search query with empty body
+    Then The response status should be 400
 
   Scenario: Scroll search query with expired token
     Given Vermillion is running
