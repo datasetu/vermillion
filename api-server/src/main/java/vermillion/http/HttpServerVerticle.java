@@ -226,7 +226,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        if (token != null && !isValidToken(token)) {
+        if (!resourceID.endsWith(".public") && token != null && !isValidToken(token)) {
             logger.debug("Access token is malformed");
             apiFailure(context, new BadRequestThrowable("Malformed access token"));
             return;
@@ -430,6 +430,11 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         try {
             requestBody = context.getBodyAsJson();
+
+            if (requestBody == null) {
+                apiFailure(context, new BadRequestThrowable("Body is empty"));
+                return;
+            }
         } catch (Exception e) {
             apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
             return;
