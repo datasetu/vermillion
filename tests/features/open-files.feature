@@ -52,12 +52,6 @@ Feature: Vermillion is able to handle static files
                 Then The response status should be 400
 
 
-     Scenario: Consumer publishes with invalid json meta file
-                 Given Vermillion is running
-                 When The consumer publishes with invalid json meta file
-                 Then The response status should be 400
-                 And The uploaded files are deleted
-
         Scenario: Consumer publishes by removing metadata form parameter
                 Given Vermillion is running
                 When The consumer publishes by removing metadata form parameter  
@@ -69,7 +63,12 @@ Feature: Vermillion is able to handle static files
                 When The consumer publishes by using extraneous form parameter
 		        Then The response status should be 400
 		        And The uploaded files are deleted
-	
+
+    Scenario: Consumer publishes with invalid json meta file
+              Given Vermillion is running
+              When The consumer publishes with invalid json meta file
+              Then The response status should be 400
+              And The uploaded files are deleted
 
 	 Scenario: Consumer publishes with empty form parameter
                 Given Vermillion is running

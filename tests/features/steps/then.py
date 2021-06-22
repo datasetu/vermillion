@@ -78,7 +78,7 @@ def step_impl(context):
     ])
 
     print(number_of_files)
-    if number_of_files > 0:
+    if number_of_files > 1:
         raise UnexpectedBehaviourError('Files have not been deleted')
 
 

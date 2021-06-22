@@ -4,6 +4,7 @@ import shutil
 import requests
 import urllib3
 from behave import when
+import time
 
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -52,6 +53,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+    time.sleep(2)
 
 
 @when('The consumer publishes without token')
@@ -67,6 +69,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+    time.sleep(2)
 
 
 @when('The consumer publishes with invalid resource id')
@@ -83,7 +86,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
-
+    time.sleep(2)
 
 @when('The consumer publishes with empty resource id')
 def step_impl(context):
@@ -99,6 +102,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+    time.sleep(2)
 
 
 @when('The consumer publishes with invalid token')
@@ -115,6 +119,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+    time.sleep(2)
 
 
 @when('The consumer publishes with empty token')
@@ -131,7 +136,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
-
+    time.sleep(2)
 
 @when('The consumer publishes by removing file form parameter')
 def step_impl(context):
@@ -166,6 +171,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+    time.sleep(5)
 
 
 @when('The consumer publishes by removing metadata form parameter')
@@ -202,6 +208,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
+    time.sleep(2)
 
 
 @when('The consumer publishes with empty form parameter')
