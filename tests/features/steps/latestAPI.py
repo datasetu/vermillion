@@ -112,7 +112,7 @@ def step_impl(context):
 @when('A latest API query is with empty token')
 def step_impl(context):
     params = (
-                 ("id", res[0]),
+                 ("id", res[1]),
                  ("token", ""),
 
     )
@@ -123,7 +123,7 @@ def step_impl(context):
 @when('A latest API query is with invalid token')
 def step_impl(context):
     params = (
-                 ("id", res[0]),
+                 ("id", res[1]),
                  ("token", generate_random_chars()),
 
     )
