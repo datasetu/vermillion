@@ -1,11 +1,10 @@
 import os
-import glob
 from os import path
 import shutil
 import requests
 import urllib3
 from behave import when
-import json
+
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
