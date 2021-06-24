@@ -1150,6 +1150,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         metaJson = metaBuffer.toJsonObject();
                     } catch (Exception e) {
                         apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
+                        deleteUploads(fileUploads);
                         return;
                     }
                     logger.debug("Metadata = " + metaJson.encode());
