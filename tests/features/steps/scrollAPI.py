@@ -481,12 +481,12 @@ def step_impl(context):
     r1 = response1.json()
     sc_id1 = r1['scroll_id']
 
-    time.sleep(40)
     payload2 = {
         "scroll_id": sc_id1,
         "scroll_duration": "1s",
 
     }
+    time.sleep(60)
     response2 = requests.post(url_scroll, headers=headers, data=json.dumps(payload2), verify=False)
 
     context.response = response2
