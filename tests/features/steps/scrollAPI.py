@@ -459,10 +459,10 @@ def step_impl(context):
         "id":
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
         "scroll_duration": "1s",
-        "size": 500,
+        "size": 50,
         "geo_distance": {
             "coordinates": [82.9739, 25.3176],
-            "distance": "10000m",
+            "distance": "1000m",
 
         }
     }
@@ -481,7 +481,7 @@ def step_impl(context):
     r1 = response1.json()
     sc_id1 = r1['scroll_id']
 
-    time.sleep(30)
+    time.sleep(40)
     payload2 = {
         "scroll_id": sc_id1,
         "scroll_duration": "1s",
