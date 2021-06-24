@@ -1,5 +1,4 @@
 import json
-
 import requests
 import urllib3
 from behave import when

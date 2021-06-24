@@ -1,8 +1,6 @@
 import json
-
 import requests
 import urllib3
-
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from utils import generate_random_chars, post_request

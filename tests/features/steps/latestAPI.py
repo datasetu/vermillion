@@ -16,6 +16,7 @@ url = VERMILLION_URL + LATEST_ENDPOINT
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
+
 @when('The consumer publishes secured files')
 def step_impl(context):
     params = (
@@ -36,6 +37,7 @@ def step_impl(context):
 
     post_files(params, files, context)
 
+
 @when('A latest API query is initiated')
 def step_impl(context):
     context.type = 'latest_search'
@@ -50,12 +52,12 @@ def step_impl(context):
     print(context.status_code, context.response)
 
 
-
 @when('A latest API query is initiated for public resource id')
 def step_impl(context):
     context.type = 'latest_public'
     params = (
-                 ("id", "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"),
+        ("id",
+         "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"),
 
     )
     r = requests.get(url, headers=headers, params=params, verify=False)
@@ -64,13 +66,11 @@ def step_impl(context):
     print(context.status_code, context.response)
 
 
-
-
 @when('A latest API query with invalid resource id')
 def step_impl(context):
     params = (
-                 ("id", generate_random_chars()),
-                 ("token", tokens["master"]),
+        ("id", generate_random_chars()),
+        ("token", tokens["master"]),
 
     )
 
@@ -80,8 +80,8 @@ def step_impl(context):
 @when('A latest API query is with empty resource id')
 def step_impl(context):
     params = (
-                 ("id", ""),
-                 ("token", tokens["master"]),
+        ("id", ""),
+        ("token", tokens["master"]),
 
     )
 
@@ -92,7 +92,7 @@ def step_impl(context):
 def step_impl(context):
     params = (
 
-                 ("token", tokens["master"]),
+        ("token", tokens["master"]),
 
     )
 
@@ -102,7 +102,7 @@ def step_impl(context):
 @when('A latest API query is without token')
 def step_impl(context):
     params = (
-                 ("id", res[1]),
+        ("id", res[1]),
 
     )
 
@@ -112,8 +112,8 @@ def step_impl(context):
 @when('A latest API query is with empty token')
 def step_impl(context):
     params = (
-                 ("id", res[1]),
-                 ("token", ""),
+        ("id", res[1]),
+        ("token", ""),
 
     )
 
@@ -123,8 +123,8 @@ def step_impl(context):
 @when('A latest API query is with invalid token')
 def step_impl(context):
     params = (
-                 ("id", res[1]),
-                 ("token", generate_random_chars()),
+        ("id", res[1]),
+        ("token", generate_random_chars()),
 
     )
 
