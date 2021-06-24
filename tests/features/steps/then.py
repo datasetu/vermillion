@@ -1,6 +1,5 @@
 from behave import then
 import os
-import time
 import requests
 import urllib3
 from auth_vars import tokens, res
@@ -52,9 +51,9 @@ def step_impl(context, expected_code):
         raise UnexpectedStatusCodeError(int(expected_code), context.status_code, context.response)
 
 
-@then('The file permission is reset')
-def step_impl(context):
-    os.chmod("../setup/provider", 0o755)
+# @then('The file permission is reset')
+# def step_impl(context):
+#     os.chmod("../setup/provider", 0o755)
 
 
 @then('The expected file is returned')

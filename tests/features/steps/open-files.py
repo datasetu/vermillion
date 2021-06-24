@@ -171,7 +171,7 @@ def step_impl(context):
     }
 
     post_files(params, files, context)
-    time.sleep(5)
+    time.sleep(2)
 
 
 @when('The consumer publishes by removing metadata form parameter')
@@ -200,7 +200,9 @@ def step_impl(context):
 
     )
     f = open("samplecsv.csv", "w")
+    f.write("hello")
     f = open("samplepdf.pdf", "w")
+    f.write("hello")
 
     files = {
         'abc': ('samplecsv.csv', open('samplecsv.csv', 'rb')),
