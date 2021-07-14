@@ -143,10 +143,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
         vertx.createHttpServer(new HttpServerOptions()
-                        .setSsl(true)
-                        .setCompressionSupported(true)
-                        .setKeyStoreOptions(
-                                new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
+                .setSsl(true)
+                .setCompressionSupported(true)
+                .setKeyStoreOptions(
+                        new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
                 .requestHandler(router)
                 .rxListen(HTTPS_PORT)
                 .subscribe(
@@ -250,7 +250,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         if (resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
             dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
-                            "content-type", "application/json")
+                    "content-type", "application/json")
                     .end(result.encode()));
         } else {
             logger.debug("Secure search");
@@ -334,7 +334,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String scrollDuration = requestBody.getString("scroll_duration");
 
-        if("".equals(scrollId) || scrollId == null){
+        if("".equals(scrollId)){
             apiFailure(context, new BadRequestThrowable("Scroll Id is empty"));
             return;
         }
@@ -344,7 +344,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 //            return;
 //        }
 
-        if("".equals(scrollDuration) || scrollDuration == null){
+        if("".equals(scrollDuration)){
             apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
             return;
         }
@@ -731,7 +731,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String attributeName = attribute.getString("term").trim();
 
-            if (attributeName == null || "".equals(attributeName)) {
+            if ("".equals(attributeName)) {
                 apiFailure(context, new BadRequestThrowable("Term parameter is empty"));
                 return;
             }
@@ -808,7 +808,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             scrollStr = scrollObj.toString();
-            if ("".equals(scrollStr) || scrollStr == null){
+            if ("".equals(scrollStr)){
                 apiFailure(context, new BadRequestThrowable("Scroll parameter is empty"));
                 return;
             }
@@ -860,7 +860,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         // Don't know why anyone would do 2 & 3, but you never know
         if ((resourceIDstr != null && resourceIDstr.endsWith(".public"))
                 || (resourceIDArray != null
-                        && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
+                && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
             if (scroll) {
                 dbService
                         .rxSearch(baseQuery, true, scrollStr)
@@ -1359,8 +1359,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .map(Optional::of)
                 .toSingle(Optional.empty())
                 .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
-                                ? Completable.complete()
-                                : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                        ? Completable.complete()
+                        : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
                         .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
@@ -1413,8 +1413,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .end(t.getMessage());
         } else if (t instanceof ServiceException) {
 
-        	  logger.debug("Service exception");
-        	  ServiceException serviceException = (ServiceException) t;
+            logger.debug("Service exception");
+            ServiceException serviceException = (ServiceException) t;
 
             if (serviceException.failureCode() == 400 || serviceException.failureCode() == 404) {
                 context.response()
@@ -1427,13 +1427,13 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             else
             {
-	            context.response()
-					            .setStatusCode(INTERNAL_SERVER_ERROR)
-					            .putHeader("content-type", "application/json")
-					            .end(new JsonObject()
-									            .put("status", "error")
-									            .put("message", serviceException.getMessage())
-									            .encode());
+                context.response()
+                        .setStatusCode(INTERNAL_SERVER_ERROR)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject()
+                                .put("status", "error")
+                                .put("message", serviceException.getMessage())
+                                .encode());
             }
         } else {
             logger.debug("In internal error");

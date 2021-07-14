@@ -150,6 +150,84 @@ def step_impl(context):
 
     post_request(url, "", json.dumps(payload), context)
 
+@when('Timeseries query start and end date is an integer')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": 20200320,
+            "end": 20200327
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
+
+@when('Timeseries query start date greater than end date')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": "2020-09-01",
+            "end": "2020-03-27"
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
+
+@when('Timeseries query year greater than 9999')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": "20201-09-01",
+            "end": "2020-03-27"
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
+
+@when('Timeseries query month greater than 12')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": "2020-80-01",
+            "end": "2020-03-27"
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
+
+@when('Timeseries query day greater than 31')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": "2020-09-100",
+            "end": "2020-03-27"
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
+
+
+@when('Timeseries query date in invalid format')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-workers/varanasi-swm-wardwiseAttendance.public",
+        "time": {
+            "start": "202-039-100",
+            "end": "2020-03-27"
+        }
+    }
+
+    post_request(url, "", json.dumps(payload), context)
 
 @when('A timeseries query is initiated')
 def step_impl(context):

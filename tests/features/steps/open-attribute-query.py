@@ -1,5 +1,4 @@
 import json
-
 import requests
 import urllib3
 from behave import when
@@ -231,6 +230,19 @@ def step_impl(context):
 
     post_request(url, "", json.dumps(payload), context)
 
+@when('The attribute value query with invalid min and max numbers')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "attribute": {
+            "term": "speed",
+            "min": True,
+            "max": 10
+        }
+        }
+
+    post_request(url, "", json.dumps(payload), context)
 
 @when('An attribute value query is initiated')
 def step_impl(context):
