@@ -26,7 +26,9 @@ import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 import io.vertx.serviceproxy.ServiceException;
 import org.apache.commons.lang3.math.NumberUtils;
-import org.apache.commons.validator.GenericValidator;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
@@ -38,15 +40,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormatter;
-
-import org.joda.time.format.ISODateTimeFormat;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
@@ -143,10 +140,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
         vertx.createHttpServer(new HttpServerOptions()
-                .setSsl(true)
-                .setCompressionSupported(true)
-                .setKeyStoreOptions(
-                        new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
+                        .setSsl(true)
+                        .setCompressionSupported(true)
+                        .setKeyStoreOptions(
+                                new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
                 .requestHandler(router)
                 .rxListen(HTTPS_PORT)
                 .subscribe(
@@ -250,7 +247,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         if (resourceID.endsWith(".public")) {
             logger.debug("Search on public resources");
             dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
-                    "content-type", "application/json")
+                            "content-type", "application/json")
                     .end(result.encode()));
         } else {
             logger.debug("Secure search");
@@ -316,16 +313,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         Object scrollIdObj = requestBody.getValue("scroll_id");
 
-        if (!(scrollIdObj instanceof String))
-        {
+        if (!(scrollIdObj instanceof String)) {
             apiFailure(context, new BadRequestThrowable("Scroll ID is not valid"));
             return;
         }
 
         Object scrollDurationObj = requestBody.getValue("scroll_duration");
 
-        if (!(scrollDurationObj instanceof String))
-        {
+        if (!(scrollDurationObj instanceof String)) {
             apiFailure(context, new BadRequestThrowable("Scroll Duration is not valid"));
             return;
         }
@@ -334,17 +329,17 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         String scrollDuration = requestBody.getString("scroll_duration");
 
-        if("".equals(scrollId)){
+        if ("".equals(scrollId)) {
             apiFailure(context, new BadRequestThrowable("Scroll Id is empty"));
             return;
         }
 
-//        if(!isValidScrollID(scrollId)){
-//            apiFailure(context, new BadRequestThrowable("Invalid Scroll Id"));
-//            return;
-//        }
+        //        if(!isValidScrollID(scrollId)){
+        //            apiFailure(context, new BadRequestThrowable("Invalid Scroll Id"));
+        //            return;
+        //        }
 
-        if("".equals(scrollDuration)){
+        if ("".equals(scrollDuration)) {
             apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
             return;
         }
@@ -372,12 +367,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                     new BadRequestThrowable(
                             "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
             return;
-        }
-        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
-            apiFailure(
-                    context,
-                    new BadRequestThrowable(
-                            "Scroll unit is invalid"));
+        } else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
+            apiFailure(context, new BadRequestThrowable("Scroll unit is invalid"));
             return;
         }
 
@@ -582,14 +573,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             // If the number preceding m, km, cm etc is a valid number
             int geoDistanceQuantity;
-            try{
+            try {
                 geoDistanceQuantity = Integer.parseInt(distanceQuantity);
-                if(geoDistanceQuantity < 1){
+                if (geoDistanceQuantity < 1) {
                     apiFailure(context, new BadRequestThrowable("Distance less than 1m"));
                     return;
                 }
-            }
-            catch(NumberFormatException ex){
+            } catch (NumberFormatException ex) {
                 apiFailure(context, new BadRequestThrowable("Distance is not valid."));
                 return;
             }
@@ -610,8 +600,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
-            if((coordinates.getValue(0) instanceof String) || (coordinates.getValue(1) instanceof String))
-            {
+            if ((coordinates.getValue(0) instanceof String) || (coordinates.getValue(1) instanceof String)) {
                 apiFailure(context, new BadRequestThrowable("Coordinates are not valid numbers"));
                 return;
             }
@@ -667,29 +656,28 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             String start = time.getString("start");
             String end = time.getString("end");
-//            Locale locale = new Locale("English", "IN");
-//
-//            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
-//                apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
-//                return;
-//            }
-//            /(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))/
+            //            Locale locale = new Locale("English", "IN");
+            //
+            //            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+            //                apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid
+            // dates"));
+            //                return;
+            //            }
+            //
+            // /(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))/
 
             DateTimeFormatter fmt = ISODateTimeFormat.dateTimeParser();
 
             DateTime startDate;
             DateTime endDate;
-            try
-            {
+            try {
                 startDate = fmt.parseDateTime(start);
                 endDate = fmt.parseDateTime(end);
-                if(endDate.getMillis() - startDate.getMillis() < 0)
-                {
+                if (endDate.getMillis() - startDate.getMillis() < 0) {
                     apiFailure(context, new BadRequestThrowable("End date is smaller than start date"));
                     return;
                 }
-            }
-            catch (Exception ex){
+            } catch (Exception ex) {
                 ex.printStackTrace();
                 apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
                 return;
@@ -808,7 +796,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             scrollStr = scrollObj.toString();
-            if ("".equals(scrollStr)){
+            if ("".equals(scrollStr)) {
                 apiFailure(context, new BadRequestThrowable("Scroll parameter is empty"));
                 return;
             }
@@ -836,12 +824,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                         new BadRequestThrowable(
                                 "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
                 return;
-            }
-            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
-                apiFailure(
-                        context,
-                        new BadRequestThrowable(
-                                "Scroll unit is invalid"));
+            } else if (!scrollUnit.equalsIgnoreCase("h")
+                    && !scrollUnit.equals("m")
+                    && !scrollUnit.equalsIgnoreCase("s")) {
+                apiFailure(context, new BadRequestThrowable("Scroll unit is invalid"));
                 return;
             }
             logger.debug("Scroll value =" + scrollValue);
@@ -860,7 +846,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         // Don't know why anyone would do 2 & 3, but you never know
         if ((resourceIDstr != null && resourceIDstr.endsWith(".public"))
                 || (resourceIDArray != null
-                && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
+                        && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
             if (scroll) {
                 dbService
                         .rxSearch(baseQuery, true, scrollStr)
@@ -1358,10 +1344,46 @@ public class HttpServerVerticle extends AbstractVerticle {
                         .orElseGet(Maybe::empty))
                 .map(Optional::of)
                 .toSingle(Optional.empty())
-                .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
-                        ? Completable.complete()
-                        : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> {
+                            if (authorisedSet.containsAll(requestedSet)) {
+                                // Straightforward case. No need to worry about nested IDs
+                                return Completable.complete();
+                            } else {
+                                // This is the case when the resource ID in the auth policy is a coarse one that
+                                // subsumes nested resource IDs
+
+                                int authorisedCount = 0;
+
+                                for (String requestedResourceID : requestedSet) {
+                                    boolean found = false;
+
+                                    for (String authorisedResourceID : authorisedSet) {
+                                        if (requestedResourceID.contains(authorisedResourceID)) {
+                                            authorisedCount++;
+                                            found = true;
+                                        }
+                                    }
+
+                                    if (!found) {
+                                        // Requested resource ID has not been found in any of the authorised IDs in the
+                                        // auth policy
+                                        return Completable.error(new UnauthorisedThrowable("ACL does not match"));
+                                    }
+                                }
+
+                                if (authorisedCount == requestedSet.size()) {
+                                    return Completable.complete();
+                                } else {
+                                    return Completable.error(new UnauthorisedThrowable("ACL does not match"));
+                                }
+                            }
+                        })
                         .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+        //                .flatMapCompletable(hashSet -> hashSet.map(authorisedSet ->
+        // (authorisedSet.containsAll(requestedSet)
+        //                        ? Completable.complete()
+        //                        : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+        //                        .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
     public Single<JsonArray> checkAuthorisation(String token, String scope) {
@@ -1424,9 +1446,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 .put("status", "error")
                                 .put("message", serviceException.getMessage())
                                 .encode());
-            }
-            else
-            {
+            } else {
                 context.response()
                         .setStatusCode(INTERNAL_SERVER_ERROR)
                         .putHeader("content-type", "application/json")
@@ -1481,19 +1501,20 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("In isValidResourceId");
         logger.debug("Received resource id = " + resourceID);
         // TODO: Handle sub-categories correctly
-        String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+\\/[a-zA-Z0-9_.\\-]+\\/[a-zA-Z0-9_.\\-]+";
+        // String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+\\/[a-zA-Z0-9_.\\-]+\\/[a-zA-Z0-9_.\\-]+";
+        String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+(\\/[a-zA-Z0-9_.\\-]+){2,7}";
 
         return resourceID.matches(validRegex);
     }
 
-//    private boolean isValidScrollID(String scrollID) {
-//
-//        logger.debug("In isValidScrollId");
-//        logger.debug("Received Scroll id = " + scrollID);
-//
-//        String validRegex = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$";
-//        return scrollID.matches(validRegex);
-//    }
+    //    private boolean isValidScrollID(String scrollID) {
+    //
+    //        logger.debug("In isValidScrollId");
+    //        logger.debug("Received Scroll id = " + scrollID);
+    //
+    //        String validRegex = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$";
+    //        return scrollID.matches(validRegex);
+    //    }
 
     private boolean isValidToken(String token) {
 
@@ -1504,7 +1525,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         return token.matches(validRegex);
     }
 
-    private void deleteUploads(HashMap<String, FileUpload> fileUploads){
+    private void deleteUploads(HashMap<String, FileUpload> fileUploads) {
         fileUploads.forEach((k, v) -> {
             try {
                 Files.deleteIfExists(Paths.get(v.uploadedFileName()));
