@@ -4,7 +4,7 @@ import os
 from elasticsearch import Elasticsearch
 import logging
 import jsonschema
-from jsonschema import validate
+from jsonschema import validate, ValidationError
 
 broker_host = os.getenv("RABBITMQ_HOSTNAME")
 broker_port = 5672
@@ -100,8 +100,7 @@ def callback(ch, method, properties, body):
             "id": {
                 "type":
                     "string",
-                "pattern":
-                    "[a-z_.\-]+\/[a-f0-9]{40}\/[a-z_.\-]+\/[a-zA-Z0-9_.\-]+\/[a-zA-Z0-9_.\-]+"
+                "pattern": "[a-z_.\-]+\/[a-f0-9]{40}\/[a-z_.\-]+(\/[a-zA-Z0-9_.\-]+){2,7}"
             },
             "category": {
                 "type": "string"
@@ -140,6 +139,7 @@ def callback(ch, method, properties, body):
 
     try:
         es.index(index="archive", body=body_dict)
+        logging.info("Push succeeded")
     except Exception as e:
         logging.error("Error inserting document into elastic: {}".format(e))
         connect_to_es()
@@ -156,7 +156,7 @@ def fetch_from_queue():
                               auto_ack=True)
         channel.start_consuming()
     except Exception as e:
-        logging.error("Errored while consuming from queue: ".format(e))
+        logging.exception("Errored while consuming from queue: ".format(e))
         connect_to_rabbit()
         fetch_from_queue()
 
