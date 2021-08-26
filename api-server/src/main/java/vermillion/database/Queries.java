@@ -11,10 +11,15 @@ public class Queries {
   public JsonObject geoQuery;
   public JsonObject rangeQuery;
   public JsonObject termQuery;
-
+  public JsonObject downloadByQuery;
   public JsonObject termsQuery;
 
   public Queries() {
+
+    downloadByQuery = new JsonObject()
+            .put("query", new JsonObject().put("bool",
+                    new JsonObject().put("should",
+                            new JsonArray())));
     baseQuery =
         new JsonObject()
             .put("query", new JsonObject().put("bool", new JsonObject().put("filter", "")));
@@ -61,6 +66,8 @@ public class Queries {
   public JsonObject getRangeQuery() {
     return rangeQuery;
   }
+
+  public JsonObject getDownloadByQuery() { return downloadByQuery; }
 
   public JsonObject getLatestQuery(JsonObject queryObject) {
     return queryObject

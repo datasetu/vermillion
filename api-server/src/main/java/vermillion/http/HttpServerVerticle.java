@@ -12,6 +12,7 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.MultiMap;
 import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
@@ -29,9 +30,12 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+import org.quartz.*;
 import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
+import vermillion.schedulers.JobScheduler;
+import vermillion.schedulers.JobSchedulerListener;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
@@ -44,6 +48,9 @@ import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static org.quartz.SimpleScheduleBuilder.simpleSchedule;
+import static org.quartz.TriggerBuilder.newTrigger;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
@@ -130,6 +137,15 @@ public class HttpServerVerticle extends AbstractVerticle {
                         .setDirectoryListing(true));
 
         router.get("/download").handler(this::download);
+        router.get("/downloadByQuery").handler(context1 -> {
+            try {
+                downloadByQuery(context1);
+            } catch (SchedulerException | IOException e) {
+                logger.debug("in downloadbyquery exception block");
+                logger.debug("error:" + e.getLocalizedMessage());
+                e.printStackTrace();
+            }
+        });
         router.post("/publish").handler(this::publish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
@@ -1081,8 +1097,11 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("File uploads = " + context.fileUploads().size());
         logger.debug("Is empty = " + context.fileUploads().isEmpty());
         if (!context.fileUploads().isEmpty()) {
-            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
-            logger.debug(fileUploads.toString());
+            context.fileUploads().forEach(f -> {
+                fileUploads.put(f.name(), f);
+                logger.debug(f.name() + " = " + fileUploads.get(f.name()));
+            });
+
         }
 
         // TODO: Check for invalid IDs
@@ -1274,6 +1293,132 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Filename = " + fileName);
     }
 
+    public void downloadByQuery(RoutingContext context) throws SchedulerException, IOException {
+        logger.debug("In download by query");
+
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+
+        String threadName = Thread.currentThread().getName();
+        long threadId = Thread.currentThread().getId();
+        logger.debug("Thread info: " + threadName + "\n" + threadId);
+
+        MultiMap parameters = request.params();
+        String token = request.getParam("token");
+        String resourceId = request.getParam("id");
+
+        logger.debug("Parameters from request: " + parameters);
+
+        logger.debug("token=" + token);
+        logger.debug("resource Id=" + resourceId);
+        if (token == null) {
+            apiFailure(context, new BadRequestThrowable("No access token/resource Id found in request"));
+            return;
+        }
+
+        if (!isValidToken(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
+            return;
+        }
+
+        if(resourceId != null && !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Id"));
+            return;
+        }
+
+        CONSUMER_PATH = "/consumer/" + token + "/";
+
+        Queries query = new Queries();
+
+        List<Map.Entry<String, String>> entries = parameters.entries();
+        List<Map.Entry<String, String>> finalEntries = new ArrayList<>();
+        for (int i=0; i<entries.size(); i++) {
+            if(!entries.get(i).getKey().equalsIgnoreCase("token")
+                    && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
+                finalEntries.add(entries.get(i));
+            }
+        }
+        logger.debug("final params :" + finalEntries.toString());
+
+        JsonObject downloadByQuery = query.getDownloadByQuery();
+        JsonArray jsonArray = downloadByQuery.getJsonObject("query").getJsonObject("bool")
+                .getJsonArray("should");
+        logger.debug("download by query: " + downloadByQuery);
+        logger.debug("Json array: " + jsonArray.toString());
+
+        for (int i=0; i<finalEntries.size(); i++) {
+            String key = finalEntries.get(i).getKey();
+            String value = finalEntries.get(i).getValue();
+            logger.debug("key: " + key);
+            logger.debug("value: " + value);
+
+            jsonArray.add(new JsonObject().put("term", new JsonObject().put("data.metadata."+key, value)));
+            logger.debug("constructed query for download by query API for category/subCategory is: "
+                    + jsonArray.toString());
+        }
+
+        if(jsonArray.size() == 0) {
+            apiFailure(context, new BadRequestThrowable("Please provide the parameters to download the files"));
+            return;
+        }
+
+        UUID uuid = UUID.randomUUID();
+        logger.debug("uuid: " + uuid);
+        Single<JsonArray> checkAuthorisation = checkAuthorisation(token, READ_SCOPE);
+
+        SchedulerFactory stdSchedulerFactory = new org.quartz.impl.StdSchedulerFactory();
+        Scheduler scheduler = stdSchedulerFactory.getScheduler();
+        scheduler.start();
+
+        logger.debug("Is scheduler started: " + scheduler.isStarted());
+        JobDataMap jobDataMap = new JobDataMap();
+        jobDataMap.put("token", token);
+        jobDataMap.put("query", downloadByQuery);
+        jobDataMap.put("scroll", false);
+        jobDataMap.put("scrollDuration", "");
+        jobDataMap.put("vertxContext", vertx);
+        jobDataMap.put("routingContext", context);
+        jobDataMap.put("uuid", uuid);
+
+        // define the job and tie it to our JobScheduler class
+        JobDetail job = JobBuilder.newJob(JobScheduler.class)
+                .withIdentity(String.valueOf(uuid), "download")
+                .usingJobData(jobDataMap)
+                .build();
+        logger.debug("Job key: " + job.getKey());
+
+        // Trigger the job to run now
+        Trigger trigger = newTrigger()
+                .withIdentity(String.valueOf(uuid), "download")
+                .startNow()
+                .withSchedule(simpleSchedule())
+                .build();
+        logger.debug("trigger key: " + trigger.getKey());
+
+        scheduler.getListenerManager().addJobListener(
+                new JobSchedulerListener());
+        // Tell quartz to schedule the job using our trigger
+        try {
+            scheduler.scheduleJob(job, trigger);
+        } catch (SchedulerException e) {
+            logger.debug("Scheduler exception caught");
+            logger.debug("Scheduler exception caused due to: " + e.getLocalizedMessage());
+            e.printStackTrace();
+        }
+
+
+        String threadName1 = Thread.currentThread().getName();
+        long threadId1 = Thread.currentThread().getId();
+        logger.debug("Thread info: " + threadName1 + "\n" + threadId1);
+
+        String downloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;
+        logger.debug("download link -> " + downloadLink);
+        checkAuthorisation.subscribe(s -> response.setStatusCode(202)
+                .setStatusMessage("Please wait links are getting ready")
+                .end("Please use the below link to access the files" + "\n" + downloadLink),
+                throwable -> apiFailure(context, throwable));
+    }
+
     // TODO: Handle server token
     // TODO: Handle regexes
     // Method that makes the HTTPS request to the auth server
@@ -1345,6 +1490,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .map(Optional::of)
                 .toSingle(Optional.empty())
                 .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> {
+                            logger.debug("Authorized set of consumer ResourceId's: " + authorisedSet.toString());
+                            logger.debug("Requested set of consumer ResourceId's: " + requestedSet.toString());
                             if (authorisedSet.containsAll(requestedSet)) {
                                 // Straightforward case. No need to worry about nested IDs
                                 return Completable.complete();

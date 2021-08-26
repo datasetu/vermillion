@@ -106,6 +106,17 @@
       <version>3.9.4</version>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>net.lingala.zip4j</groupId>
+      <artifactId>zip4j</artifactId>
+      <version>2.9.0</version>
+    </dependency>
+    <!-- Quartz Core -->
+    <dependency>
+      <groupId>org.quartz-scheduler</groupId>
+      <artifactId>quartz</artifactId>
+      <version>2.3.0</version>
+    </dependency>
   </dependencies>
   <build>
     <pluginManagement>
