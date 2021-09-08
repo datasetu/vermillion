@@ -1352,7 +1352,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("key: " + key);
             logger.debug("value: " + value);
 
-            jsonArray.add(new JsonObject().put("term", new JsonObject().put("data.metadata."+key, value)));
+            jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
             logger.debug("constructed query for download by query API for category/subCategory is: "
                     + jsonArray.toString());
         }
@@ -1364,59 +1364,73 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         UUID uuid = UUID.randomUUID();
         logger.debug("uuid: " + uuid);
-        Single<JsonArray> checkAuthorisation = checkAuthorisation(token, READ_SCOPE);
+        List<String> authorisedIds = new ArrayList<>();
+        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;
 
-        SchedulerFactory stdSchedulerFactory = new org.quartz.impl.StdSchedulerFactory();
-        Scheduler scheduler = stdSchedulerFactory.getScheduler();
-        scheduler.start();
+        checkAuthorisation(token, READ_SCOPE).map(id -> {
+            logger.debug("id=" + id);
+            if(id.size() == 0) {
+                apiFailure(context, new UnauthorisedThrowable("Unauthorized"));
+            }
+            Iterator<Object> iterator = id.stream().iterator();
+            while (iterator.hasNext()) {
+                String next = (String) iterator.next();
+                authorisedIds.add(next);
+            }
 
-        logger.debug("Is scheduler started: " + scheduler.isStarted());
-        JobDataMap jobDataMap = new JobDataMap();
-        jobDataMap.put("token", token);
-        jobDataMap.put("query", downloadByQuery);
-        jobDataMap.put("scroll", false);
-        jobDataMap.put("scrollDuration", "");
-        jobDataMap.put("vertxContext", vertx);
-        jobDataMap.put("routingContext", context);
-        jobDataMap.put("uuid", uuid);
+            logger.debug("authorised ids of consumer: " + authorisedIds.toString());
+            SchedulerFactory stdSchedulerFactory = new org.quartz.impl.StdSchedulerFactory();
+            Scheduler scheduler = stdSchedulerFactory.getScheduler();
+            scheduler.start();
 
-        // define the job and tie it to our JobScheduler class
-        JobDetail job = JobBuilder.newJob(JobScheduler.class)
-                .withIdentity(String.valueOf(uuid), "download")
-                .usingJobData(jobDataMap)
-                .build();
-        logger.debug("Job key: " + job.getKey());
+            logger.debug("Is scheduler started: " + scheduler.isStarted());
+            JobDataMap jobDataMap = new JobDataMap();
+            jobDataMap.put("token", token);
+            jobDataMap.put("query", downloadByQuery);
+            jobDataMap.put("scroll", false);
+            jobDataMap.put("scrollDuration", "");
+            jobDataMap.put("vertxContext", vertx);
+            jobDataMap.put("routingContext", context);
+            jobDataMap.put("uuid", uuid);
+            jobDataMap.put("ids", authorisedIds);
+//            jobDataMap.put("email", email);
 
-        // Trigger the job to run now
-        Trigger trigger = newTrigger()
-                .withIdentity(String.valueOf(uuid), "download")
-                .startNow()
-                .withSchedule(simpleSchedule())
-                .build();
-        logger.debug("trigger key: " + trigger.getKey());
+            // define the job and tie it to our JobScheduler class
+            JobDetail job = JobBuilder.newJob(JobScheduler.class)
+                    .withIdentity(String.valueOf(uuid), "download")
+                    .usingJobData(jobDataMap)
+                    .build();
+            logger.debug("Job key: " + job.getKey());
 
-        scheduler.getListenerManager().addJobListener(
-                new JobSchedulerListener());
-        // Tell quartz to schedule the job using our trigger
-        try {
-            scheduler.scheduleJob(job, trigger);
-        } catch (SchedulerException e) {
-            logger.debug("Scheduler exception caught");
-            logger.debug("Scheduler exception caused due to: " + e.getLocalizedMessage());
-            e.printStackTrace();
-        }
+            // Trigger the job to run now
+            Trigger trigger = newTrigger()
+                    .withIdentity(String.valueOf(uuid), "download")
+                    .startNow()
+                    .withSchedule(simpleSchedule())
+                    .build();
+            logger.debug("trigger key: " + trigger.getKey());
 
+            scheduler.getListenerManager().addJobListener(
+                    new JobSchedulerListener());
 
-        String threadName1 = Thread.currentThread().getName();
-        long threadId1 = Thread.currentThread().getId();
-        logger.debug("Thread info: " + threadName1 + "\n" + threadId1);
+            // Tell quartz to schedule the job using our trigger
+            try {
+                scheduler.scheduleJob(job, trigger);
+            } catch (SchedulerException e) {
+                logger.debug("Scheduler exception caught");
+                logger.debug("Scheduler exception caused due to: " + e.getLocalizedMessage());
+                e.printStackTrace();
+            }
 
-        String downloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;
-        logger.debug("download link -> " + downloadLink);
-        checkAuthorisation.subscribe(s -> response.setStatusCode(202)
-                .setStatusMessage("Please wait links are getting ready")
-                .end("Please use the below link to access the files" + "\n" + downloadLink),
+            String threadName1 = Thread.currentThread().getName();
+            long threadId1 = Thread.currentThread().getId();
+            logger.debug("Thread info: " + threadName1 + "\n" + threadId1);
+            return finalDownloadLink;
+        }).subscribe(s -> response.setStatusCode(ACCEPTED)
+                        .setStatusMessage("Please wait links are getting ready")
+                        .end("Please check your email to find the download links..!!" + "\n"),
                 throwable -> apiFailure(context, throwable));
+
     }
 
     // TODO: Handle server token
