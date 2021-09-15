@@ -3,13 +3,10 @@
  */
 package vermillion.schedulers;
 
-import io.reactivex.Completable;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.reactivex.core.Vertx;
-import io.vertx.reactivex.ext.web.RoutingContext;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import org.quartz.*;
@@ -26,9 +23,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import static vermillion.database.DbService.createProxy;
 
 /**
  * @Author Prabhu A Patrot
@@ -52,67 +46,31 @@ public class JobScheduler implements Job {
 
         JobDataMap jobDataMap = jobExecutionContext.getJobDetail().getJobDataMap();
         String token = jobDataMap.getString("token");
-        JsonObject downloadByQuery = (JsonObject) jobDataMap.get("query");
-        String scrollDuration = jobDataMap.getString("scrollDuration");
-        Object vertx = jobDataMap.get("vertxContext");
-        RoutingContext context = (RoutingContext) jobDataMap.get("routingContext");
-        boolean scroll = jobDataMap.getBoolean("scroll");
         UUID uuid = (UUID) jobDataMap.get("uuid");
-        List<String> authorisedIds = (List<String>) jobDataMap.get("ids");
         String email = jobDataMap.getString("email");
-        logger.debug("State values: " + token + "\n" + email + "\n" + scrollDuration + "\n" + context + "\n" + uuid);
-        logger.debug("authorisedIds form jobDataMap = " + authorisedIds.toString());
-        if (vertx instanceof Vertx) {
-            dbService = createProxy(((Vertx) vertx).getDelegate(), "db.queue");
-        }
+        JsonArray finalHits = (JsonArray) jobDataMap.get("finalHits");
+        logger.debug("State values: " + token + "\n" + email  + "\n" + uuid);
+        logger.debug("finalHits to be zipped: " + finalHits);
 
         CONSUMER_PATH+= token;
 
-        JsonArray finalHits1 = new JsonArray();
-
-        dbService.rxSecureSearch(downloadByQuery, token, scroll, scrollDuration)
-                .flatMapCompletable(result -> {
-                    logger.debug("Response from search endpoint:" + result.toString());
-                    JsonArray hits = result.getJsonArray("hits");
-
-                    IntStream.range(0, hits.size())
-                            .mapToObj(pos -> {
-                                JsonObject value = (JsonObject) hits.getValue(pos);
-                                String id = value.getString("id");
-
-                                if (authorisedIds.contains(id)) {
-                                    finalHits1.add(value);
-                                }
-                                return finalHits1;
-                            }).collect(Collectors.toList());
-
-                    logger.debug("final hits to be zipped:" + finalHits1);
-                    if (finalHits1.size() > 0) {
-                        zipAFileFromItsMetadata(context, token, finalHits1, uuid, email);
-                    } else {
-                        return Completable.error(new FileNotFoundException("Requested resource ID(s)/File(s) is not present"));
-                    }
-
-                    return Completable.complete();
-                }).subscribe(() -> {
-                    String downloadLink = "https://" + System.getenv("SERVER_NAME") + CONSUMER_PATH;
-                    logger.debug("download link: " + downloadLink);
-                },
-                throwable -> {
-                    JobExecutionException jobExecutionException = new JobExecutionException(throwable);
-                    logger.debug("error caused due to: " + jobExecutionException.getLocalizedMessage());
-                    throw jobExecutionException;
-                });
-
+        if (finalHits.size() > 0) {
+            try {
+                zipAFileFromItsMetadata(token, finalHits, uuid, email);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            String message = "Files are not found, please try with different params";
+            throw new JobExecutionException(message);
+        }
     }
 
-    private void zipAFileFromItsMetadata(RoutingContext context, String token, JsonArray hits, UUID uuid, String email) throws IOException, SchedulerException {
-
-        zipRequestedFiles(context, token, hits, uuid, email);
-
+    private void zipAFileFromItsMetadata(String token, JsonArray hits, UUID uuid, String email) throws IOException {
+        zipRequestedFiles(token, hits, uuid, email);
     }
 
-    private void zipRequestedFiles(RoutingContext context, String token, JsonArray hits, UUID uuid, String email) throws IOException, SchedulerException {
+    private void zipRequestedFiles(String token, JsonArray hits, UUID uuid, String email) throws IOException {
 
         logger.debug("In zipRequestedFiles");
 
@@ -149,7 +107,7 @@ public class JobScheduler implements Job {
 
                 if (Files.notExists(Paths.get(String.valueOf(providerResourcePath)))) {
                     logger.error("Requested resource ID(s) is not present on provider's resource path");
-                    throw new FileNotFoundException("Requested resource ID(s) is not present");
+                    throw new FileNotFoundException("Requested files are not present on provider's resource path");
                 } else {
                     finalFilesToZip.add(providerResourcePath.toFile());
                 }
@@ -168,7 +126,7 @@ public class JobScheduler implements Job {
         logger.debug("Does new file readme file exists before zipping: "  + Files.exists(write));
 
         logger.debug("list of files to be zipped: " + finalFilesToZip.toString());
-        zip(context, null, finalFilesToZip, zipFilePath+ "/" + file + ".zip");
+        zip(null, finalFilesToZip, zipFilePath+ "/" + file + ".zip");
 
 //        /*
 //          Delete the readme.txt file after files are zipped"
@@ -183,7 +141,7 @@ public class JobScheduler implements Job {
         logger.debug("final Consumer path: " + CONSUMER_PATH);
     }
 
-    private void zip(RoutingContext context, Path fileOrFolderToBeZipped, List<File> files, String zipFileName) {
+    private void zip(Path fileOrFolderToBeZipped, List<File> files, String zipFileName) {
         logger.debug("Start Zip");
         ZipFile zipFile = new ZipFile(zipFileName);
         boolean isDirectory = false;
@@ -213,7 +171,7 @@ public class JobScheduler implements Job {
         logger.debug("End Zip");
     }
 
-    private void emailJob(String downloadLink, String email) throws SchedulerException {
+    private void emailJob(String downloadLink, String email) {
 
         logger.debug("In email Job");
         logger.debug("Recipient email= " + email);
@@ -225,7 +183,7 @@ public class JobScheduler implements Job {
         properties.put("mail.smtp.auth", "true"); //enable auth
         properties.put("mail.smtp.starttls.enable", "true"); //enable starttls
         properties.put("mail.smtp.ssl.trust", "smtp.gmail.com"); //trust this host
-        properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //trust this host
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //specify secure protocol
         final String username = "patzzziejordan@gmail.com";
         final String password = "jordan@4452";
         try{

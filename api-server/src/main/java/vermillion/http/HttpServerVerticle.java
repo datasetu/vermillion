@@ -37,6 +37,7 @@ import vermillion.database.reactivex.DbService;
 import vermillion.schedulers.JobScheduler;
 import vermillion.schedulers.JobSchedulerListener;
 import vermillion.throwables.BadRequestThrowable;
+import vermillion.throwables.FileNotFoundThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
@@ -137,15 +138,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         .setDirectoryListing(true));
 
         router.get("/download").handler(this::download);
-        router.get("/downloadByQuery").handler(context1 -> {
-            try {
-                downloadByQuery(context1);
-            } catch (SchedulerException | IOException e) {
-                logger.debug("in downloadbyquery exception block");
-                logger.debug("error:" + e.getLocalizedMessage());
-                e.printStackTrace();
-            }
-        });
+        router.get("/downloadByQuery").handler(this::downloadByQuery);
         router.post("/publish").handler(this::publish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
@@ -1293,7 +1286,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Filename = " + fileName);
     }
 
-    public void downloadByQuery(RoutingContext context) throws SchedulerException, IOException {
+    public void downloadByQuery(RoutingContext context)  {
         logger.debug("In download by query");
 
         HttpServerRequest request = context.request();
@@ -1365,20 +1358,42 @@ public class HttpServerVerticle extends AbstractVerticle {
         UUID uuid = UUID.randomUUID();
         logger.debug("uuid: " + uuid);
         List<String> authorisedIds = new ArrayList<>();
-        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;
+        JsonArray finalHits = new JsonArray();
+//        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;  //Could be used in future if needed
 
-        checkAuthorisation(token, READ_SCOPE).map(id -> {
+        checkAuthorisation(token, READ_SCOPE).flatMap(id -> {
             logger.debug("id=" + id);
-            if(id.size() == 0) {
-                apiFailure(context, new UnauthorisedThrowable("Unauthorized"));
+            if (id.size() == 0) {
+               return Single.error(new UnauthorisedThrowable("Unauthorized"));
             }
             Iterator<Object> iterator = id.stream().iterator();
             while (iterator.hasNext()) {
                 String next = (String) iterator.next();
                 authorisedIds.add(next);
             }
-
+            return dbService.rxSecureSearch(downloadByQuery, token, false, "");
+        }).flatMapCompletable(result-> {
+            logger.debug("Response from search endpoint:" + result.toString());
             logger.debug("authorised ids of consumer: " + authorisedIds.toString());
+            JsonArray hits = result.getJsonArray("hits");
+            if (hits.size() == 0) {
+                return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
+            }
+            IntStream.range(0, hits.size())
+                    .mapToObj(pos -> {
+                        JsonObject value = (JsonObject) hits.getValue(pos);
+                        String id = value.getString("id");
+
+                        if (authorisedIds.contains(id)) {
+                            finalHits.add(value);
+                        }
+                        return finalHits;
+                    }).collect(Collectors.toList());
+            if (finalHits.size() == 0) {
+               return Completable.error(new UnauthorisedThrowable("The access to requested files are unauthorized"));
+            }
+            logger.debug("final hits to be zipped:" + finalHits);
+
             SchedulerFactory stdSchedulerFactory = new org.quartz.impl.StdSchedulerFactory();
             Scheduler scheduler = stdSchedulerFactory.getScheduler();
             scheduler.start();
@@ -1386,13 +1401,8 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("Is scheduler started: " + scheduler.isStarted());
             JobDataMap jobDataMap = new JobDataMap();
             jobDataMap.put("token", token);
-            jobDataMap.put("query", downloadByQuery);
-            jobDataMap.put("scroll", false);
-            jobDataMap.put("scrollDuration", "");
-            jobDataMap.put("vertxContext", vertx);
-            jobDataMap.put("routingContext", context);
             jobDataMap.put("uuid", uuid);
-            jobDataMap.put("ids", authorisedIds);
+            jobDataMap.put("finalHits", finalHits);
 //            jobDataMap.put("email", email);
 
             // define the job and tie it to our JobScheduler class
@@ -1417,16 +1427,12 @@ public class HttpServerVerticle extends AbstractVerticle {
             try {
                 scheduler.scheduleJob(job, trigger);
             } catch (SchedulerException e) {
-                logger.debug("Scheduler exception caught");
-                logger.debug("Scheduler exception caused due to: " + e.getLocalizedMessage());
+                logger.debug("Scheduler exception caused due to: " + e.getMessage());
                 e.printStackTrace();
             }
 
-            String threadName1 = Thread.currentThread().getName();
-            long threadId1 = Thread.currentThread().getId();
-            logger.debug("Thread info: " + threadName1 + "\n" + threadId1);
-            return finalDownloadLink;
-        }).subscribe(s -> response.setStatusCode(ACCEPTED)
+            return Completable.complete();
+        }).subscribe(()-> response.setStatusCode(ACCEPTED)
                         .setStatusMessage("Please wait links are getting ready")
                         .end("Please check your email to find the download links..!!" + "\n"),
                 throwable -> apiFailure(context, throwable));
@@ -1592,6 +1598,12 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("In unauthorised");
             context.response()
                     .setStatusCode(FORBIDDEN)
+                    .putHeader("content-type", "application/json")
+                    .end(t.getMessage());
+        } else if (t instanceof FileNotFoundThrowable) {
+            logger.debug("In FileNotFoundThrowable");
+            context.response()
+                    .setStatusCode(404)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof ServiceException) {
