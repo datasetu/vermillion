@@ -196,7 +196,7 @@ public class JobScheduler implements Job {
             MimeMessage msg = new MimeMessage(session);
             msg.setFrom(new InternetAddress(username));
             msg.addRecipient(Message.RecipientType.TO,
-                    new InternetAddress("prabhupathrot@gmail.com"));
+                    new InternetAddress(email));
             msg.setSubject("Download links");
             msg.setText(message);
             logger.debug("sending email");
