@@ -1337,7 +1337,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         JsonArray jsonArray = downloadByQuery.getJsonObject("query").getJsonObject("bool")
                 .getJsonArray("should");
         logger.debug("download by query: " + downloadByQuery);
-        logger.debug("Json array: " + jsonArray.toString());
 
         for (int i=0; i<finalEntries.size(); i++) {
             String key = finalEntries.get(i).getKey();
@@ -1351,7 +1350,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
 
         if(jsonArray.size() == 0) {
-            apiFailure(context, new BadRequestThrowable("Please provide the parameters to download the files"));
+            apiFailure(context, new BadRequestThrowable("Please provide the query parameters to download the files"));
             return;
         }
 
@@ -1443,7 +1442,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             return Completable.complete();
         })).subscribe(()-> response.setStatusCode(ACCEPTED)
-                        .setStatusMessage("Please wait links are getting ready")
+                        .setStatusMessage("Please kindly wait as your download links are getting ready")
                         .end("Please check your email to find the download links..!!" + "\n"),
                 throwable -> apiFailure(context, throwable));
 

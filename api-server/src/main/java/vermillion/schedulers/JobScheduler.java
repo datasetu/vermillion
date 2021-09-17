@@ -18,7 +18,6 @@ import javax.mail.internet.MimeMessage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,8 +29,6 @@ import java.util.*;
 public class JobScheduler implements Job {
 
     public final Logger logger = LoggerFactory.getLogger(JobScheduler.class);
-
-    public vermillion.database.reactivex.DbService dbService;
 
     String CONSUMER_PATH = "/consumer/";
 
@@ -117,27 +114,12 @@ public class JobScheduler implements Job {
         String zipFilePath = webroot + "consumer/" + token + "/" + uuid ;
         File zipFileDirectory = new File(zipFilePath);
         zipFileDirectory.mkdirs();
-
-        CONSUMER_PATH = CONSUMER_PATH + "/" + uuid + "/" + file +".zip";
-        List<String> lines = Arrays.asList("please wait as your files are getting zipped.",
-                "Once this links are ready, they will be sent to your email immediately.");
-        Path write = Files.write(Paths.get(zipFilePath + "/readme.txt"), lines,
-                StandardCharsets.UTF_8);
-        logger.debug("Does new file readme file exists before zipping: "  + Files.exists(write));
-
         logger.debug("list of files to be zipped: " + finalFilesToZip.toString());
         zip(null, finalFilesToZip, zipFilePath+ "/" + file + ".zip");
 
-//        /*
-//          Delete the readme.txt file after files are zipped"
-//         */
-//        String CONSUMER_PATH_CONTAINING_README = zipFilePath + "/readme.txt";
-//        logger.debug(" Consumer path containing read me: " + CONSUMER_PATH_CONTAINING_README);
-//        boolean b = Files.deleteIfExists(Paths.get(CONSUMER_PATH_CONTAINING_README));
-//        logger.debug("Is read me deleted after zipping files: " + b);
+        CONSUMER_PATH = CONSUMER_PATH + "/" + uuid + "/" + file +".zip";
         String downloadLink = "https://" + System.getenv("SERVER_NAME") + CONSUMER_PATH;
         emailJob(downloadLink, email);
-
         logger.debug("final Consumer path: " + CONSUMER_PATH);
     }
 
@@ -148,7 +130,6 @@ public class JobScheduler implements Job {
         if(fileOrFolderToBeZipped!= null) {
             isDirectory = fileOrFolderToBeZipped.toFile().isDirectory();
         }
-        logger.debug("Is fileOrFolderToBeZipped directory: " + isDirectory);
         try {
             if (isDirectory) {
                 zipFile.addFolder(fileOrFolderToBeZipped.toFile());
@@ -167,7 +148,7 @@ public class JobScheduler implements Job {
             return;
         }
         logger.debug("zipped directory: " + zipFile.toString());
-        logger.debug("is valid zip file: " + zipFile.isValidZipFile());
+        logger.debug("is zip file valid: " + zipFile.isValidZipFile());
         logger.debug("End Zip");
     }
 
@@ -175,9 +156,11 @@ public class JobScheduler implements Job {
 
         logger.debug("In email Job");
         logger.debug("Recipient email= " + email);
-        String message = "Your download links are ready. Please use below link to access the files" + "\n" + downloadLink;
+        String message = "Dear consumer,"
+                + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
+                + "\n" + downloadLink;
         Properties properties = new Properties();
-        properties.put("mail.smtp.host", "smtp.gmail.com");
+        properties.put("mail.smtp.host", "smtp.gmail.com"); //host name
         properties.put("mail.smtp.port", "587"); //TLS port
         properties.put("mail.debug", "false"); //enable when you want to see mail logs
         properties.put("mail.smtp.auth", "true"); //enable auth
