@@ -1,8 +1,6 @@
 package vermillion.http;
 
-import io.reactivex.Completable;
-import io.reactivex.Maybe;
-import io.reactivex.Single;
+import io.reactivex.*;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
@@ -31,6 +29,8 @@ import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 import org.quartz.*;
+import org.quartz.Scheduler;
+import org.quartz.impl.StdSchedulerFactory;
 import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
@@ -1359,6 +1359,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("uuid: " + uuid);
         List<String> authorisedIds = new ArrayList<>();
         JsonArray finalHits = new JsonArray();
+        Map<String, String> emailDetails = new HashMap<>();
 //        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;  //Could be used in future if needed
 
         checkAuthorisation(token, READ_SCOPE).flatMap(id -> {
@@ -1371,6 +1372,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 String next = (String) iterator.next();
                 authorisedIds.add(next);
             }
+            setConsumerEmailDetails(token, emailDetails).subscribe();
             return dbService.rxSecureSearch(downloadByQuery, token, false, "");
         }).flatMapCompletable(result-> {
             logger.debug("Response from search endpoint:" + result.toString());
@@ -1390,11 +1392,19 @@ public class HttpServerVerticle extends AbstractVerticle {
                         return finalHits;
                     }).collect(Collectors.toList());
             if (finalHits.size() == 0) {
-               return Completable.error(new UnauthorisedThrowable("The access to requested files are unauthorized"));
+                return Completable.error(new UnauthorisedThrowable("The access to requested files are unauthorized"));
             }
-            logger.debug("final hits to be zipped:" + finalHits);
 
-            SchedulerFactory stdSchedulerFactory = new org.quartz.impl.StdSchedulerFactory();
+            String email = emailDetails.get("email");
+            logger.debug("consumerEmail=" + email);
+            if (email == null || "".equals(email)) {
+                return Completable.error(new UnauthorisedThrowable("Email is missing"));
+            }
+            return Completable.complete();
+
+        }).andThen(Completable.defer(() -> {
+
+            SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
             Scheduler scheduler = stdSchedulerFactory.getScheduler();
             scheduler.start();
 
@@ -1403,7 +1413,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             jobDataMap.put("token", token);
             jobDataMap.put("uuid", uuid);
             jobDataMap.put("finalHits", finalHits);
-//            jobDataMap.put("email", email);
+            jobDataMap.put("email", emailDetails.get("email"));
 
             // define the job and tie it to our JobScheduler class
             JobDetail job = JobBuilder.newJob(JobScheduler.class)
@@ -1432,7 +1442,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             return Completable.complete();
-        }).subscribe(()-> response.setStatusCode(ACCEPTED)
+        })).subscribe(()-> response.setStatusCode(ACCEPTED)
                         .setStatusMessage("Please wait links are getting ready")
                         .end("Please check your email to find the download links..!!" + "\n"),
                 throwable -> apiFailure(context, throwable));
@@ -1707,4 +1717,21 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         });
     }
+
+    private Single<String> setConsumerEmailDetails(String token, Map<String, String> emailDetails) {
+        logger.debug("In consumerEmail details");
+        return getValue(token)
+                .map(result -> {
+                    if("absent".equalsIgnoreCase(result)) {
+                        logger.debug("email is empty");
+                        return "";
+                    } else {
+                        String consumerEmail = new JsonObject(result).getString("consumer");
+                        logger.debug("Email from introspect="  + consumerEmail);
+                        emailDetails.put("email", consumerEmail);
+                        return consumerEmail;
+                    }
+                });
+    }
+
 }
