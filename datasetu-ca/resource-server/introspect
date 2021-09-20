@@ -1,3 +1,3 @@
 #!/bin/bash
 
-curl -ik "https://localhost:8443/auth/v1/token/introspect" -H 'content-type: application/json' -d '{"token": "'$1'"}' --cert resource-server.pem --key resource-server.key.pem
+curl -ik "https://localhost:8443/auth/v1/token/introspect" -H 'content-type: application/json' -d '{"token": "'auth.local/958d6f0746a9625cba5eaa7a26be9553'"}' --cert resource-server.pem --key resource-server.key.pem
