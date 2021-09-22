@@ -1,4 +1,5 @@
 import json
+import time
 
 import requests
 import urllib3
@@ -16,7 +17,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 @when('The consumer publishes secure file data with a valid token')
 def step_impl(context):
     params = (
-        ('id', res[13]),
+        ('id', res[0]),
         ('token', tokens["13_rw"]),
     )
     f = open("sample.txt", "w")
@@ -32,10 +33,11 @@ def step_impl(context):
     post_files(params, files, context)
 
 
+
 @when('The consumer downloads by query with a valid token')
 def step_impl(context):
     params = (
-        ('id', res[13]),
+        ('id', res[0]),
         ('token', tokens["13_rw"]),
         ('hello', 'world'),
     )
