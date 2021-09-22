@@ -17,9 +17,11 @@ public class Queries {
   public Queries() {
 
     downloadByQuery = new JsonObject()
-            .put("query", new JsonObject().put("bool",
-                    new JsonObject().put("should",
-                            new JsonArray())));
+            .put("query",
+                    new JsonObject().put("bool",
+                            new JsonObject().put("must",
+                                    new JsonObject().put("bool",
+                                            new JsonObject().put("should", new JsonArray())))));
     baseQuery =
         new JsonObject()
             .put("query", new JsonObject().put("bool", new JsonObject().put("filter", "")));

@@ -1333,11 +1333,18 @@ public class HttpServerVerticle extends AbstractVerticle {
         }
         logger.debug("final params :" + finalEntries.toString());
 
+        int size = 10000; //max set of results per search request
         JsonObject downloadByQuery = query.getDownloadByQuery();
-        JsonArray jsonArray = downloadByQuery.getJsonObject("query").getJsonObject("bool")
-                .getJsonArray("should");
-        logger.debug("download by query: " + downloadByQuery);
-        logger.debug("Json array: " + jsonArray.toString());
+        JsonArray jsonArray = downloadByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
+                .getJsonObject("must").getJsonObject("bool").getJsonArray("should");
+
+        JsonObject filterByAuthorisedIds = downloadByQuery.getJsonObject("query").getJsonObject("bool");
+        if (resourceId != null) {
+            filterByAuthorisedIds.put("filter",
+                    new JsonObject().put("terms",
+                            new JsonObject().put("id.keyword",
+                                    new JsonArray().add(resourceId))));
+        }
 
         for (int i=0; i<finalEntries.size(); i++) {
             String key = finalEntries.get(i).getKey();
@@ -1346,53 +1353,43 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("value: " + value);
 
             jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
-            logger.debug("constructed query for download by query API for category/subCategory is: "
-                    + jsonArray.toString());
         }
 
         if(jsonArray.size() == 0) {
-            apiFailure(context, new BadRequestThrowable("Please provide the parameters to download the files"));
+            apiFailure(context, new BadRequestThrowable("Please provide the query parameters to download the files"));
             return;
         }
 
         UUID uuid = UUID.randomUUID();
         logger.debug("uuid: " + uuid);
-        List<String> authorisedIds = new ArrayList<>();
-        JsonArray finalHits = new JsonArray();
         Map<String, String> emailDetails = new HashMap<>();
 //        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;  //Could be used in future if needed
 
         checkAuthorisation(token, READ_SCOPE).flatMap(id -> {
-            logger.debug("id=" + id);
+            logger.debug("authorised ids of consumer=" + id);
             if (id.size() == 0) {
                return Single.error(new UnauthorisedThrowable("Unauthorized"));
             }
+            JsonArray authorisedResourceIds = new JsonArray();
             Iterator<Object> iterator = id.stream().iterator();
-            while (iterator.hasNext()) {
+            while (iterator.hasNext() && resourceId == null) {
                 String next = (String) iterator.next();
-                authorisedIds.add(next);
+                filterByAuthorisedIds.put("filter",
+                        new JsonObject().put("terms",
+                                new JsonObject().put("id.keyword",
+                                        authorisedResourceIds.add(next))));
             }
             setConsumerEmailDetails(token, emailDetails).subscribe();
+
+            logger.debug("constructed query for download by query API for category/subCategory is: "
+                    + downloadByQuery.toString());
             return dbService.rxSecureSearch(downloadByQuery, token, false, "");
+
         }).flatMapCompletable(result-> {
             logger.debug("Response from search endpoint:" + result.toString());
-            logger.debug("authorised ids of consumer: " + authorisedIds.toString());
             JsonArray hits = result.getJsonArray("hits");
             if (hits.size() == 0) {
                 return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
-            }
-            IntStream.range(0, hits.size())
-                    .mapToObj(pos -> {
-                        JsonObject value = (JsonObject) hits.getValue(pos);
-                        String id = value.getString("id");
-
-                        if (authorisedIds.contains(id)) {
-                            finalHits.add(value);
-                        }
-                        return finalHits;
-                    }).collect(Collectors.toList());
-            if (finalHits.size() == 0) {
-                return Completable.error(new UnauthorisedThrowable("The access to requested files are unauthorized"));
             }
 
             String email = emailDetails.get("email");
@@ -1400,9 +1397,6 @@ public class HttpServerVerticle extends AbstractVerticle {
             if (email == null || "".equals(email)) {
                 return Completable.error(new UnauthorisedThrowable("Email is missing"));
             }
-            return Completable.complete();
-
-        }).andThen(Completable.defer(() -> {
 
             SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
             Scheduler scheduler = stdSchedulerFactory.getScheduler();
@@ -1412,7 +1406,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             JobDataMap jobDataMap = new JobDataMap();
             jobDataMap.put("token", token);
             jobDataMap.put("uuid", uuid);
-            jobDataMap.put("finalHits", finalHits);
+            jobDataMap.put("finalHits", hits);
             jobDataMap.put("email", emailDetails.get("email"));
 
             // define the job and tie it to our JobScheduler class
@@ -1442,8 +1436,8 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
 
             return Completable.complete();
-        })).subscribe(()-> response.setStatusCode(ACCEPTED)
-                        .setStatusMessage("Please wait links are getting ready")
+        }).subscribe(()-> response.setStatusCode(ACCEPTED)
+                        .setStatusMessage("Please kindly wait as your download links are getting ready")
                         .end("Please check your email to find the download links..!!" + "\n"),
                 throwable -> apiFailure(context, throwable));
 
