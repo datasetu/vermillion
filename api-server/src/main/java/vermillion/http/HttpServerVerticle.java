@@ -1292,10 +1292,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerRequest request = context.request();
         HttpServerResponse response = context.response();
 
-        String threadName = Thread.currentThread().getName();
-        long threadId = Thread.currentThread().getId();
-        logger.debug("Thread info: " + threadName + "\n" + threadId);
-
         MultiMap parameters = request.params();
         String token = request.getParam("token");
         String resourceId = request.getParam("id");
@@ -1323,16 +1319,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         Queries query = new Queries();
 
-        List<Map.Entry<String, String>> entries = parameters.entries();
-        List<Map.Entry<String, String>> finalEntries = new ArrayList<>();
-        for (int i=0; i<entries.size(); i++) {
-            if(!entries.get(i).getKey().equalsIgnoreCase("token")
-                    && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
-                finalEntries.add(entries.get(i));
-            }
-        }
-        logger.debug("final params :" + finalEntries.toString());
-
         int size = 10000; //max set of results per search request
         JsonObject downloadByQuery = query.getDownloadByQuery();
         JsonArray jsonArray = downloadByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
@@ -1346,13 +1332,16 @@ public class HttpServerVerticle extends AbstractVerticle {
                                     new JsonArray().add(resourceId))));
         }
 
-        for (int i=0; i<finalEntries.size(); i++) {
-            String key = finalEntries.get(i).getKey();
-            String value = finalEntries.get(i).getValue();
-            logger.debug("key: " + key);
-            logger.debug("value: " + value);
-
-            jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
+        List<Map.Entry<String, String>> entries = parameters.entries();
+        for (int i=0; i<entries.size(); i++) {
+            if(!entries.get(i).getKey().equalsIgnoreCase("token")
+                    && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
+                String key = entries.get(i).getKey();
+                String value = entries.get(i).getValue();
+                logger.debug("key: " + key);
+                logger.debug("value: " + value);
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
+            }
         }
 
         if(jsonArray.size() == 0) {
