@@ -89,6 +89,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     // Service Proxies
     public DbService dbService;
     public RedisOptions options;
+    public Map<String, Boolean> tokenExpiredDetails;
 
     @Override
     public void start(Promise<Void> startPromise) {
@@ -97,6 +98,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Redis constr=" + CONNECTION_STR);
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+        tokenExpiredDetails = new HashMap<>();
 
         Router router = Router.router(vertx);
 
@@ -171,7 +173,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         Path finalConsumerResourcePath = Paths.get(WEBROOT + "consumer/" + token);
         File fileToBeDeleted = new File(String.valueOf(finalConsumerResourcePath));
         logger.debug("File directory to be deleted:" + fileToBeDeleted);
-        boolean doesFileExist = Files.exists(finalConsumerResourcePath);
+        boolean doesFileExist = Files.exists(fileToBeDeleted.toPath());
         logger.debug("Does file exists:" + doesFileExist);
 
         String FINAL_CONSUMER_PATH = "/consumer/" + token ;
@@ -238,8 +240,16 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .toSingle(Optional.empty())
                 .flatMap(tokenExpiry -> {          // handle the empty scenario from above flatMapMaybe
                     if(tokenExpiry.isPresent()) {
-                        logger.debug("tokenExpiry:" + tokenExpiry);
-                        return Single.just(Clock.systemUTC().instant().toString().compareTo(String.valueOf(tokenExpiry)));
+                        logger.debug("tokenExpiry:" + tokenExpiry.get());
+                        String currentDate = Clock.systemUTC().instant().toString();
+                        logger.debug("current date:" + currentDate);
+                        if (currentDate.compareTo(String.valueOf(tokenExpiry)) > 0) {
+                            tokenExpiredDetails.put("tokenExpiredDetails", true);
+                        } else {
+                            tokenExpiredDetails.put("tokenExpiredDetails", false);
+                        }
+                        logger.debug("tokenExpiredDetails: " + tokenExpiredDetails.toString());
+                        return Single.just(currentDate.compareTo(String.valueOf(tokenExpiry)));
                     }
                    return Single.error(new UnauthorisedThrowable("The access token details are not present in cache"));
                 });
@@ -905,7 +915,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Requested IDs Json =" + requestedIds.encode());
 
         CONSUMER_PATH = "/consumer/" + token + "/";
-
+        isTokenExpired(token).subscribe();
         // TODO: Avoid duplication here
         if (idParam == null) {
             checkAuthorisation(token, READ_SCOPE)
@@ -945,15 +955,15 @@ public class HttpServerVerticle extends AbstractVerticle {
                             } catch (Exception e) {
                                 return Completable.error(new InternalErrorThrowable("Could not create symlinks"));
                             }
-                        }
-                        Single<Integer> tokenExpiry = isTokenExpired(token);
-                        Path finalConsumerResourcePath = consumerResourcePath;
-                        tokenExpiry.subscribe(result-> {
-                            logger.debug("Value of token:" + result);
-                            if (result != null && result > 0 && finalConsumerResourcePath != null) {
-                                Files.deleteIfExists(finalConsumerResourcePath);
+                            logger.debug("tokenExpiredDetails : " + tokenExpiredDetails.toString());
+                            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                                Files.deleteIfExists(consumerResourcePath);
                             }
-                        });
+                        }
+
+                        if(tokenExpiredDetails.get("tokenExpiredDetails")) {
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
+                        }
 
                         // Appending Consumer Path
                         if (!authorisedIds.isEmpty()) {
@@ -1010,15 +1020,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                             }
                         }
 
-                        Single<Integer> tokenExpiry = isTokenExpired(token);
-                        Path finalConsumerResourcePath = consumerResourcePath;
-                        tokenExpiry.subscribe(result-> {
-                        logger.debug("Value of token:" + result);
-                        if (result != null && result > 0 && finalConsumerResourcePath != null) {
-                                Files.deleteIfExists(finalConsumerResourcePath);
-                            }
-                        });
-
                         // Appending Consumer Path
                         if (!requestedIds.isEmpty()) {
                             if (requestedIds.size() == 1) {
@@ -1032,6 +1033,20 @@ public class HttpServerVerticle extends AbstractVerticle {
                             }
                         }
 
+                        return Completable.complete();
+                    }))
+                    .andThen(Completable.defer(()-> {
+                        logger.debug("tokenExpiredDetails : " + tokenExpiredDetails.toString());
+                        for (int i = 0; i < requestedIds.size(); i++) {
+                            String resourceId = requestedIds.getString(i);
+                            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                                Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                                Files.deleteIfExists(consumerResourcePath);
+                            }
+                        }
+                        if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
+                        }
                         return Completable.complete();
                     }))
                     .subscribe(() -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
