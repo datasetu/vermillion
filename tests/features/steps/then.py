@@ -1,9 +1,8 @@
 from behave import then
 import os
-import time
-
 import requests
 import urllib3
+from auth_vars import tokens, res
 
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from error_definitions import ResponseCountMismatchError, UnexpectedStatusCodeError, UnexpectedBehaviourError
@@ -33,15 +32,28 @@ def step_impl(context):
         if len(context.response) != 305:
             raise ResponseCountMismatchError(305, len(context.response))
 
-    if context.type == 'latest-api':
+    if context.type == 'latest_search':
         if len(context.response) != 1:
             raise ResponseCountMismatchError(1, len(context.response))
+
+    if context.type == 'latest_public':
+        if len(context.response.json()) != 1:
+            raise ResponseCountMismatchError(1, len(context.response))
+
+    if context.type == 'scroll-search':
+        if len(context.response) != 500:
+            raise ResponseCountMismatchError(500, len(context.response))
 
 
 @then('The response status should be {expected_code}')
 def step_impl(context, expected_code):
     if context.status_code != int(expected_code):
         raise UnexpectedStatusCodeError(int(expected_code), context.status_code, context.response)
+
+
+# @then('The file permission is reset')
+# def step_impl(context):
+#     os.chmod("../setup/provider", 0o755)
 
 
 @then('The expected file is returned')
@@ -57,23 +69,48 @@ def step_impl(context):
 
 @then('The uploaded files are deleted')
 def step_impl(context):
-    # Checking if the folder is empty or not
+
     DIR = '../api-server/file-uploads'
     number_of_files = len([
         name for name in os.listdir(DIR)
         if os.path.isfile(os.path.join(DIR, name))
     ])
-    counter = 0
-    # Slowing down by running checks for the deletion of files to happen
-    while (number_of_files > 0 and counter < 60):
-        number_of_files = len([
-            name for name in os.listdir(DIR)
-            if os.path.isfile(os.path.join(DIR, name))
-        ])
-        time.sleep(1)
+
     print(number_of_files)
-    if (number_of_files > 0):
+    if number_of_files > 1:
         raise UnexpectedBehaviourError('Files have not been deleted')
+
+
+@then('The file gets uploaded in the provider public directory')
+def step_impl(context):
+    DIR = '../setup/provider/public/' + res[0] + '/'
+    number_of_files = len([
+        name for name in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, name))
+    ])
+    print(number_of_files)
+    if number_of_files != 1:
+        raise UnexpectedBehaviourError('Files have not been created')
+
+
+@then('The file gets uploaded in the provider secure directory')
+def step_impl(context):
+    DIR = '../setup/provider/secure/' + res[8] + '/'
+    number_of_files = len([
+        name for name in os.listdir(DIR)
+        if os.path.isfile(os.path.join(DIR, name))
+    ])
+    print(number_of_files)
+    if number_of_files != 1:
+        raise UnexpectedBehaviourError('Files have not been created')
+
+
+@then('The file gets uploaded in the consumer directory')
+def step_impl(context):
+    DIR = '../api-server/webroot/consumer/' + tokens[
+        "8_10_rw"] + '/rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/'
+    if not os.path.exists(DIR):
+        raise UnexpectedBehaviourError('Files have not been created')
 
 
 @then('The response should contain the secure timeseries data')
@@ -83,8 +120,41 @@ def step_impl(context):
 
         re = context.response.json()
         print(re)
-        if dat != re['hits'][0]['data']:
+        print(len(re['hits']))
+        if len(re['hits']) == 1:
+            for value in re['hits']:
+                print(value)
+                if 'data' in value and value['data'] != dat:
+                    # if dat != re['hits'][0]['data']:
+                    raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+        else:
             raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+    if context.type == 'authorised_id_multiple':
+        dat = {"hello": "india"}
+        dat1 = {"hello": "world"}
+        re = context.response.json()
+        print(re)
+        print(len(re['hits']))
+        if len(re['hits']) == 2:
+            for value in re['hits']:
+                print(value)
+                if 'data' in value and not (value['data'] == dat or value['data'] == dat1):
+                    raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+        else:
+            raise UnexpectedBehaviourError('Secure Timeseries data not found in response')
+
+
+@then('The response should contain the scroll id')
+def step_impl(context):
+    if context.type == 'geospatial-scroll':
+        re = context.response.json()
+        print(re['scroll_id'])
+        for value in re['hits']:
+            print(value)
+            if 'scroll_id' not in re:
+                raise UnexpectedBehaviourError('Scroll id not found in response')
 
 
 @then('The response should contain an auth token')

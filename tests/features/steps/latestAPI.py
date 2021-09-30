@@ -1,97 +1,138 @@
 import requests
 import urllib3
 from behave import when
+
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from auth_vars import res,tokens
-from utils import check_latest, generate_random_chars
+from auth_vars import res, tokens
+from utils import generate_random_chars, get_request, post_files
 
 VERMILLION_URL = 'https://localhost'
 LATEST_ENDPOINT = '/latest'
+headers = {
+    'Content-Type': 'application/json',
+}
+url = VERMILLION_URL + LATEST_ENDPOINT
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
-@when('A latest API query is initiated')
+@when('The consumer publishes secured files')
 def step_impl(context):
-    context.type = 'latest-api'
+    params = (
 
-    params = ({
-        "id": res[2],
-        "token": tokens["2_5_write"]
-    }
+        ("id", res[4]),
+        ('token', tokens["2_5_write"]),
+
     )
 
-    check_latest(params,context)
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+
+    post_files(params, files, context)
+
+
+@when('A latest API query is initiated')
+def step_impl(context):
+    context.type = 'latest_search'
+    params = (
+        ("id", res[4]),
+        ("token", tokens["2_5_write"]),
+
+    )
+    r = requests.get(url, headers=headers, params=params, verify=False)
+    context.response = r.json()
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
 
 @when('A latest API query is initiated for public resource id')
 def step_impl(context):
+    context.type = 'latest_public'
+    params = (
+        ("id",
+         "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"),
 
-    params = ({
-        "id": res[0],
-
-    }
     )
+    r = requests.get(url, headers=headers, params=params, verify=False)
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
 
-    check_latest(params,context)
 
 @when('A latest API query with invalid resource id')
 def step_impl(context):
-    params = ({
-        "id":
-            generate_random_chars(),
-        "token": tokens["master"]
-    }
+    params = (
+        ("id", generate_random_chars()),
+        ("token", tokens["master"]),
+
     )
 
-    check_latest(params,context)
+    get_request(url, params, context)
 
 
 @when('A latest API query is with empty resource id')
 def step_impl(context):
-    params = ({
-        "id": "",
-        "token": tokens["master"]
+    params = (
+        ("id", ""),
+        ("token", tokens["master"]),
 
-    })
+    )
 
-    check_latest(params,context)
+    get_request(url, params, context)
+
 
 @when('A latest API query is without resource id')
 def step_impl(context):
-    params = ({
+    params = (
 
-        "token": tokens["master"]
+        ("token", tokens["master"]),
 
-    })
+    )
 
-    check_latest(params,context)
+    get_request(url, params, context)
+
 
 @when('A latest API query is without token')
 def step_impl(context):
-    params = ({
-        "id": res[1]
+    params = (
+        ("id", res[1]),
 
-    })
+    )
 
-    check_latest(params,context)
+    get_request(url, params, context)
+
 
 @when('A latest API query is with empty token')
 def step_impl(context):
-    params = {
-        "id": res[0],
-        "token": ""
+    params = (
+        ("id", res[1]),
+        ("token", ""),
 
-    }
+    )
 
-    check_latest(params,context)
+    get_request(url, params, context)
+
 
 @when('A latest API query is with invalid token')
 def step_impl(context):
-    params = ({
-        "id": res[0],
-        "token": generate_random_chars()
+    params = (
+        ("id", res[1]),
+        ("token", generate_random_chars()),
 
-    })
+    )
 
-    check_latest(params,context)
+    get_request(url, params, context)
+
+
+@when('A latest API query is with expired token')
+def step_impl(context):
+    params = (
+        ("id", res[1]),
+        ("token", tokens["6_7_read"]),
+
+    )
+
+    get_request(url, params, context)

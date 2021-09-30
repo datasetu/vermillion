@@ -1,13 +1,13 @@
 import json
-
 import requests
 import urllib3
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import check_search, generate_random_chars
+from utils import  generate_random_chars, post_request
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
+url= VERMILLION_URL+SEARCH_ENDPOINT
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -17,14 +17,14 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 def step_impl(context):
     payload = '{}'
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query body is invalid')
 def step_impl(context):
     payload = generate_random_chars()
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query resource id is empty')
@@ -46,7 +46,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query resource id is invalid')
@@ -68,7 +68,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query has only resource id')
@@ -78,7 +78,7 @@ def step_impl(context):
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query attributes are empty')
@@ -101,7 +101,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query attributes are invalid')
@@ -124,7 +124,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query time is empty')
@@ -147,7 +147,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query time is not present')
@@ -170,7 +170,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query time is invalid')
@@ -193,7 +193,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query coordinates are empty')
@@ -216,7 +216,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query coordinates are invalid')
@@ -239,7 +239,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query coordinates are strings')
@@ -262,7 +262,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query distance is empty')
@@ -285,7 +285,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query distance is not present')
@@ -308,7 +308,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query distance is invalid')
@@ -331,7 +331,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query has only resource attributes')
@@ -346,7 +346,7 @@ def step_impl(context):
 
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query has only resource time')
@@ -360,7 +360,7 @@ def step_impl(context):
 
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The complex query has only resource geo-distance')
@@ -373,7 +373,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('A complex query is initiated')

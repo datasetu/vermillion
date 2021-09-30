@@ -1,14 +1,13 @@
 import json
-
 import requests
 import urllib3
 from behave import when
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import check_search, generate_random_chars
+from utils import  generate_random_chars, post_request
 
 VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
-
+url = VERMILLION_URL + SEARCH_ENDPOINT
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -17,21 +16,21 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 def step_impl(context):
     payload = {}
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query body is invalid')
 def step_impl(context):
     payload = {generate_random_chars(): generate_random_chars()}
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query resource id is empty')
 def step_impl(context):
     payload = {"id": "", "attribute": {"term": "speed", "min": 30, "max": 50}}
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query resource id is invalid')
@@ -45,7 +44,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query attributes are empty')
@@ -60,7 +59,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query payload has only resource id')
@@ -70,7 +69,7 @@ def step_impl(context):
             "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public"
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query with min value greater than max')
@@ -85,7 +84,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query attributes are invalid')
@@ -100,7 +99,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query without term value')
@@ -117,7 +116,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query with empty term value')
@@ -132,7 +131,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query with invalid term value')
@@ -147,7 +146,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query without min value')
@@ -162,7 +161,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query without max value')
@@ -176,7 +175,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query without min and max values')
@@ -190,7 +189,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query with invalid value')
@@ -204,7 +203,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query with valid value')
@@ -218,7 +217,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('The attribute value query with invalid json object')
@@ -229,8 +228,21 @@ def step_impl(context):
         "attribute": "True"
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
+@when('The attribute value query with invalid min and max numbers')
+def step_impl(context):
+    payload = {
+        "id":
+            "rbccps.org/aa9d66a000d94a78895de8d4c0b3a67f3450e531/rs.varanasi.iudx.org.in/varanasi-swm-vehicles/varanasi-swm-vehicles-live.public",
+        "attribute": {
+            "term": "speed",
+            "min": True,
+            "max": 10
+        }
+        }
+
+    post_request(url, "", json.dumps(payload), context)
 
 @when('An attribute value query is initiated')
 def step_impl(context):
@@ -254,6 +266,8 @@ def step_impl(context):
     context.response = r.json()['hits']
 
 
+
+
 @when('An attribute value query with empty resource id array')
 def step_impl(context):
     payload = {
@@ -268,7 +282,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('An attribute value query with invalid resource id array')
@@ -285,7 +299,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('An attribute value query resource id array without token')
@@ -302,7 +316,7 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)
 
 
 @when('An attribute value query resource id is not a list of string')
@@ -317,4 +331,4 @@ def step_impl(context):
         }
     }
 
-    check_search("", payload, context)
+    post_request(url, "", json.dumps(payload), context)

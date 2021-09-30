@@ -23,6 +23,7 @@ services:
     volumes:
       - ../api-server:/api-server/
       - ${PROVIDER_PATH}:/api-server/webroot/provider/
+      - ../index.html:/api-server/webroot/index.html
     env_file:
       - vermillion.conf
     environment:
@@ -32,7 +33,7 @@ services:
       - JAR_NAME=api-server-fat.jar
 
   authenticator:
-    image: iudx/java
+    image: datasetu/java
     container_name: authenticator
     hostname: authenticator
     restart: on-failure
@@ -46,6 +47,7 @@ services:
       - WAIT_HOSTS=redis:6379
       - PROJECT_DIR=authenticator
       - JAR_NAME=authenticator-fat.jar
+
 
   rabbit:
     image: rabbitmq:${RABBITMQ_VERSION}
@@ -81,8 +83,8 @@ services:
       - discovery.type=single-node
       #- ELASTICSEARCH_HEAP_SIZE=2048m
 
-  dbconnector:
-    image: iudx/db-connector
+  connector:
+    image: datasetu/db-connector
     container_name: connector
     hostname: connector
     restart: on-failure
