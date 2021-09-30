@@ -42,6 +42,7 @@ import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
@@ -63,6 +64,10 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final int ACCEPTED = 202;
     public final int BAD_REQUEST = 400;
     public final int FORBIDDEN = 403;
+
+    public final int CONFLICT = 409;
+    public final int NOT_FOUND = 404;
+
     public final int INTERNAL_SERVER_ERROR = 500;
 
     // Auth server constants
@@ -105,6 +110,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public DbService dbService;
     public BrokerService brokerService;
     public RedisOptions options;
+    public Map<String, Boolean> tokenExpiredDetails;
 
     @Override
     public void start(Promise<Void> startPromise) {
@@ -113,7 +119,11 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Redis constr=" + CONNECTION_STR);
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+
         brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
+
+        tokenExpiredDetails = new HashMap<>();
+
 
         Router router = Router.router(vertx);
 
@@ -127,9 +137,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         // The path described by the regex is /consumer/<auth_server>/<token>/*
         router.routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[0-9a-f]+\\/?.*")
-                .handler(StaticHandler.create()
-                        .setAllowRootFileSystemAccess(false)
-                        .setDirectoryListing(true));
+                .handler(routingContext -> getStaticHandler(routingContext));
+
 
         // The path described by the regex is /provider/public/<domain>/<sha1>/<rs_name>/*
         router.routeWithRegex("\\/provider\\/public\\/?.*")
@@ -164,6 +173,114 @@ public class HttpServerVerticle extends AbstractVerticle {
                             logger.debug("Could not start server. Cause=" + err.getMessage());
                             startPromise.fail(err.getMessage());
                         });
+    }
+
+    private void getStaticHandler(RoutingContext routingContext) {
+
+        logger.debug("In existing consumer API");
+        String origin = routingContext.get("origin");
+        logger.debug("Origin:" + origin);
+        boolean isOriginValid = "download".equalsIgnoreCase(origin);
+        logger.debug("Is origin valid:" + isOriginValid);
+        StaticHandler staticHandler;
+        if(isOriginValid) {
+            staticHandler = StaticHandler.create()
+                    .setAllowRootFileSystemAccess(false)
+                    .setDirectoryListing(true);
+            staticHandler.handle(routingContext);
+            return;
+        }
+        HttpServerRequest request = routingContext.request();
+        String userAgent = request.getHeader("User-Agent");
+        logger.debug("User agent is:" + userAgent);
+
+        String token = getFinalTokenFromNormalisedPath(routingContext);
+        logger.debug("Final token:" + token);
+
+        Single<Integer> tokenExpiry = isTokenExpired(token);
+
+        Path finalConsumerResourcePath = Paths.get(WEBROOT + "consumer/" + token);
+        File fileToBeDeleted = new File(String.valueOf(finalConsumerResourcePath));
+        logger.debug("File directory to be deleted:" + fileToBeDeleted);
+        boolean doesFileExist = Files.exists(fileToBeDeleted.toPath());
+        logger.debug("Does file exists:" + doesFileExist);
+
+        String FINAL_CONSUMER_PATH = "/consumer/" + token ;
+        tokenExpiry.subscribe(result -> {
+            logger.debug("Value of token:" + result);
+            if (result != null && result > 0 && doesFileExist) {
+                boolean isFileSymLinkDeleted = deleteDirectory(fileToBeDeleted);
+                logger.debug("Is file directory deleted:" + isFileSymLinkDeleted);
+                apiFailure(routingContext, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                return;
+            }
+            if (!doesFileExist && result != null && result > 0) {
+                logger.info("The file requested is deleted as token is expired");
+                apiFailure(routingContext, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                return;
+            }
+            logger.debug("Consumer path :" + FINAL_CONSUMER_PATH);
+            StaticHandler staticHandlerForConsumer = StaticHandler.create()
+                    .setAllowRootFileSystemAccess(false)
+                    .setDirectoryListing(true);
+            staticHandlerForConsumer.handle(routingContext);
+
+        }, t -> apiFailure(routingContext, t));
+    }
+
+    private String getFinalTokenFromNormalisedPath(RoutingContext routingContext) {
+        String path = routingContext.normalisedPath();
+        logger.debug("Normalized path:" + path);
+        Map<Integer, String> paramsMap = new HashMap<>();
+        String[] pathParams = path.split("/");
+        int counter = 1;
+        for (String param: pathParams) {
+            paramsMap.put(counter++, param);
+        }
+        String token, authServer, tokenHash;
+        authServer = paramsMap.get(3);
+        tokenHash = paramsMap.get(4);
+        token = authServer + "/" + tokenHash;
+        logger.debug("Final paramsMap: " + paramsMap);
+        return token;
+    }
+
+    boolean deleteDirectory(File directoryToBeDeleted )  {
+        File[] filesInTheDirectory = directoryToBeDeleted.listFiles();
+        if (filesInTheDirectory != null) {
+            for (File file : filesInTheDirectory) {
+                deleteDirectory(file);
+            }
+        }
+        return directoryToBeDeleted.delete();
+    }
+
+    private Single<Integer> isTokenExpired(String token) {
+        logger.debug("In token expiry method " + token);
+        Single<String> tokenDetailsFromRedis =  getValue(token);
+
+        return tokenDetailsFromRedis.flatMapCompletable(
+                tokenDetailsFromCache -> "absent".equalsIgnoreCase(tokenDetailsFromCache) ? introspect(token) : Completable.complete())
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getString("expiry")))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMap(tokenExpiry -> {          // handle the empty scenario from above flatMapMaybe
+                    if(tokenExpiry.isPresent()) {
+                        logger.debug("tokenExpiry:" + tokenExpiry.get());
+                        String currentDate = Clock.systemUTC().instant().toString();
+                        if (currentDate.compareTo(tokenExpiry.get()) > 0) {
+                            tokenExpiredDetails.put("tokenExpiredDetails", true);
+                        } else {
+                            tokenExpiredDetails.put("tokenExpiredDetails", false);
+                        }
+                        logger.debug("tokenExpiredDetails: " + tokenExpiredDetails.toString());
+                        return Single.just(currentDate.compareTo(tokenExpiry.get()));
+                    }
+                   return Single.error(new UnauthorisedThrowable("The access token details are not present in cache"));
+                });
     }
 
     // TODO: Check why using a custom conf file fails here
@@ -908,6 +1025,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public void download(RoutingContext context) {
 
         HttpServerRequest request = context.request();
+        context.put("origin", "download");
 
         // If token is valid for resources apart from secure 'files' then specify list of ids in the
         // request
@@ -955,7 +1073,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Requested IDs Json =" + requestedIds.encode());
 
         CONSUMER_PATH = "/consumer/" + token + "/";
-
+        isTokenExpired(token).subscribe();
         // TODO: Avoid duplication here
         if (idParam == null) {
             checkAuthorisation(token, READ_SCOPE)
@@ -971,7 +1089,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         new UnauthorisedThrowable("Requested resource ID(s) is not present"));
                             }
                         }
-
+                        Path consumerResourcePath = null;
                         for (int i = 0; i < authorisedIds.size(); i++) {
 
                             String resourceId = authorisedIds.getString(i);
@@ -983,7 +1101,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             new File(consumerResourceDir).mkdirs();
                             logger.debug("Created consumer subdirectory");
 
-                            Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                            consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                             Path providerResourcePath = Paths.get(basePath + resourceId);
 
                             // TODO: This could take a very long time for multiple large files
@@ -994,6 +1112,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                             } catch (Exception e) {
                                 return Completable.error(new InternalErrorThrowable("Could not create symlinks"));
                             }
+                            logger.debug("tokenExpiredDetails : " + tokenExpiredDetails.toString());
+                            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                                Files.deleteIfExists(consumerResourcePath);
+                            }
+                        }
+
+                        if(tokenExpiredDetails.get("tokenExpiredDetails")) {
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
                         }
 
                         // Appending Consumer Path
@@ -1027,6 +1153,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         new UnauthorisedThrowable("Requested resource ID(s) is not present"));
                             }
                         }
+                        Path consumerResourcePath = null;
 
                         for (int i = 0; i < requestedIds.size(); i++) {
                             String resourceId = requestedIds.getString(i);
@@ -1037,7 +1164,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             new File(consumerResourceDir).mkdirs();
                             logger.debug("Insubdirectory");
 
-                            Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                            consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                             Path providerResourcePath = Paths.get(basePath + resourceId);
 
                             // TODO: This could take a very long time for multiple large files
@@ -1063,6 +1190,20 @@ public class HttpServerVerticle extends AbstractVerticle {
                             }
                         }
 
+                        return Completable.complete();
+                    }))
+                    .andThen(Completable.defer(()-> {
+                        logger.debug("tokenExpiredDetails : " + tokenExpiredDetails.toString());
+                        for (int i = 0; i < requestedIds.size(); i++) {
+                            String resourceId = requestedIds.getString(i);
+                            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                                Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                                Files.deleteIfExists(consumerResourcePath);
+                            }
+                        }
+                        if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
+                        }
                         return Completable.complete();
                     }))
                     .subscribe(() -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
@@ -1599,6 +1740,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .setStatusCode(404)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
+
         } else if (t instanceof ServiceException) {
 
             logger.debug("Service exception");
@@ -1621,6 +1763,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 .put("message", serviceException.getMessage())
                                 .encode());
             }
+
+        } else if (t instanceof FileNotFoundException) {
+        logger.debug("In FileNotFound");
+        context.response()
+                .setStatusCode(NOT_FOUND)
+                .putHeader("content-type", "application/json")
+                .end(t.getMessage());
+
         } else {
             logger.debug("In internal error");
             context.response()
@@ -1628,6 +1778,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         }
+
     }
 
     private String commonPrefix(JsonArray resourceIds) {
