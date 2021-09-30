@@ -237,10 +237,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         for (String param: pathParams) {
             paramsMap.put(counter++, param);
         }
-        String token, authServer, tokenHash;
-        authServer = paramsMap.get(3);
-        tokenHash = paramsMap.get(4);
-        token = authServer + "/" + tokenHash;
+        String authServer = paramsMap.get(3);
+        String tokenHash = paramsMap.get(4);
+        String token = authServer + "/" + tokenHash;
         logger.debug("Final paramsMap: " + paramsMap);
         return token;
     }
@@ -1497,9 +1496,6 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         checkAuthorisation(token, READ_SCOPE).flatMap(id -> {
             logger.debug("authorised ids of consumer=" + id);
-            if (id.size() == 0) {
-               return Single.error(new UnauthorisedThrowable("Unauthorized"));
-            }
             JsonArray authorisedResourceIds = new JsonArray();
             Iterator<Object> iterator = id.stream().iterator();
             while (iterator.hasNext() && resourceId == null) {
@@ -1510,6 +1506,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         authorisedResourceIds.add(next))));
             }
             setConsumerEmailDetails(token, emailDetails).subscribe();
+            isTokenExpired(token).subscribe();
 
             logger.debug("constructed query for download by query API for category/subCategory is: "
                     + downloadByQuery.toString());
@@ -1518,14 +1515,20 @@ public class HttpServerVerticle extends AbstractVerticle {
         }).flatMapCompletable(result-> {
             logger.debug("Response from search endpoint:" + result.toString());
             JsonArray hits = result.getJsonArray("hits");
-            if (hits.size() == 0) {
-                return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
+
+            logger.debug("tokenExpiredDetails=" + tokenExpiredDetails.toString());
+            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
             }
 
             String email = emailDetails.get("email");
             logger.debug("consumerEmail=" + email);
             if (email == null || "".equals(email)) {
                 return Completable.error(new UnauthorisedThrowable("Email is missing"));
+            }
+
+            if (hits.size() == 0) {
+                return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
             }
 
             SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
