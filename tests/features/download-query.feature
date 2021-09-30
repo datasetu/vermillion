@@ -55,3 +55,18 @@ Feature: Vermillion is able to handle download query
     Given Vermillion is running
     When The consumer downloads by query with unauthorized id
     Then The response status should be 404
+
+  Scenario: Consumer publishes secure file data with a valid token for 20secs
+    Given Vermillion is running
+    When The consumer publishes secure file data with a valid token for 20secs
+    Then The response status should be 201
+
+  Scenario: Consumer downloads by query with with expired token
+    Given Vermillion is running
+    When The consumer downloads by query with expired token
+    Then The response status should be 403
+
+  Scenario: Consumer downloads by query with expired token via reroute link
+    Given Vermillion is running
+    When The consumer downloads by query with expired token via reroute link
+    Then The response status should be 403

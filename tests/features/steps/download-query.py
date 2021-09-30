@@ -7,7 +7,7 @@ import urllib3
 from behave import when
 from auth_vars import res, tokens
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import post_files, generate_random_chars, download_query
+from utils import post_files, generate_random_chars, download_query, get_request
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -143,3 +143,37 @@ def step_impl(context):
     )
 
     download_query(params, context)
+
+
+@when('The consumer publishes secure file data with a valid token for 20secs')
+def step_impl(context):
+    params = (
+        ('id', res[14]),
+        ('token', tokens["14_rw"]),
+    )
+
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+
+    post_files(params, files, context)
+
+    time.sleep(22)
+
+
+@when('The consumer downloads by query with expired token')
+def step_impl(context):
+    params = (
+        ('id', res[14]),
+        ('token', tokens["14_rw"]),
+        ('hello', 'world'),
+    )
+
+    download_query(params, context)
+
+
+@when('The consumer downloads by query with expired token via reroute link')
+def step_impl(context):
+    url = 'https://localhost/consumer/' + tokens['14_rw']
+    get_request(url, None, context)

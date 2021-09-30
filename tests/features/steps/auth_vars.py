@@ -21,7 +21,7 @@ headers = {
 
 resource_ids = []
 
-for i in range(0, 14):
+for i in range(0, 15):
     resource_ids.append(generate_random_chars(special_chars=False))
 #    print(resource_ids[i])
 
@@ -319,4 +319,35 @@ response = requests.post(
 r = response.json()
 tokens["13_rw"] = r['token']
 res[13] = id_prefix + resource_ids[13]
+
+requested_id2=[]
+acl_set_policy5 = "consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
+    14] + " for 20 seconds"
+data = {"policy": acl_set_policy5}
+# print(data)
+response = requests.post(
+    'https://localhost:8443/auth/v1/acl/set',
+    headers=headers,
+    data=json.dumps(data),
+    cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
+    verify=False)
+# print(response.json())
+
+requested_id2.append({
+    "id": id_prefix + resource_ids[14],
+    "scopes": ["read", "write"]
+})
+
+data = {"request": requested_id2}
+# print(data)
+response = requests.post(
+    'https://localhost:8443/auth/v1/token',
+    headers=headers,
+    cert=(CONSUMER_CERT_PATH, CONSUMER_KEY_PATH),
+    data=json.dumps(data),
+    verify=False)
+# print(response.json())
+r = response.json()
+tokens["14_rw"] = r['token']
+res[14] = id_prefix + resource_ids[14]
 
