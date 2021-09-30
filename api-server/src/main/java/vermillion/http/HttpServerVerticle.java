@@ -242,14 +242,13 @@ public class HttpServerVerticle extends AbstractVerticle {
                     if(tokenExpiry.isPresent()) {
                         logger.debug("tokenExpiry:" + tokenExpiry.get());
                         String currentDate = Clock.systemUTC().instant().toString();
-                        logger.debug("current date:" + currentDate);
-                        if (currentDate.compareTo(String.valueOf(tokenExpiry)) > 0) {
+                        if (currentDate.compareTo(tokenExpiry.get()) > 0) {
                             tokenExpiredDetails.put("tokenExpiredDetails", true);
                         } else {
                             tokenExpiredDetails.put("tokenExpiredDetails", false);
                         }
                         logger.debug("tokenExpiredDetails: " + tokenExpiredDetails.toString());
-                        return Single.just(currentDate.compareTo(String.valueOf(tokenExpiry)));
+                        return Single.just(currentDate.compareTo(tokenExpiry.get()));
                     }
                    return Single.error(new UnauthorisedThrowable("The access token details are not present in cache"));
                 });
