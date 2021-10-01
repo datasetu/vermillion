@@ -1529,7 +1529,6 @@ public class HttpServerVerticle extends AbstractVerticle {
             if (hits.size() == 0) {
                 return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
             }
-
             invokeScheduler(token, uuid, emailDetails, hits);
             return Completable.complete();
         }).subscribe(()-> response.setStatusCode(ACCEPTED)
