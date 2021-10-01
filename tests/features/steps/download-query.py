@@ -1,6 +1,5 @@
 import json
 import time
-
 import requests
 import urllib3
 
@@ -32,7 +31,7 @@ def step_impl(context):
 
     post_files(params, files, context)
 
-    time.sleep(3)
+    time.sleep(4)
 
 
 @when('The consumer downloads by query with a valid token')
