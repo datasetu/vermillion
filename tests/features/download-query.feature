@@ -11,6 +11,11 @@ Feature: Vermillion is able to handle download query
     When The consumer downloads by query with a valid token
     Then The response status should be 202
 
+  Scenario: Consumer downloads by query without id
+    Given Vermillion is running
+    When The consumer downloads by query without id
+    Then The response status should be 202
+
   Scenario: Consumer downloads by query with empty token
     Given Vermillion is running
     When The consumer downloads by query with empty token
@@ -21,10 +26,6 @@ Feature: Vermillion is able to handle download query
     When The consumer downloads by query without a token
     Then The response status should be 400
 
-  Scenario: Consumer downloads by query without id
-    Given Vermillion is running
-    When The consumer downloads by query without id
-    Then The response status should be 202
 
   Scenario: Consumer downloads by query with empty id
     Given Vermillion is running

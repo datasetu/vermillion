@@ -32,7 +32,7 @@ def step_impl(context):
 
     post_files(params, files, context)
 
-    time.sleep(2)
+    time.sleep(3)
 
 
 @when('The consumer downloads by query with a valid token')
