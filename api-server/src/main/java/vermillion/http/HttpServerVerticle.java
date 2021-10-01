@@ -1531,49 +1531,54 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
             }
 
-            SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
-            Scheduler scheduler = stdSchedulerFactory.getScheduler();
-            scheduler.start();
-
-            logger.debug("Is scheduler started: " + scheduler.isStarted());
-            JobDataMap jobDataMap = new JobDataMap();
-            jobDataMap.put("token", token);
-            jobDataMap.put("uuid", uuid);
-            jobDataMap.put("finalHits", hits);
-            jobDataMap.put("email", emailDetails.get("email"));
-
-            // define the job and tie it to our JobScheduler class
-            JobDetail job = JobBuilder.newJob(JobScheduler.class)
-                    .withIdentity(String.valueOf(uuid), "download")
-                    .usingJobData(jobDataMap)
-                    .build();
-            logger.debug("Job key: " + job.getKey());
-
-            // Trigger the job to run now
-            Trigger trigger = newTrigger()
-                    .withIdentity(String.valueOf(uuid), "download")
-                    .startNow()
-                    .withSchedule(simpleSchedule())
-                    .build();
-            logger.debug("trigger key: " + trigger.getKey());
-
-            scheduler.getListenerManager().addJobListener(
-                    new JobSchedulerListener());
-
-            // Tell quartz to schedule the job using our trigger
-            try {
-                scheduler.scheduleJob(job, trigger);
-            } catch (SchedulerException e) {
-                logger.debug("Scheduler exception caused due to: " + e.getMessage());
-                e.printStackTrace();
-            }
-
+            invokeScheduler(token, uuid, emailDetails, hits);
             return Completable.complete();
         }).subscribe(()-> response.setStatusCode(ACCEPTED)
                         .setStatusMessage("Please kindly wait as your download links are getting ready")
                         .end("Please check your email to find the download links..!!" + "\n"),
                 throwable -> apiFailure(context, throwable));
 
+    }
+
+    private Completable invokeScheduler(String token, UUID uuid, Map<String, String> emailDetails, JsonArray hits) throws SchedulerException {
+        SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
+        Scheduler scheduler = stdSchedulerFactory.getScheduler();
+        scheduler.start();
+
+        logger.debug("Is scheduler started: " + scheduler.isStarted());
+        JobDataMap jobDataMap = new JobDataMap();
+        jobDataMap.put("token", token);
+        jobDataMap.put("uuid", uuid);
+        jobDataMap.put("finalHits", hits);
+        jobDataMap.put("email", emailDetails.get("email"));
+
+        // define the job and tie it to our JobScheduler class
+        JobDetail job = JobBuilder.newJob(JobScheduler.class)
+                .withIdentity(String.valueOf(uuid), "download")
+                .usingJobData(jobDataMap)
+                .build();
+        logger.debug("Job key: " + job.getKey());
+
+        // Trigger the job to run now
+        Trigger trigger = newTrigger()
+                .withIdentity(String.valueOf(uuid), "download")
+                .startNow()
+                .withSchedule(simpleSchedule())
+                .build();
+        logger.debug("trigger key: " + trigger.getKey());
+
+        scheduler.getListenerManager().addJobListener(
+                new JobSchedulerListener());
+
+        // Tell quartz to schedule the job using our trigger
+        try {
+            scheduler.scheduleJob(job, trigger);
+        } catch (SchedulerException e) {
+            logger.debug("Scheduler exception caused due to: " + e.getMessage());
+            e.printStackTrace();
+            return Completable.error(new SchedulerException("Scheduler exception caught"));
+        }
+        return Completable.complete();
     }
 
     // TODO: Handle server token
