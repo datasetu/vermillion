@@ -61,7 +61,7 @@ Feature: Vermillion is able to handle download query
     When The consumer publishes secure file data with a valid token for 20secs
     Then The response status should be 201
 
-  Scenario: Consumer downloads by query with with expired token
+  Scenario: Consumer downloads by query with expired token
     Given Vermillion is running
     When The consumer downloads by query with expired token
     Then The response status should be 403
