@@ -1493,7 +1493,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("uuid: " + uuid);
         Map<String, String> emailDetails = new HashMap<>();
 //        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;  //Could be used in future if needed
-
+        isTokenExpired(token).subscribe();
         checkAuthorisation(token, READ_SCOPE).flatMap(id -> {
             logger.debug("authorised ids of consumer=" + id);
             JsonArray authorisedResourceIds = new JsonArray();
@@ -1506,7 +1506,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         authorisedResourceIds.add(next))));
             }
             setConsumerEmailDetails(token, emailDetails).subscribe();
-            isTokenExpired(token).subscribe();
 
             logger.debug("constructed query for download by query API for category/subCategory is: "
                     + downloadByQuery.toString());
