@@ -1,3 +1,5 @@
+import time
+
 import requests
 import urllib3
 import os
@@ -290,3 +292,36 @@ def step_impl(context):
     }
     os.chmod("../setup/provider", 0o444)
     post_files(params, files, context)
+
+
+@when('The consumer publishes secure file with a valid token for 20secs')
+def step_impl(context):
+    params = (
+        ('id', res[14]),
+        ('token', tokens["14_rw"]),
+    )
+
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+
+    post_files(params, files, context)
+
+    time.sleep(22)
+
+
+@when('The consumer downloads with expired token')
+def step_impl(context):
+    params = (
+        ('id', res[14]),
+        ('token', tokens["14_rw"]),
+
+    )
+    url = 'https://localhost/download'
+    get_request(url,params, context)
+
+@when('The consumer downloads with expired token via reroute link')
+def step_impl(context):
+    url = 'https://localhost/consumer/' + tokens['14_rw']
+    get_request(url, None, context)
