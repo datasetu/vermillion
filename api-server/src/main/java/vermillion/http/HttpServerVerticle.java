@@ -36,7 +36,6 @@ import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.schedulers.JobScheduler;
 import vermillion.schedulers.JobSchedulerListener;
-import vermillion.schedulers.ProviderScheduler;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.FileNotFoundThrowable;
 import vermillion.throwables.InternalErrorThrowable;
