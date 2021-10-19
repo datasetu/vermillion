@@ -36,6 +36,7 @@ import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.schedulers.JobScheduler;
 import vermillion.schedulers.JobSchedulerListener;
+import vermillion.schedulers.ProviderScheduler;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.FileNotFoundThrowable;
 import vermillion.throwables.InternalErrorThrowable;
@@ -1474,13 +1475,19 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         List<Map.Entry<String, String>> entries = parameters.entries();
         for (int i=0; i<entries.size(); i++) {
+            String key = "";
+            String value = "";
             if(!entries.get(i).getKey().equalsIgnoreCase("token")
                     && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
-                String key = entries.get(i).getKey();
-                String value = entries.get(i).getValue();
+                key = entries.get(i).getKey();
+                value = entries.get(i).getValue();
                 logger.debug("key: " + key);
                 logger.debug("value: " + value);
                 jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
+            }
+
+            if("category".equalsIgnoreCase(entries.get(i).getKey())) {
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key, value)));
             }
         }
 
