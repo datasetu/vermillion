@@ -1,5 +1,4 @@
 import time
-
 import requests
 import urllib3
 import os
@@ -23,7 +22,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
-
+    time.sleep(3)
     post_files(params, files, context)
 
 
