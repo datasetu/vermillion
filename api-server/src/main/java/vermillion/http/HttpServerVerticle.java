@@ -1,8 +1,6 @@
 package vermillion.http;
 
-import io.reactivex.Completable;
-import io.reactivex.Maybe;
-import io.reactivex.Single;
+import io.reactivex.*;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
@@ -12,6 +10,7 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.JksOptions;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.core.MultiMap;
 import io.vertx.reactivex.core.buffer.Buffer;
 import io.vertx.reactivex.core.http.HttpServerRequest;
 import io.vertx.reactivex.core.http.HttpServerResponse;
@@ -29,14 +28,21 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
+import org.quartz.*;
+import org.quartz.Scheduler;
+import org.quartz.impl.StdSchedulerFactory;
 import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
+import vermillion.schedulers.JobScheduler;
+import vermillion.schedulers.JobSchedulerListener;
 import vermillion.throwables.BadRequestThrowable;
+import vermillion.throwables.FileNotFoundThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
@@ -44,6 +50,9 @@ import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static org.quartz.SimpleScheduleBuilder.simpleSchedule;
+import static org.quartz.TriggerBuilder.newTrigger;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
@@ -55,6 +64,10 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final int ACCEPTED = 202;
     public final int BAD_REQUEST = 400;
     public final int FORBIDDEN = 403;
+
+    public final int CONFLICT = 409;
+    public final int NOT_FOUND = 404;
+
     public final int INTERNAL_SERVER_ERROR = 500;
 
     // Auth server constants
@@ -97,6 +110,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public DbService dbService;
     public BrokerService brokerService;
     public RedisOptions options;
+    public Map<String, Boolean> tokenExpiredDetails;
 
     @Override
     public void start(Promise<Void> startPromise) {
@@ -105,7 +119,11 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Redis constr=" + CONNECTION_STR);
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+
+        tokenExpiredDetails = new HashMap<>();
+
         brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
+
 
         Router router = Router.router(vertx);
 
@@ -119,9 +137,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         // The path described by the regex is /consumer/<auth_server>/<token>/*
         router.routeWithRegex("\\/consumer\\/" + AUTH_SERVER + "\\/[0-9a-f]+\\/?.*")
-                .handler(StaticHandler.create()
-                        .setAllowRootFileSystemAccess(false)
-                        .setDirectoryListing(true));
+                .handler(routingContext -> getStaticHandler(routingContext));
+
 
         // The path described by the regex is /provider/public/<domain>/<sha1>/<rs_name>/*
         router.routeWithRegex("\\/provider\\/public\\/?.*")
@@ -130,6 +147,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         .setDirectoryListing(true));
 
         router.get("/download").handler(this::download);
+        router.get("/downloadByQuery").handler(this::downloadByQuery);
         router.post("/publish").handler(this::publish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
@@ -155,6 +173,113 @@ public class HttpServerVerticle extends AbstractVerticle {
                             logger.debug("Could not start server. Cause=" + err.getMessage());
                             startPromise.fail(err.getMessage());
                         });
+    }
+
+    private void getStaticHandler(RoutingContext routingContext) {
+
+        logger.debug("In existing consumer API");
+        String origin = routingContext.get("origin");
+        logger.debug("Origin:" + origin);
+        boolean isOriginValid = "download".equalsIgnoreCase(origin);
+        logger.debug("Is origin valid:" + isOriginValid);
+        StaticHandler staticHandler;
+        if(isOriginValid) {
+            staticHandler = StaticHandler.create()
+                    .setAllowRootFileSystemAccess(false)
+                    .setDirectoryListing(true);
+            staticHandler.handle(routingContext);
+            return;
+        }
+        HttpServerRequest request = routingContext.request();
+        String userAgent = request.getHeader("User-Agent");
+        logger.debug("User agent is:" + userAgent);
+
+        String token = getFinalTokenFromNormalisedPath(routingContext);
+        logger.debug("Final token:" + token);
+
+        Single<Integer> tokenExpiry = isTokenExpired(token);
+
+        Path finalConsumerResourcePath = Paths.get(WEBROOT + "consumer/" + token);
+        File fileToBeDeleted = new File(String.valueOf(finalConsumerResourcePath));
+        logger.debug("File directory to be deleted:" + fileToBeDeleted);
+        boolean doesFileExist = Files.exists(fileToBeDeleted.toPath());
+        logger.debug("Does file exists:" + doesFileExist);
+
+        String FINAL_CONSUMER_PATH = "/consumer/" + token ;
+        tokenExpiry.subscribe(result -> {
+            logger.debug("Value of token:" + result);
+            if (result != null && result > 0 && doesFileExist) {
+                boolean isFileSymLinkDeleted = deleteDirectory(fileToBeDeleted);
+                logger.debug("Is file directory deleted:" + isFileSymLinkDeleted);
+                apiFailure(routingContext, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                return;
+            }
+            if (!doesFileExist && result != null && result > 0) {
+                logger.info("The file requested is deleted as token is expired");
+                apiFailure(routingContext, new UnauthorisedThrowable("The access token is expired. So, please obtain a new access token"));
+                return;
+            }
+            logger.debug("Consumer path :" + FINAL_CONSUMER_PATH);
+            StaticHandler staticHandlerForConsumer = StaticHandler.create()
+                    .setAllowRootFileSystemAccess(false)
+                    .setDirectoryListing(true);
+            staticHandlerForConsumer.handle(routingContext);
+
+        }, t -> apiFailure(routingContext, t));
+    }
+
+    private String getFinalTokenFromNormalisedPath(RoutingContext routingContext) {
+        String path = routingContext.normalisedPath();
+        logger.debug("Normalized path:" + path);
+        Map<Integer, String> paramsMap = new HashMap<>();
+        String[] pathParams = path.split("/");
+        int counter = 1;
+        for (String param: pathParams) {
+            paramsMap.put(counter++, param);
+        }
+        String authServer = paramsMap.get(3);
+        String tokenHash = paramsMap.get(4);
+        String token = authServer + "/" + tokenHash;
+        logger.debug("Final paramsMap: " + paramsMap);
+        return token;
+    }
+
+    boolean deleteDirectory(File directoryToBeDeleted )  {
+        File[] filesInTheDirectory = directoryToBeDeleted.listFiles();
+        if (filesInTheDirectory != null) {
+            for (File file : filesInTheDirectory) {
+                deleteDirectory(file);
+            }
+        }
+        return directoryToBeDeleted.delete();
+    }
+
+    private Single<Integer> isTokenExpired(String token) {
+        logger.debug("In token expiry method " + token);
+        Single<String> tokenDetailsFromRedis =  getValue(token);
+
+        return tokenDetailsFromRedis.flatMapCompletable(
+                tokenDetailsFromCache -> "absent".equalsIgnoreCase(tokenDetailsFromCache) ? introspect(token) : Completable.complete())
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getString("expiry")))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMap(tokenExpiry -> {          // handle the empty scenario from above flatMapMaybe
+                    if(tokenExpiry.isPresent()) {
+                        logger.debug("tokenExpiry:" + tokenExpiry.get());
+                        String currentDate = Clock.systemUTC().instant().toString();
+                        if (currentDate.compareTo(tokenExpiry.get()) > 0) {
+                            tokenExpiredDetails.put("tokenExpiredDetails", true);
+                        } else {
+                            tokenExpiredDetails.put("tokenExpiredDetails", false);
+                        }
+                        logger.debug("tokenExpiredDetails: " + tokenExpiredDetails.toString());
+                        return Single.just(currentDate.compareTo(tokenExpiry.get()));
+                    }
+                   return Single.error(new UnauthorisedThrowable("The access token details are not present in cache"));
+                });
     }
 
     // TODO: Check why using a custom conf file fails here
@@ -899,6 +1024,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public void download(RoutingContext context) {
 
         HttpServerRequest request = context.request();
+        context.put("origin", "download");
 
         // If token is valid for resources apart from secure 'files' then specify list of ids in the
         // request
@@ -946,7 +1072,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Requested IDs Json =" + requestedIds.encode());
 
         CONSUMER_PATH = "/consumer/" + token + "/";
-
+        isTokenExpired(token).subscribe();
         // TODO: Avoid duplication here
         if (idParam == null) {
             checkAuthorisation(token, READ_SCOPE)
@@ -962,7 +1088,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         new UnauthorisedThrowable("Requested resource ID(s) is not present"));
                             }
                         }
-
+                        Path consumerResourcePath = null;
                         for (int i = 0; i < authorisedIds.size(); i++) {
 
                             String resourceId = authorisedIds.getString(i);
@@ -974,7 +1100,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             new File(consumerResourceDir).mkdirs();
                             logger.debug("Created consumer subdirectory");
 
-                            Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                            consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                             Path providerResourcePath = Paths.get(basePath + resourceId);
 
                             // TODO: This could take a very long time for multiple large files
@@ -985,6 +1111,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                             } catch (Exception e) {
                                 return Completable.error(new InternalErrorThrowable("Could not create symlinks"));
                             }
+                            logger.debug("tokenExpiredDetails : " + tokenExpiredDetails.toString());
+                            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                                Files.deleteIfExists(consumerResourcePath);
+                            }
+                        }
+
+                        if(tokenExpiredDetails.get("tokenExpiredDetails")) {
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
                         }
 
                         // Appending Consumer Path
@@ -1018,6 +1152,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         new UnauthorisedThrowable("Requested resource ID(s) is not present"));
                             }
                         }
+                        Path consumerResourcePath = null;
 
                         for (int i = 0; i < requestedIds.size(); i++) {
                             String resourceId = requestedIds.getString(i);
@@ -1028,7 +1163,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             new File(consumerResourceDir).mkdirs();
                             logger.debug("Insubdirectory");
 
-                            Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                            consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                             Path providerResourcePath = Paths.get(basePath + resourceId);
 
                             // TODO: This could take a very long time for multiple large files
@@ -1056,6 +1191,20 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                         return Completable.complete();
                     }))
+                    .andThen(Completable.defer(()-> {
+                        logger.debug("tokenExpiredDetails : " + tokenExpiredDetails.toString());
+                        for (int i = 0; i < requestedIds.size(); i++) {
+                            String resourceId = requestedIds.getString(i);
+                            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                                Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
+                                Files.deleteIfExists(consumerResourcePath);
+                            }
+                        }
+                        if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
+                        }
+                        return Completable.complete();
+                    }))
                     .subscribe(() -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
         }
     }
@@ -1081,8 +1230,11 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("File uploads = " + context.fileUploads().size());
         logger.debug("Is empty = " + context.fileUploads().isEmpty());
         if (!context.fileUploads().isEmpty()) {
-            context.fileUploads().forEach(f -> fileUploads.put(f.name(), f));
-            logger.debug(fileUploads.toString());
+            context.fileUploads().forEach(f -> {
+                fileUploads.put(f.name(), f);
+                logger.debug(f.name() + " = " + fileUploads.get(f.name()));
+            });
+
         }
 
         // TODO: Check for invalid IDs
@@ -1274,6 +1426,165 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Filename = " + fileName);
     }
 
+    public void downloadByQuery(RoutingContext context)  {
+        logger.debug("In download by query");
+
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+
+        MultiMap parameters = request.params();
+        String token = request.getParam("token");
+        String resourceId = request.getParam("id");
+
+        logger.debug("Parameters from request: " + parameters);
+
+        logger.debug("token=" + token);
+        logger.debug("resource Id=" + resourceId);
+        if (token == null) {
+            apiFailure(context, new BadRequestThrowable("No access token/resource Id found in request"));
+            return;
+        }
+
+        if (!isValidToken(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
+            return;
+        }
+
+        if(resourceId != null && !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Id"));
+            return;
+        }
+
+        CONSUMER_PATH = "/consumer/" + token + "/";
+
+        Queries query = new Queries();
+
+        int size = 10000; //max set of results per search request
+        JsonObject downloadByQuery = query.getDownloadByQuery();
+        JsonArray jsonArray = downloadByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
+                .getJsonObject("must").getJsonObject("bool").getJsonArray("should");
+
+        JsonObject filterByAuthorisedIds = downloadByQuery.getJsonObject("query").getJsonObject("bool");
+        if (resourceId != null) {
+            filterByAuthorisedIds.put("filter",
+                    new JsonObject().put("terms",
+                            new JsonObject().put("id.keyword",
+                                    new JsonArray().add(resourceId))));
+        }
+
+        List<Map.Entry<String, String>> entries = parameters.entries();
+        for (int i=0; i<entries.size(); i++) {
+            String key = "";
+            String value = "";
+            if(!entries.get(i).getKey().equalsIgnoreCase("token")
+                    && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
+                key = entries.get(i).getKey();
+                value = entries.get(i).getValue();
+                logger.debug("key: " + key);
+                logger.debug("value: " + value);
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
+            }
+
+            if("category".equalsIgnoreCase(entries.get(i).getKey())) {
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key, value)));
+            }
+        }
+
+        if(jsonArray.size() == 0) {
+            apiFailure(context, new BadRequestThrowable("Please provide the query parameters to download the files"));
+            return;
+        }
+
+        UUID uuid = UUID.randomUUID();
+        logger.debug("uuid: " + uuid);
+        Map<String, String> emailDetails = new HashMap<>();
+//        final String finalDownloadLink = "https://" +System.getenv("SERVER_NAME") +CONSUMER_PATH + uuid;  //Could be used in future if needed
+        isTokenExpired(token).subscribe();
+        setConsumerEmailDetails(token, emailDetails).subscribe();
+        checkAuthorisation(token, READ_SCOPE).flatMap(id -> {
+            logger.debug("authorised ids of consumer=" + id);
+            JsonArray authorisedResourceIds = new JsonArray();
+            Iterator<Object> iterator = id.stream().iterator();
+            while (iterator.hasNext() && resourceId == null) {
+                String next = (String) iterator.next();
+                filterByAuthorisedIds.put("filter",
+                        new JsonObject().put("terms",
+                                new JsonObject().put("id.keyword",
+                                        authorisedResourceIds.add(next))));
+            }
+
+            logger.debug("constructed query for download by query API for category/subCategory is: "
+                    + downloadByQuery.toString());
+            return dbService.rxSecureSearch(downloadByQuery, token, false, "");
+
+        }).flatMapCompletable(result-> {
+            logger.debug("Response from search endpoint:" + result.toString());
+            JsonArray hits = result.getJsonArray("hits");
+
+            logger.debug("tokenExpiredDetails=" + tokenExpiredDetails.toString());
+            if (tokenExpiredDetails.get("tokenExpiredDetails")) {
+                return Completable.error(new UnauthorisedThrowable("Unauthorised due to token expiry"));
+            }
+
+            String email = emailDetails.get("email");
+            logger.debug("consumerEmail=" + email);
+            if (email == null || "".equals(email)) {
+                return Completable.error(new UnauthorisedThrowable("Email is missing"));
+            }
+
+            if (hits.size() == 0) {
+                return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
+            }
+            invokeScheduler(token, uuid, emailDetails, hits);
+            return Completable.complete();
+        }).subscribe(()-> response.setStatusCode(ACCEPTED)
+                        .setStatusMessage("Please kindly wait as your download links are getting ready")
+                        .end("Please check your email to find the download links..!!" + "\n"),
+                throwable -> apiFailure(context, throwable));
+
+    }
+
+    private Completable invokeScheduler(String token, UUID uuid, Map<String, String> emailDetails, JsonArray hits) throws SchedulerException {
+        SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
+        Scheduler scheduler = stdSchedulerFactory.getScheduler();
+        scheduler.start();
+
+        logger.debug("Is scheduler started: " + scheduler.isStarted());
+        JobDataMap jobDataMap = new JobDataMap();
+        jobDataMap.put("token", token);
+        jobDataMap.put("uuid", uuid);
+        jobDataMap.put("finalHits", hits);
+        jobDataMap.put("email", emailDetails.get("email"));
+
+        // define the job and tie it to our JobScheduler class
+        JobDetail job = JobBuilder.newJob(JobScheduler.class)
+                .withIdentity(String.valueOf(uuid), "download")
+                .usingJobData(jobDataMap)
+                .build();
+        logger.debug("Job key: " + job.getKey());
+
+        // Trigger the job to run now
+        Trigger trigger = newTrigger()
+                .withIdentity(String.valueOf(uuid), "download")
+                .startNow()
+                .withSchedule(simpleSchedule())
+                .build();
+        logger.debug("trigger key: " + trigger.getKey());
+
+        scheduler.getListenerManager().addJobListener(
+                new JobSchedulerListener());
+
+        // Tell quartz to schedule the job using our trigger
+        try {
+            scheduler.scheduleJob(job, trigger);
+        } catch (SchedulerException e) {
+            logger.debug("Scheduler exception caused due to: " + e.getMessage());
+            e.printStackTrace();
+            return Completable.error(new SchedulerException("Scheduler exception caught"));
+        }
+        return Completable.complete();
+    }
+
     // TODO: Handle server token
     // TODO: Handle regexes
     // Method that makes the HTTPS request to the auth server
@@ -1345,6 +1656,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .map(Optional::of)
                 .toSingle(Optional.empty())
                 .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> {
+                            logger.debug("Authorized set of consumer ResourceId's: " + authorisedSet.toString());
+                            logger.debug("Requested set of consumer ResourceId's: " + requestedSet.toString());
                             if (authorisedSet.containsAll(requestedSet)) {
                                 // Straightforward case. No need to worry about nested IDs
                                 return Completable.complete();
@@ -1433,6 +1746,20 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .setStatusCode(FORBIDDEN)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
+        } else if (t instanceof FileNotFoundThrowable) {
+            logger.debug("In FileNotFoundThrowable");
+            context.response()
+                    .setStatusCode(404)
+                    .putHeader("content-type", "application/json")
+                    .end(t.getMessage());
+
+        } else if (t instanceof FileNotFoundException) {
+        logger.debug("In FileNotFound");
+        context.response()
+                .setStatusCode(NOT_FOUND)
+                .putHeader("content-type", "application/json")
+                .end(t.getMessage());
+
         } else if (t instanceof ServiceException) {
 
             logger.debug("Service exception");
@@ -1455,6 +1782,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 .put("message", serviceException.getMessage())
                                 .encode());
             }
+
         } else {
             logger.debug("In internal error");
             context.response()
@@ -1462,6 +1790,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         }
+
     }
 
     private String commonPrefix(JsonArray resourceIds) {
@@ -1534,4 +1863,21 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         });
     }
+
+    private Single<String> setConsumerEmailDetails(String token, Map<String, String> emailDetails) {
+        logger.debug("In consumerEmail details");
+        return getValue(token)
+                .map(result -> {
+                    if("absent".equalsIgnoreCase(result)) {
+                        logger.debug("email is empty");
+                        return "";
+                    } else {
+                        String consumerEmail = new JsonObject(result).getString("consumer");
+                        logger.debug("Email from introspect="  + consumerEmail);
+                        emailDetails.put("email", consumerEmail);
+                        return consumerEmail;
+                    }
+                });
+    }
+
 }
