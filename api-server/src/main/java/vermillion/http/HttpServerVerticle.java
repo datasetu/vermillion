@@ -1,6 +1,7 @@
 package vermillion.http;
 
 import io.reactivex.*;
+import io.reactivex.Observable;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.json.JsonArray;
@@ -36,6 +37,7 @@ import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.schedulers.JobScheduler;
 import vermillion.schedulers.JobSchedulerListener;
+import vermillion.schedulers.ProviderScheduler;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.FileNotFoundThrowable;
 import vermillion.throwables.InternalErrorThrowable;
@@ -148,6 +150,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/download").handler(this::download);
         router.get("/downloadByQuery").handler(this::downloadByQuery);
+        router.get("/providerByQuery").handler(this::providerByQuery);
         router.post("/publish").handler(this::publish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
@@ -1425,6 +1428,128 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         logger.debug("Filename = " + fileName);
     }
+
+    public void providerByQuery(RoutingContext context) {
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+        MultiMap parameters = request.params();
+        String resourceId = request.getParam("id");
+
+        if(resourceId != null && !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Id"));
+            return;
+        }
+
+        if(resourceId != null && !resourceId.endsWith(".public")) {
+            apiFailure(context, new UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
+        }
+        Queries query = new Queries();
+
+        int size = 10000; //max set of results per search request
+        JsonObject downloadByQuery = query.getDownloadByQuery();
+        JsonArray jsonArray = downloadByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
+                .getJsonObject("must").getJsonObject("bool").getJsonArray("should");
+
+        JsonObject filterByAuthorisedIds = downloadByQuery.getJsonObject("query").getJsonObject("bool");
+        if (resourceId != null) {
+            filterByAuthorisedIds.put("filter",
+                    new JsonObject().put("terms",
+                            new JsonObject().put("id.keyword",
+                                    new JsonArray().add(resourceId))));
+        }
+        Map<String, String> finalQueryParams = new HashMap<>();
+        List<Map.Entry<String, String>> entries = parameters.entries();
+        for (int i=0; i<entries.size(); i++) {
+            String key = "";
+            String value = "";
+            if(!entries.get(i).getKey().equalsIgnoreCase("token")
+                    && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
+                key = entries.get(i).getKey();
+                value = entries.get(i).getValue();
+                logger.debug("key: " + key);
+                logger.debug("value: " + value);
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata."+key, value)));
+                finalQueryParams.put(key, value);
+            }
+
+            if("category".equalsIgnoreCase(entries.get(i).getKey())) {
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key, value)));
+            }
+        }
+        UUID uuid = UUID.randomUUID();
+        List<String> listOfEligibleIds = new ArrayList<>();
+        dbService.rxSearch(downloadByQuery, false, "")
+                .flatMapCompletable(result-> {
+                    JsonArray hits = result.getJsonArray("hits");
+                    if (hits.size() == 0) {
+                        return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
+                    }
+                    String id;
+                    List<String> distinctIds = null;
+                    if (resourceId == null) {
+                        for (Object hit : hits) {
+                            if (hit instanceof JsonObject) {
+                                logger.debug("hit: " + hit.toString());
+                                id = ((JsonObject) hit).getString("id");
+                                if (id.endsWith(".public")) {
+                                    listOfEligibleIds.add(id);
+                                }
+                            }
+                        }
+
+                        if (listOfEligibleIds.size() == 0) {
+                            return Completable.error(new
+                                    UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
+                        }
+                        distinctIds = listOfEligibleIds.stream().distinct().collect(Collectors.toList());
+                        logger.debug("distinct Ids= " + distinctIds.toString());
+                    }
+                    SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
+                    Scheduler scheduler = stdSchedulerFactory.getScheduler();
+                    scheduler.start();
+
+                    logger.debug("Is scheduler started: " + scheduler.isStarted());
+                    JobDataMap jobDataMap = new JobDataMap();
+                    jobDataMap.put("uuid", uuid);
+                    jobDataMap.put("finalHits", hits);
+                    jobDataMap.put("resourceId", resourceId);
+                    jobDataMap.put("distinctIds", distinctIds);
+                    jobDataMap.put("finalQueryParams", finalQueryParams);
+
+                    // define the job and tie it to our JobScheduler class
+                    JobDetail job = JobBuilder.newJob(ProviderScheduler.class)
+                            .withIdentity(String.valueOf(uuid), "provider")
+                            .usingJobData(jobDataMap)
+                            .build();
+                    logger.debug("Job key: " + job.getKey());
+
+                    // Trigger the job to run now
+                    Trigger trigger = newTrigger()
+                            .withIdentity(String.valueOf(uuid), "provider")
+                            .startNow()
+                            .withSchedule(simpleSchedule())
+                            .build();
+                    logger.debug("trigger key: " + trigger.getKey());
+
+                    scheduler.getListenerManager().addJobListener(
+                            new JobSchedulerListener());
+
+                    // Tell quartz to schedule the job using our trigger
+                    try {
+                        scheduler.scheduleJob(job, trigger);
+                    } catch (SchedulerException e) {
+                        logger.debug("Scheduler exception caused due to: " + e.getMessage());
+                        e.printStackTrace();
+                        return Completable.error(new SchedulerException("Scheduler exception caught"));
+                    }
+                    return Completable.complete();
+                }).subscribe(() -> response.setStatusCode(ACCEPTED)
+                        .setStatusMessage("Please kindly wait as your download links are getting ready")
+                        .end("Please check the below links..!!" + "\n"
+                                + "https://" + System.getenv("SERVER_NAME") + "/provider/public/" + uuid),
+                throwable -> apiFailure(context, throwable));
+    }
+
 
     public void downloadByQuery(RoutingContext context)  {
         logger.debug("In download by query");
