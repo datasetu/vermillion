@@ -1476,6 +1476,11 @@ public class HttpServerVerticle extends AbstractVerticle {
                 jsonArray.add(new JsonObject().put("match", new JsonObject().put(key, value)));
             }
         }
+
+        if(jsonArray.size() == 0) {
+            apiFailure(context, new BadRequestThrowable("Please provide the query parameters to download the files"));
+            return;
+        }
         UUID uuid = UUID.randomUUID();
         List<String> listOfEligibleIds = new ArrayList<>();
         dbService.rxSearch(downloadByQuery, false, "")
