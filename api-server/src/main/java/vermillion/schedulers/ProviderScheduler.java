@@ -1,54 +1,74 @@
 package vermillion.schedulers;
 
+import io.reactivex.Completable;
+import io.reactivex.Single;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.reactivex.core.Vertx;
+import io.vertx.reactivex.redis.client.Redis;
+import io.vertx.reactivex.redis.client.RedisAPI;
+import io.vertx.redis.client.RedisOptions;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import vermillion.broker.reactivex.BrokerService;
 
+import javax.mail.*;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Clock;
 import java.util.*;
 
 public class ProviderScheduler implements Job {
 
     public final Logger logger = LoggerFactory.getLogger(ProviderScheduler.class);
-    public final String RABBITMQ_PUBLISH_EXCHANGE = "EXCHANGE";
 
-    public BrokerService brokerService;
     public Vertx vertx;
+
+    public RedisOptions options;
+    public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
+    public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
+    // There are 16 DBs available. Using 1 as the default database number
+    public final String DB_NUMBER = "1";
+    public final int MAX_POOL_SIZE = 10;
+    public final int MAX_WAITING_HANDLERS = 32;
+    public final String CONNECTION_STR = "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + "/" + DB_NUMBER;
 
     @Override
     public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
+        logger.debug("In Provider Scheduler");
+
         vertx = Vertx.vertx();
-        brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
+        options = new RedisOptions()
+                .setConnectionString(CONNECTION_STR)
+                .setMaxPoolSize(MAX_POOL_SIZE)
+                .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
         JobDataMap jobDataMap = jobExecutionContext.getJobDetail().getJobDataMap();
         UUID uuid = (UUID) jobDataMap.get("uuid");
         JsonArray finalHits = (JsonArray) jobDataMap.get("finalHits");
         String resourceId = jobDataMap.getString("resourceId");
+        String email = jobDataMap.getString("email");
         List<String> distinctIds = (List<String>) jobDataMap.get("distinctIds");
-        Map<String, String> finalQueryParams = (Map<String, String>) jobDataMap.get("finalQueryParams");
-        logger.debug("State values: "  + "\n" + uuid + "\n" + resourceId);
+        List<String> finalZipLinks = (List<String>) jobDataMap.get("finalZipLinks");
+        logger.debug("State values: "  + "\n" + uuid + "\n" + resourceId + "\n" + email);
         logger.debug("Distinct Ids: "  + distinctIds);
-        logger.debug("finalHits to be zipped: " + finalHits);
+        logger.debug("final zip links: "  + finalZipLinks);
+//        logger.debug("finalHits to be zipped: " + finalHits);
+        logger.debug("finalHits size: " + finalHits.size());
 
         if (finalHits.size() > 0) {
             try {
-                zipAFileFromItsMetadata(finalHits, uuid, resourceId, distinctIds, finalQueryParams);
+                zipAFileFromItsMetadata(finalHits, uuid, resourceId, distinctIds, email, finalZipLinks);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -60,12 +80,13 @@ public class ProviderScheduler implements Job {
     }
 
     private void zipAFileFromItsMetadata(
-            JsonArray hits, UUID uuid, String resourceId, List<String> distinctIds, Map<String, String> finalQueryParams) throws IOException {
-        zipRequestedFiles(hits, uuid, resourceId, distinctIds, finalQueryParams);
+            JsonArray hits, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
+        logger.debug("In zipAFileFromItsMetadata");
+        zipRequestedFiles(hits, uuid, resourceId, distinctIds, email, finalZipLinks);
     }
 
     private void zipRequestedFiles(
-            JsonArray hits, UUID uuid, String resourceId, List<String> distinctIds, Map<String, String> finalQueryParams) throws IOException {
+            JsonArray hits, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
 
         logger.debug("In zipRequestedFiles");
 
@@ -91,49 +112,32 @@ public class ProviderScheduler implements Job {
 
             List<File> filesOnProvider = Arrays.asList(Objects.requireNonNull(providerResourceDirectory.listFiles()));
             logger.debug("files on provider=" + filesOnProvider.toString());
-            String zippedDir = providerPath + "/" + uuid + "/"
+            String zippedDir = providerPath + uuid
                     + resourceId.substring(resourceId.lastIndexOf("/"));
-            String zippedPath = zippedDir + "/" + resourceId.substring(resourceId.lastIndexOf("/")) + ".zip";
+            String zippedPath = zippedDir + resourceId.substring(resourceId.lastIndexOf("/")) + ".zip";
+            logger.debug("zippedDir=" + zippedDir);
+            logger.debug("zippedPath=" + zippedPath);
             File zipFileDirectory = new File(zippedDir);
             zipFileDirectory.mkdirs();
             zip(providerResourcePath, null, zippedPath);
 
-            zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/" + uuid;
+            zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + zippedPath.substring(19);
             logger.debug("Final zipped directory= " + zipFileDirectory.toString());
             logger.debug("Final zipped directory link= " + zippedDirectoryLink);
 
-            publishZipFileAndItsMetadata(resourceId, zippedDirectoryLink, zippedPath, finalQueryParams);
-            List<String> lines = Arrays.asList("please wait as your files are getting zipped.",
-                    "Once the links are ready, this read me file will be deleted and please " +
-                            "refresh this page to find your zips");
-            Path write = Files.write(Paths.get(providerPath + "/" + uuid + "/readme.txt"), lines,
-                    StandardCharsets.UTF_8);
-            logger.debug("Does new file readme file exists before zipping: " + Files.exists(write));
+            setValue(resourceId, zippedPath).subscribe();
 
-            /*
-              Delete the readme.txt file after files are zipped"
-             */
+            emailJob(zippedDirectoryLink, null, email);
 
 //            Vertx vertx = Vertx.vertx();
 
-            long timerId = vertx.setTimer(86400, id -> {
-                String PROVIDER_PATH_CONTAINING_README = providerPath + uuid + "/readme.txt";
-                logger.debug(" Provider path containing read me: " + PROVIDER_PATH_CONTAINING_README);
-                boolean isReadMeDeleted = false;
-                boolean isZippedFileDeleted = false;
-                try {
-                    isReadMeDeleted = Files.deleteIfExists(Paths.get(PROVIDER_PATH_CONTAINING_README));
-                    isZippedFileDeleted =  deleteDirectory(new File(providerPath + uuid));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                logger.debug("Is read me deleted after zipping files: " + isReadMeDeleted);
+            long timerId = vertx.setTimer(864000, id -> {
+                boolean isZippedFileDeleted;
+                isZippedFileDeleted =  deleteDirectory(new File(providerPath + uuid));
                 logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
             });
-
-
         }
-        if (distinctIds != null) {
+        if (!distinctIds.isEmpty()) {
 
             for (int i=0; i<distinctIds.size(); i++) {
                 providerResourceDir = providerPath + distinctIds.get(i);
@@ -156,61 +160,45 @@ public class ProviderScheduler implements Job {
                 zipFileDirectory.mkdirs();
                 zip(providerResourcePath,null, zippedPath);
 
-                zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/" + uuid;
+                zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + zippedPath.substring(19);
                 zippedLinks.add(zippedDirectoryLink);
+                zippedLinks.addAll(finalZipLinks);
                 logger.debug("Final zipped directory= " + zipFileDirectory.toString());
 
-                publishZipFileAndItsMetadata(distinctIds.get(i), zippedDirectoryLink, zippedPath, finalQueryParams);
+                setValue(distinctIds.get(i), zippedPath).subscribe();
             }
 
             logger.debug("zipped links= " + zippedLinks.toString());
-            List<String> lines = Arrays.asList("please wait as your files are getting zipped.",
-                    "Once the links are ready, this read me file will be deleted and please " +
-                            "refresh this page to find your zips");
-            Path write = Files.write(Paths.get(providerPath + uuid + "/readme.txt"), lines,
-                    StandardCharsets.UTF_8);
-            logger.debug("Does new file readme file exists before zipping: " + Files.exists(write));
+            logger.debug("zipped paths= " + zippedPaths.toString());
 
-            /*
-              Delete the readme.txt file after files are zipped"
-             */
+            emailJob(null, zippedLinks, email);
 
-            Vertx vertx = Vertx.vertx();
-
-            long timerId = vertx.setTimer(86400, id -> {
-                String PROVIDER_PATH_CONTAINING_README = providerPath + uuid + "/readme.txt";
-                logger.debug(" Provider path containing read me: " + PROVIDER_PATH_CONTAINING_README);
-                boolean isReadMeDeleted = false;
-                boolean isZippedFileDeleted = false;
-                try {
-                    isReadMeDeleted = Files.deleteIfExists(Paths.get(PROVIDER_PATH_CONTAINING_README));
-                    isZippedFileDeleted = deleteDirectory(new File(providerPath + uuid));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+//            Vertx vertx = Vertx.vertx();
+            long timerId = vertx.setTimer(864000, id -> {
+                boolean isZippedFileDeleted;
+                isZippedFileDeleted = deleteDirectory(new File(providerPath + uuid));
                 logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
-                logger.debug("Is read me deleted after zipping files: " + isReadMeDeleted);
             });
         }
     }
 
-    private void publishZipFileAndItsMetadata(
-            String resourceId, String zippedDirectoryLink, String zippedPath, Map<String, String> finalQueryParams) {
-        String[] splitId = resourceId.split("/");
-        String category = splitId[3];
-        JsonObject dbEntryJson = new JsonObject()
-                .put("data", new JsonObject()
-                        .put("link", zippedDirectoryLink)
-                        .put("filename", zippedPath.substring(zippedPath.lastIndexOf("/") + 1)))
-                .put("timestamp", Clock.systemUTC().instant().toString())
-                .put("id", resourceId)
-                .put("category", category);
-        for(String key : finalQueryParams.keySet()) {
-            dbEntryJson.getJsonObject("data").put("metadata", new JsonObject().put(key, finalQueryParams.get(key)));
-        }
-        logger.debug("zip data published= " + dbEntryJson.encodePrettily());
 
-        brokerService.rxAdminPublish(RABBITMQ_PUBLISH_EXCHANGE, resourceId, dbEntryJson.encode());
+    public Single<RedisAPI> getRedisClient() {
+        logger.debug("In get redis client");
+        logger.debug("options=" + options.toJson().encodePrettily());
+        return Redis.createClient(vertx, options).rxConnect().map(RedisAPI::api);
+    }
+    public Completable setValue(String key, String value) {
+
+        logger.debug("In set value");
+        logger.debug("key=" + key);
+        logger.debug("value=" + value);
+        ArrayList<String> list = new ArrayList<>();
+
+        list.add(key);
+        list.add(value);
+
+        return getRedisClient().flatMapCompletable(redisAPI -> Completable.fromMaybe(redisAPI.rxSet(list)));
     }
 
     public void zip(Path fileOrFolderToBeZipped, List<File> files, String zipFileName) {
@@ -250,5 +238,53 @@ public class ProviderScheduler implements Job {
             }
         }
         return directoryToBeDeleted.delete();
+    }
+    private void emailJob(String downloadLink, List<String> downloadLinks, String email) {
+
+        logger.debug("In email Job");
+        logger.debug("Recipient email= " + email);
+        String message = "";
+        if (downloadLink!=null) {
+            message = "Dear consumer,"
+                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
+                    + "\n" + downloadLink;
+        }
+        if (downloadLinks!=null) {
+            message = "Dear consumer,"
+                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
+                    + "\n" + downloadLinks;
+        }
+        Properties properties = new Properties();
+        properties.put("mail.smtp.host", "smtp.gmail.com"); //host name
+        properties.put("mail.smtp.port", "587"); //TLS port
+        properties.put("mail.debug", "false"); //enable when you want to see mail logs
+        properties.put("mail.smtp.auth", "true"); //enable auth
+        properties.put("mail.smtp.starttls.enable", "true"); //enable starttls
+        properties.put("mail.smtp.ssl.trust", "smtp.gmail.com"); //trust this host
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //specify secure protocol
+        final String username = "patzzziejordan@gmail.com";
+        final String password = "jordan@4452";
+        try{
+            Session session = Session.getInstance(properties,
+                    new Authenticator(){
+                        protected PasswordAuthentication getPasswordAuthentication() {
+                            return new PasswordAuthentication(username, password);
+                        }});
+
+            MimeMessage msg = new MimeMessage(session);
+            msg.setFrom(new InternetAddress(username));
+            msg.addRecipient(Message.RecipientType.TO,
+                    new InternetAddress(email));
+            msg.setSubject("Download links");
+            msg.setText(message);
+            logger.debug("sending email");
+            Transport.send(msg);
+            logger.debug("sent email successfully with below details: " + "\n" + msg.getContent().toString() + "\n" + Arrays.toString(msg.getAllRecipients()));
+        } catch (AddressException | IOException e) {
+            e.printStackTrace();
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+        logger.debug("email job done");
     }
 }
