@@ -155,13 +155,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/download").handler(this::download);
         router.get("/downloadByQuery").handler(this::downloadByQuery);
-        router.post("/providerByQuery").handler(context -> {
-            try {
-                providerByQuery(context);
-            } catch (SchedulerException e) {
-                e.printStackTrace();
-            }
-        });
+        router.post("/providerByQuery").handler(this::providerByQuery);
         router.post("/publish").handler(this::publish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
@@ -1440,7 +1434,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Filename = " + fileName);
     }
 
-    public void providerByQuery(RoutingContext context) throws SchedulerException {
+    public void providerByQuery(RoutingContext context) {
 
         logger.debug("In Provider By Query");
         HttpServerRequest request = context.request();
@@ -1490,7 +1484,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                             new JsonObject().put("id.keyword",
                                     new JsonArray().add(resourceId))));
         }
-        Map<String, String> finalQueryParams = new HashMap<>();
         List<Map.Entry<String, String>> entries = parameters.entries();
         for (int i = 0; i < entries.size(); i++) {
             String key = "";
@@ -1502,7 +1495,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                 logger.debug("key: " + key);
                 logger.debug("value: " + value);
                 jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key, value)));
-                finalQueryParams.put(key, value);
             }
 
             if ("category".equalsIgnoreCase(entries.get(i).getKey())) {
@@ -1524,7 +1516,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         AtomicBoolean didResponseEnded = new AtomicBoolean(false);
         if (resourceId != null) {
             dbService.rxSearch(downloadByQuery, false, "")
-                    .flatMapCompletable(result-> {
+                    .flatMapCompletable(result -> {
                         JsonArray esHits = result.getJsonArray("hits");
                         if (esHits != null && esHits.size() == 0) {
                             return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
@@ -1552,11 +1544,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         Scheduler scheduler = stdSchedulerFactory.getScheduler();
                                         scheduler.start();
 
-                                        logger.debug("hits need to be sent for zip =" + esHits);
                                         logger.debug("Is scheduler started: " + scheduler.isStarted());
                                         JobDataMap jobDataMap = new JobDataMap();
                                         jobDataMap.put("uuid", uuid);
-                                        jobDataMap.put("finalHits", esHits);
+                                        jobDataMap.put("finalHitsSize", esHits.size());
                                         jobDataMap.put("resourceId", resourceId);
                                         jobDataMap.put("distinctIds", null);
                                         jobDataMap.put("email", email);
@@ -1594,13 +1585,13 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         }
                                     }
                                     return Completable.complete();
-                                }).subscribe(()-> {
+                                }).subscribe(() -> {
                                     if (!didResponseEnded.get()) {
                                         response.setStatusCode(ACCEPTED)
                                                 .setStatusMessage("Please kindly wait as your download links are getting ready")
                                                 .end("Please check your email for the links shortly..!!" + "\n");
                                     }
-                                }, throwable -> apiFailure(context, throwable));
+                                    }, throwable -> apiFailure(context, throwable));
                         return Completable.complete();
                     }).subscribe(() -> { }, throwable -> apiFailure(context, throwable));
         } else {
@@ -1613,7 +1604,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                         String id;
                         for (Object hit : hits.get()) {
                             if (hit instanceof JsonObject) {
-                                logger.debug("hit: " + hit.toString());
                                 id = ((JsonObject) hit).getString("id");
                                 if (id.endsWith(".public")) {
                                     listOfEligibleIds.add(id);
@@ -1628,11 +1618,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                         distinctIds.set(listOfEligibleIds.stream().distinct().collect(Collectors.toList()));
                         logger.debug("distinct Ids= " + distinctIds.get().toString());
 
+                        List<String> itemList = new ArrayList<>();
                         for (int i = 0; i < distinctIds.get().size(); i++) {
                             int finalI = i;
                             getValue(distinctIds.get().get(i))
-                                    .map(file -> {
-                                        String zipLink = "";
+                                    .flatMap(file -> {
+                                        itemList.add("visited");
+                                        logger.debug("Item list size =" + itemList.size());
+                                        String zipLink;
                                         logger.debug("result for multiple ids = " + file);
                                         boolean doesFileExists = Files.exists(Path.of(file));
                                         logger.debug("doesFileExists for multiple ids= " + doesFileExists);
@@ -1643,36 +1636,33 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         } else {
                                             listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
                                         }
-                                        logger.debug("zipLink = " + zipLink);
-                                        logger.debug("value of finalI = " + finalI);
                                         logger.debug("finalZipLinks of consumer =" + finalZipLinks);
-                                        //end response and send email only when finalZipLinks.size() == distinctIds.get().size()
-                                        //if one file is in cache and other is in remote server, then zip only the file which is in
-                                        // remote server and send email with both of them
-                                        if (finalI == distinctIds.get().size() - 1
+
+                                        if (itemList.size() == distinctIds.get().size()
                                                 && finalZipLinks.size() == distinctIds.get().size()) {
                                             emailJob(null, finalZipLinks, email);
                                             didResponseEnded.set(true);
                                             response.setStatusCode(ACCEPTED)
                                                     .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
                                                     .end("Please check your email for the links shortly..!!" + "\n");
+                                            return Single.never();
                                         }
-                                        return didResponseEnded.get();
+                                        return Single.just(didResponseEnded.get());
                                     }).flatMapCompletable(didResponseEnd -> {
                                         logger.debug("did response end = " + didResponseEnd);
                                         logger.debug("did response got ended = " + response.ended());
-                                        if (!didResponseEnd && finalI == distinctIds.get().size() - 1
-                                                && finalZipLinks.size() != distinctIds.get().size()) {
+                                        logger.debug("Item list size =" + itemList.size());
+
+                                        if (!didResponseEnd && itemList.size() == distinctIds.get().size()) {
                                             SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
                                             Scheduler scheduler = stdSchedulerFactory.getScheduler();
                                             scheduler.start();
 
-                                            logger.debug("hits need to be sent for zip =" + hits.get());
                                             logger.debug("distinct ids need to be sent for zip =" + listOfIdsNeedToBeSentToScheduler);
                                             logger.debug("Is scheduler started: " + scheduler.isStarted());
                                             JobDataMap jobDataMap = new JobDataMap();
                                             jobDataMap.put("uuid", uuid);
-                                            jobDataMap.put("finalHits", hits.get());
+                                            jobDataMap.put("finalHitsSize", hits.get().size());
                                             jobDataMap.put("resourceId", null);
                                             jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
                                             jobDataMap.put("email", email);
@@ -1712,14 +1702,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             return Completable.complete();
                                         }
                                         return Completable.never();
-                            }).subscribe(()-> {
-                                    if (!didResponseEnded.get() && finalI == distinctIds.get().size() - 1
-                                            && finalZipLinks.size() != distinctIds.get().size()) {
-                                        response.setStatusCode(ACCEPTED)
-                                                .setStatusMessage("Please kindly wait as your download links are getting ready")
-                                                .end("Please check your email for the links shortly..!!" + "\n");
-                                    }
-                                    }, throwable -> apiFailure(context, throwable));
+                                    }).subscribe(()-> {
+                                        logger.debug("List size =" + itemList.size());
+                                        if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
+                                                response.setStatusCode(ACCEPTED)
+                                                        .setStatusMessage("Please kindly wait as your download links are getting ready")
+                                                        .end("Please check your email for the links shortly..!!" + "\n");
+                                            }
+                                            }, throwable -> apiFailure(context, throwable));
                         }
                         return Single.just("");
                     }).subscribe(s-> { }, throwable -> apiFailure(context, throwable));

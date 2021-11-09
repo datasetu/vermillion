@@ -55,7 +55,7 @@ public class ProviderScheduler implements Job {
 
         JobDataMap jobDataMap = jobExecutionContext.getJobDetail().getJobDataMap();
         UUID uuid = (UUID) jobDataMap.get("uuid");
-        JsonArray finalHits = (JsonArray) jobDataMap.get("finalHits");
+        int finalHitsSize = jobDataMap.getInt("finalHitsSize");
         String resourceId = jobDataMap.getString("resourceId");
         String email = jobDataMap.getString("email");
         List<String> distinctIds = (List<String>) jobDataMap.get("distinctIds");
@@ -63,12 +63,12 @@ public class ProviderScheduler implements Job {
         logger.debug("State values: "  + "\n" + uuid + "\n" + resourceId + "\n" + email);
         logger.debug("Distinct Ids: "  + distinctIds);
         logger.debug("final zip links: "  + finalZipLinks);
-//        logger.debug("finalHits to be zipped: " + finalHits);
-        logger.debug("finalHits size: " + finalHits.size());
+//        logger.debug("finalHitsSize to be zipped: " + finalHitsSize);
+//        logger.debug("finalHitsSize size: " + finalHitsSize.size());
 
-        if (finalHits.size() > 0) {
+        if (finalHitsSize > 0) {
             try {
-                zipAFileFromItsMetadata(finalHits, uuid, resourceId, distinctIds, email, finalZipLinks);
+                zipAFileFromItsMetadata(finalHitsSize, uuid, resourceId, distinctIds, email, finalZipLinks);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -80,13 +80,13 @@ public class ProviderScheduler implements Job {
     }
 
     private void zipAFileFromItsMetadata(
-            JsonArray hits, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
+            int hitsSize, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
         logger.debug("In zipAFileFromItsMetadata");
-        zipRequestedFiles(hits, uuid, resourceId, distinctIds, email, finalZipLinks);
+        zipRequestedFiles(hitsSize, uuid, resourceId, distinctIds, email, finalZipLinks);
     }
 
     private void zipRequestedFiles(
-            JsonArray hits, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
+            int hitsSize, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
 
         logger.debug("In zipRequestedFiles");
 
@@ -110,8 +110,8 @@ public class ProviderScheduler implements Job {
                 throw new FileNotFoundException("Requested files are not present on provider's resource path");
             }
 
-            List<File> filesOnProvider = Arrays.asList(Objects.requireNonNull(providerResourceDirectory.listFiles()));
-            logger.debug("files on provider=" + filesOnProvider.toString());
+//            List<File> filesOnProvider = Arrays.asList(Objects.requireNonNull(providerResourceDirectory.listFiles()));
+//            logger.debug("files on provider=" + filesOnProvider.toString());
             String zippedDir = providerPath + uuid
                     + resourceId.substring(resourceId.lastIndexOf("/"));
             String zippedPath = zippedDir + resourceId.substring(resourceId.lastIndexOf("/")) + ".zip";
@@ -119,6 +119,7 @@ public class ProviderScheduler implements Job {
             logger.debug("zippedPath=" + zippedPath);
             File zipFileDirectory = new File(zippedDir);
             zipFileDirectory.mkdirs();
+
             zip(providerResourcePath, null, zippedPath);
 
             zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + zippedPath.substring(19);
@@ -131,7 +132,7 @@ public class ProviderScheduler implements Job {
 
 //            Vertx vertx = Vertx.vertx();
 
-            long timerId = vertx.setTimer(864000, id -> {
+            long timerId = vertx.setTimer(86400000, id -> {
                 boolean isZippedFileDeleted;
                 isZippedFileDeleted =  deleteDirectory(new File(providerPath + uuid));
                 logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
@@ -149,15 +150,16 @@ public class ProviderScheduler implements Job {
                 }
 
                 File providerResourceDirectory = new File(providerResourceDir);
-                List<File> filesOnProviderPath = Arrays
-                        .asList(Objects.requireNonNull(providerResourceDirectory.listFiles()));
-                logger.debug("files on provider=" + filesOnProviderPath.toString());
+//                List<File> filesOnProviderPath = Arrays
+//                        .asList(Objects.requireNonNull(providerResourceDirectory.listFiles()));
+//                logger.debug("files on provider=" + filesOnProviderPath.toString());
                 String zippedDir = providerPath + uuid
                         + distinctIds.get(i).substring(distinctIds.get(i).lastIndexOf("/"));
                 String zippedPath = zippedDir + distinctIds.get(i).substring(distinctIds.get(i).lastIndexOf("/")) + ".zip";
                 zippedPaths.add(zippedPath);
                 File zipFileDirectory = new File(zippedDir);
                 zipFileDirectory.mkdirs();
+
                 zip(providerResourcePath,null, zippedPath);
 
                 zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + zippedPath.substring(19);
@@ -174,7 +176,7 @@ public class ProviderScheduler implements Job {
             emailJob(null, zippedLinks, email);
 
 //            Vertx vertx = Vertx.vertx();
-            long timerId = vertx.setTimer(864000, id -> {
+            long timerId = vertx.setTimer(86400000, id -> {
                 boolean isZippedFileDeleted;
                 isZippedFileDeleted = deleteDirectory(new File(providerPath + uuid));
                 logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
