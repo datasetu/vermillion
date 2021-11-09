@@ -54,6 +54,7 @@ import java.time.Clock;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1467,9 +1468,13 @@ public class HttpServerVerticle extends AbstractVerticle {
             apiFailure(context, new BadRequestThrowable("Please provide email Id"));
             return;
         }
+        String email = requestBody.getString("email");
+        if (!isEmailValid(email)) {
+            apiFailure(context, new BadRequestThrowable("Incorrect email Id"));
+            return;
+        }
 
         logger.debug("Body=" + requestBody.encode());
-        String email = requestBody.getString("email");
         Queries query = new Queries();
 
         int size = 10000; //max set of results per search request
@@ -2217,6 +2222,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             e.printStackTrace();
         }
         logger.debug("email job done");
+    }
+    public boolean isEmailValid(String email) {
+        Pattern EMAIL_REGEX = Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,6}$", Pattern.CASE_INSENSITIVE);
+        return EMAIL_REGEX.matcher(email).matches();
     }
 
 }
