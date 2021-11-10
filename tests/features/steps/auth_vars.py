@@ -322,7 +322,7 @@ res[13] = id_prefix + resource_ids[13]
 
 requested_id2=[]
 acl_set_policy5 = "consumer@iisc.ac.in can access example.com/test-category/" + resource_ids[
-    14] + " for 20 seconds"
+    14] + " for 15 seconds"
 data = {"policy": acl_set_policy5}
 # print(data)
 response = requests.post(

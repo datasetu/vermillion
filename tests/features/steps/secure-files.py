@@ -38,6 +38,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -53,6 +54,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -68,6 +70,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -293,7 +296,7 @@ def step_impl(context):
     post_files(params, files, context)
 
 
-@when('The consumer publishes secure file with a valid token for 20secs')
+@when('The consumer publishes secure file with a valid token for 15 secs')
 def step_impl(context):
     params = (
         ('id', res[14]),
@@ -307,7 +310,7 @@ def step_impl(context):
 
     post_files(params, files, context)
 
-    time.sleep(22)
+    time.sleep(30)
 
 
 @when('The consumer downloads with expired token')
