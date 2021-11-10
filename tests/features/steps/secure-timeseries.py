@@ -173,7 +173,7 @@ def step_impl(context):
 
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
 
@@ -195,7 +195,7 @@ def step_impl(context):
 
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     url = VERMILLION_URL + SEARCH_ENDPOINT
@@ -217,7 +217,7 @@ def step_impl(context):
         ],
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     time.sleep(1)
@@ -239,7 +239,7 @@ def step_impl(context):
         ],
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     url = VERMILLION_URL + SEARCH_ENDPOINT
@@ -260,7 +260,7 @@ def step_impl(context):
         ],
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     url = VERMILLION_URL + SEARCH_ENDPOINT
@@ -279,7 +279,7 @@ def step_impl(context):
 
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     time.sleep(1)
@@ -299,7 +299,7 @@ def step_impl(context):
 
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     time.sleep(1)
@@ -315,7 +315,7 @@ def step_impl(context):
 
         "time": {
             "start": "2021-01-01",
-            "end": "2021-11-01"
+            "end": "2022-11-01"
         }
     }
     time.sleep(1)
