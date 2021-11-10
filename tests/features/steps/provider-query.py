@@ -6,7 +6,7 @@ import urllib3
 from behave import when
 from auth_vars import res, tokens
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-from utils import post_files, generate_random_chars, provider_query, get_request
+from utils import post_files, generate_random_chars, provider_query
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -19,11 +19,7 @@ def step_impl(context):
         ('id', res[0]),
         ('token', tokens["master"]),
     )
-    # f = open("sample.txt", "w")
-    # f.write("hi, welcome to datasetu!")
-    # data = {"hello": "world"}
-    # with open('meta.json', 'w') as f:
-    #     json.dump(data, f)
+
     files = {
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
