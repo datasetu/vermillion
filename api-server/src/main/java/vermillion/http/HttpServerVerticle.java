@@ -1478,14 +1478,12 @@ public class HttpServerVerticle extends AbstractVerticle {
         Queries query = new Queries();
 
         int size = 10000; //max set of results per search request
-        JsonObject downloadByQuery = query.getDownloadByQuery();
-        JsonArray jsonArray = downloadByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
-                .getJsonObject("must").getJsonObject("bool").getJsonArray("should");
+        JsonObject providerByQuery = query.getProviderByQuery();
+        JsonArray jsonArray = providerByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
+                .getJsonArray("filter");
 
-        JsonObject filterByAuthorisedIds = downloadByQuery.getJsonObject("query").getJsonObject("bool");
         if (resourceId != null) {
-            filterByAuthorisedIds.put("filter",
-                    new JsonObject().put("terms",
+            jsonArray.add(new JsonObject().put("terms",
                             new JsonObject().put("id.keyword",
                                     new JsonArray().add(resourceId))));
         }
@@ -1507,6 +1505,8 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         }
 
+        logger.debug("provider by query =" + query.getProviderByQuery().encodePrettily());
+
         if (jsonArray.size() == 0) {
             apiFailure(context, new BadRequestThrowable("Please provide the query parameters to download the files"));
             return;
@@ -1520,7 +1520,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         AtomicReference<JsonArray> hits = new AtomicReference<>();
         AtomicBoolean didResponseEnded = new AtomicBoolean(false);
         if (resourceId != null) {
-            dbService.rxSearch(downloadByQuery, false, "")
+            dbService.rxSearch(providerByQuery, false, "")
                     .flatMapCompletable(result -> {
                         JsonArray esHits = result.getJsonArray("hits");
                         if (esHits != null && esHits.size() == 0) {
@@ -1600,7 +1600,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         return Completable.complete();
                     }).subscribe(() -> { }, throwable -> apiFailure(context, throwable));
         } else {
-            dbService.rxSearch(downloadByQuery, false, "")
+            dbService.rxSearch(providerByQuery, false, "")
                     .flatMap(result -> {
                         hits.set(result.getJsonArray("hits"));
                         if (hits.get().size() == 0) {
