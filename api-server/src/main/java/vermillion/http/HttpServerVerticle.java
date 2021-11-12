@@ -2199,7 +2199,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         properties.put("mail.smtp.ssl.trust", "smtp.gmail.com"); //trust this host
         properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //specify secure protocol
         final String username = "patzzziejordan@gmail.com";
-        final String password = "jordan@4452";
+        final String password = ${{secrets.EMAIL_PASS}};
         try{
             Session session = Session.getInstance(properties,
                     new Authenticator(){
