@@ -25,7 +25,7 @@ Feature: Vermillion is able to handle provider query
   Scenario: Consumer downloads public file by query without query
     Given Vermillion is running
     When The consumer downloads public file by query without query
-    Then The response status should be 400
+    Then The response status should be 202
 
   Scenario: Consumer downloads public file by query with invalid query
     Given Vermillion is running
