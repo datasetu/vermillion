@@ -126,9 +126,9 @@ Feature: Vermillion is able to handle secure files
 #          Then The response status should be 500
 #          And  The file permission is reset
 
-  Scenario: Consumer publishes secure file with a valid token for 20secs
+  Scenario: Consumer publishes secure file with a valid token for 15 secs
     Given Vermillion is running
-    When The consumer publishes secure file with a valid token for 20secs
+    When The consumer publishes secure file with a valid token for 15 secs
     Then The response status should be 201
 
   Scenario: Consumer downloads with expired token

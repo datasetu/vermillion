@@ -36,17 +36,25 @@ import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.schedulers.JobScheduler;
 import vermillion.schedulers.JobSchedulerListener;
+import vermillion.schedulers.ProviderScheduler;
 import vermillion.throwables.BadRequestThrowable;
 import vermillion.throwables.FileNotFoundThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
+import javax.mail.*;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -148,6 +156,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/download").handler(this::download);
         router.get("/downloadByQuery").handler(this::downloadByQuery);
+        router.post("/providerByQuery").handler(this::providerByQuery);
         router.post("/publish").handler(this::publish);
 
         router.post("/search/scroll").handler(this::scrolledSearch);
@@ -1426,6 +1435,292 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Filename = " + fileName);
     }
 
+    public void providerByQuery(RoutingContext context) {
+
+        logger.debug("In Provider By Query");
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+        MultiMap parameters = request.params();
+        String resourceId = request.getParam("id");
+
+        if (resourceId != null && !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Id"));
+            return;
+        }
+
+        if (resourceId != null && !resourceId.endsWith(".public")) {
+            apiFailure(context, new UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
+        }
+
+        JsonObject requestBody;
+        try {
+            requestBody = context.getBodyAsJson();
+            if (requestBody == null) {
+                apiFailure(context, new BadRequestThrowable("Body is empty"));
+                return;
+            }
+        } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+            return;
+        }
+
+        if (!requestBody.containsKey("email")) {
+            apiFailure(context, new BadRequestThrowable("Please provide email Id"));
+            return;
+        }
+        String email = requestBody.getString("email");
+        if (!isEmailValid(email)) {
+            apiFailure(context, new BadRequestThrowable("Incorrect email Id"));
+            return;
+        }
+
+        logger.debug("Body=" + requestBody.encode());
+        Queries query = new Queries();
+
+        int size = 10000; //max set of results per search request
+        JsonObject providerByQuery = query.getProviderByQuery();
+        JsonArray jsonArray = providerByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
+                .getJsonArray("filter");
+
+        if (resourceId != null) {
+            jsonArray.add(new JsonObject().put("terms",
+                            new JsonObject().put("id.keyword",
+                                    new JsonArray().add(resourceId))));
+        }
+        List<Map.Entry<String, String>> entries = parameters.entries();
+        for (int i = 0; i < entries.size(); i++) {
+            String key;
+            String value;
+            if ("category".equalsIgnoreCase(entries.get(i).getKey())) {
+                key = entries.get(i).getKey();
+                value = entries.get(i).getValue();
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key, value)));
+            } else if (!entries.get(i).getKey().equalsIgnoreCase("token")
+                    && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
+                key = entries.get(i).getKey();
+                value = entries.get(i).getValue();
+                logger.debug("key: " + key);
+                logger.debug("value: " + value);
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key, value)));
+            }
+        }
+
+        logger.debug("provider by query =" + query.getProviderByQuery().encodePrettily());
+
+        if (jsonArray.size() == 0) {
+            apiFailure(context, new BadRequestThrowable("Please provide the query parameters to download the files"));
+            return;
+        }
+        UUID uuid = UUID.randomUUID();
+        List<String> listOfEligibleIds = new ArrayList<>();
+        List<String> finalZipLinks = new ArrayList<>();
+
+        AtomicReference<List<String>> distinctIds = new AtomicReference<>();
+        List<String> listOfIdsNeedToBeSentToScheduler = new ArrayList<>();
+        AtomicReference<JsonArray> hits = new AtomicReference<>();
+        AtomicBoolean didResponseEnded = new AtomicBoolean(false);
+        if (resourceId != null) {
+            dbService.rxSearch(providerByQuery, false, "")
+                    .flatMapCompletable(result -> {
+                        JsonArray esHits = result.getJsonArray("hits");
+                        if (esHits != null && esHits.size() == 0) {
+                            return Completable.error(new FileNotFoundThrowable("The requested files are not found"));
+                        }
+                        getValue(resourceId)
+                                .map(file -> {
+                                    logger.debug("file name on cache = " + file);
+                                    boolean doesFileExists = Files.exists(Path.of(file));
+                                    String downloadLink = "";
+                                    if (doesFileExists) {
+                                        downloadLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
+                                                + file.substring(36);
+                                        didResponseEnded.set(true);
+                                        response.setStatusCode(ACCEPTED)
+                                                .setStatusMessage("Please kindly wait as your download links are getting ready-single")
+                                                .end("Please check your email for the links shortly..!!" + "\n");
+                                        emailJob(downloadLink, null, email);
+                                    }
+                                    return didResponseEnded.get();
+                                }).flatMapCompletable(didResponseEnd -> {
+                                    logger.debug("did response end = " + didResponseEnd);
+                                    logger.debug("did response got ended = " + response.ended());
+                                    if (!didResponseEnd) {
+                                        SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
+                                        Scheduler scheduler = stdSchedulerFactory.getScheduler();
+                                        scheduler.start();
+
+                                        logger.debug("Is scheduler started: " + scheduler.isStarted());
+                                        JobDataMap jobDataMap = new JobDataMap();
+                                        jobDataMap.put("uuid", uuid);
+                                        jobDataMap.put("finalHitsSize", esHits.size());
+                                        jobDataMap.put("resourceId", resourceId);
+                                        jobDataMap.put("distinctIds", null);
+                                        jobDataMap.put("email", email);
+
+                                        // define the job and tie it to our JobScheduler class
+                                        JobDetail job = JobBuilder.newJob(ProviderScheduler.class)
+                                                .withIdentity(String.valueOf(uuid), "provider")
+                                                .usingJobData(jobDataMap)
+                                                .build();
+                                        logger.debug("Job key: " + job.getKey());
+
+                                        // Trigger the job to run now
+                                        Trigger trigger = newTrigger()
+                                                .withIdentity(String.valueOf(uuid), "provider")
+                                                .startNow()
+                                                .withSchedule(simpleSchedule())
+                                                .build();
+                                        logger.debug("trigger key: " + trigger.getKey());
+
+                                        scheduler.getListenerManager().addJobListener(
+                                                new JobSchedulerListener());
+
+                                        // Tell quartz to schedule the job using our trigger
+                                        boolean isSchedulerExceptionCaught = false;
+                                        try {
+                                            scheduler.scheduleJob(job, trigger);
+                                        } catch (SchedulerException e) {
+                                            isSchedulerExceptionCaught = true;
+                                            logger.debug("Scheduler exception caused due to: " + e.getMessage());
+                                            e.printStackTrace();
+                                        }
+                                        if (isSchedulerExceptionCaught) {
+                                            logger.debug("inside scheduler exception caught");
+                                            return Completable.error(new SchedulerException("Scheduler exception caught"));
+                                        }
+                                    }
+                                    return Completable.complete();
+                                }).subscribe(() -> {
+                                    if (!didResponseEnded.get()) {
+                                        response.setStatusCode(ACCEPTED)
+                                                .setStatusMessage("Please kindly wait as your download links are getting ready")
+                                                .end("Please check your email for the links shortly..!!" + "\n");
+                                    }
+                                    }, throwable -> apiFailure(context, throwable));
+                        return Completable.complete();
+                    }).subscribe(() -> { }, throwable -> apiFailure(context, throwable));
+        } else {
+            dbService.rxSearch(providerByQuery, false, "")
+                    .flatMap(result -> {
+                        hits.set(result.getJsonArray("hits"));
+                        if (hits.get().size() == 0) {
+                            return Single.error(new FileNotFoundThrowable("The requested files are not found"));
+                        }
+                        String id;
+                        for (Object hit : hits.get()) {
+                            if (hit instanceof JsonObject) {
+                                id = ((JsonObject) hit).getString("id");
+                                if (id.endsWith(".public")) {
+                                    listOfEligibleIds.add(id);
+                                }
+                            }
+                        }
+
+                        if (listOfEligibleIds.size() == 0) {
+                            return Single.error(new
+                                    UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
+                        }
+                        distinctIds.set(listOfEligibleIds.stream().distinct().collect(Collectors.toList()));
+                        logger.debug("distinct Ids= " + distinctIds.get().toString());
+
+                        List<String> itemList = new ArrayList<>();
+                        for (int i = 0; i < distinctIds.get().size(); i++) {
+                            int finalI = i;
+                            getValue(distinctIds.get().get(i))
+                                    .flatMap(file -> {
+                                        itemList.add("visited");
+                                        logger.debug("Item list size =" + itemList.size());
+                                        String zipLink;
+                                        logger.debug("result for multiple ids = " + file);
+                                        boolean doesFileExists = Files.exists(Path.of(file));
+                                        logger.debug("doesFileExists for multiple ids= " + doesFileExists);
+                                        if (doesFileExists) {
+                                            zipLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
+                                                    + file.substring(36);
+                                            finalZipLinks.add(zipLink);
+                                        } else {
+                                            listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
+                                        }
+                                        logger.debug("finalZipLinks of consumer =" + finalZipLinks);
+
+                                        if (itemList.size() == distinctIds.get().size()
+                                                && finalZipLinks.size() == distinctIds.get().size()) {
+                                            emailJob(null, finalZipLinks, email);
+                                            didResponseEnded.set(true);
+                                            response.setStatusCode(ACCEPTED)
+                                                    .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
+                                                    .end("Please check your email for the links shortly..!!" + "\n");
+                                            return Single.never();
+                                        }
+                                        return Single.just(didResponseEnded.get());
+                                    }).flatMapCompletable(didResponseEnd -> {
+                                        logger.debug("did response end = " + didResponseEnd);
+                                        logger.debug("did response got ended = " + response.ended());
+                                        logger.debug("Item list size =" + itemList.size());
+
+                                        if (!didResponseEnd && itemList.size() == distinctIds.get().size()) {
+                                            SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
+                                            Scheduler scheduler = stdSchedulerFactory.getScheduler();
+                                            scheduler.start();
+
+                                            logger.debug("distinct ids need to be sent for zip =" + listOfIdsNeedToBeSentToScheduler);
+                                            logger.debug("Is scheduler started: " + scheduler.isStarted());
+                                            JobDataMap jobDataMap = new JobDataMap();
+                                            jobDataMap.put("uuid", uuid);
+                                            jobDataMap.put("finalHitsSize", hits.get().size());
+                                            jobDataMap.put("resourceId", null);
+                                            jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
+                                            jobDataMap.put("email", email);
+                                            jobDataMap.put("finalZipLinks", finalZipLinks);
+
+                                            // define the job and tie it to our JobScheduler class
+                                            JobDetail job = JobBuilder.newJob(ProviderScheduler.class)
+                                                    .withIdentity(String.valueOf(uuid), "provider")
+                                                    .usingJobData(jobDataMap)
+                                                    .build();
+                                            logger.debug("Job key: " + job.getKey());
+
+                                            // Trigger the job to run now
+                                            Trigger trigger = newTrigger()
+                                                    .withIdentity(String.valueOf(uuid), "provider")
+                                                    .startNow()
+                                                    .withSchedule(simpleSchedule())
+                                                    .build();
+                                            logger.debug("trigger key: " + trigger.getKey());
+
+                                            scheduler.getListenerManager().addJobListener(
+                                                    new JobSchedulerListener());
+
+                                            // Tell quartz to schedule the job using our trigger
+                                            boolean isSchedulerExceptionCaught = false;
+                                            try {
+                                                scheduler.scheduleJob(job, trigger);
+                                            } catch (SchedulerException e) {
+                                                isSchedulerExceptionCaught = true;
+                                                logger.debug("Scheduler exception caused due to: " + e.getMessage());
+                                                e.printStackTrace();
+                                            }
+                                            if (isSchedulerExceptionCaught) {
+                                                logger.debug("inside scheduler exception caught");
+                                                return Completable.error(new SchedulerException("Scheduler exception caught"));
+                                            }
+                                            return Completable.complete();
+                                        }
+                                        return Completable.never();
+                                    }).subscribe(()-> {
+                                        logger.debug("List size =" + itemList.size());
+                                        if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
+                                                response.setStatusCode(ACCEPTED)
+                                                        .setStatusMessage("Please kindly wait as your download links are getting ready")
+                                                        .end("Please check your email for the links shortly..!!" + "\n");
+                                            }
+                                            }, throwable -> apiFailure(context, throwable));
+                        }
+                        return Single.just("");
+                    }).subscribe(s-> { }, throwable -> apiFailure(context, throwable));
+        }
+    }
+
     public void downloadByQuery(RoutingContext context)  {
         logger.debug("In download by query");
 
@@ -1878,6 +2173,59 @@ public class HttpServerVerticle extends AbstractVerticle {
                         return consumerEmail;
                     }
                 });
+    }
+
+    private void emailJob(String downloadLink, List<String> downloadLinks, String email) {
+
+        logger.debug("In email Job");
+        logger.debug("Recipient email= " + email);
+        String message = "";
+        if (downloadLink!=null) {
+            message = "Dear consumer,"
+                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
+                    + "\n" + downloadLink;
+        }
+        if (downloadLinks!=null) {
+            message = "Dear consumer,"
+                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
+                    + "\n" + downloadLinks;
+        }
+        Properties properties = new Properties();
+        properties.put("mail.smtp.host", "smtp.gmail.com"); //host name
+        properties.put("mail.smtp.port", "587"); //TLS port
+        properties.put("mail.debug", "false"); //enable when you want to see mail logs
+        properties.put("mail.smtp.auth", "true"); //enable auth
+        properties.put("mail.smtp.starttls.enable", "true"); //enable starttls
+        properties.put("mail.smtp.ssl.trust", "smtp.gmail.com"); //trust this host
+        properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //specify secure protocol
+        final String username = "patzzziejordan@gmail.com";
+        final String password = "jordan@4452";
+        try{
+            Session session = Session.getInstance(properties,
+                    new Authenticator(){
+                        protected PasswordAuthentication getPasswordAuthentication() {
+                            return new PasswordAuthentication(username, password);
+                        }});
+
+            MimeMessage msg = new MimeMessage(session);
+            msg.setFrom(new InternetAddress(username));
+            msg.addRecipient(Message.RecipientType.TO,
+                    new InternetAddress(email));
+            msg.setSubject("Download links");
+            msg.setText(message);
+            logger.debug("sending email");
+            Transport.send(msg);
+            logger.debug("sent email successfully with below details: " + "\n" + msg.getContent().toString() + "\n" + Arrays.toString(msg.getAllRecipients()));
+        } catch (AddressException | IOException e) {
+            e.printStackTrace();
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+        logger.debug("email job done");
+    }
+    public boolean isEmailValid(String email) {
+        Pattern EMAIL_REGEX = Pattern.compile("^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,6}$", Pattern.CASE_INSENSITIVE);
+        return EMAIL_REGEX.matcher(email).matches();
     }
 
 }
