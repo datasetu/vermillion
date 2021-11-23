@@ -1477,7 +1477,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Body=" + requestBody.encode());
         Queries query = new Queries();
 
-        int size = 10000; //max set of results per search request
+        int size = 80000; //max set of results per search request
         JsonObject providerByQuery = query.getProviderByQuery();
         JsonArray jsonArray = providerByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
                 .getJsonArray("filter");
@@ -1494,14 +1494,14 @@ public class HttpServerVerticle extends AbstractVerticle {
             if ("category".equalsIgnoreCase(entries.get(i).getKey())) {
                 key = entries.get(i).getKey();
                 value = entries.get(i).getValue();
-                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key, value)));
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key +".keyword", value)));
             } else if (!entries.get(i).getKey().equalsIgnoreCase("token")
                     && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
                 key = entries.get(i).getKey();
                 value = entries.get(i).getValue();
                 logger.debug("key: " + key);
                 logger.debug("value: " + value);
-                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key, value)));
+                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key +".keyword", value)));
             }
         }
 
@@ -1514,9 +1514,10 @@ public class HttpServerVerticle extends AbstractVerticle {
         UUID uuid = UUID.randomUUID();
         List<String> listOfEligibleIds = new ArrayList<>();
         List<String> finalZipLinks = new ArrayList<>();
-
+        logger.debug("server host:" + System.getenv("SERVER_NAME"));
         AtomicReference<List<String>> distinctIds = new AtomicReference<>();
         List<String> listOfIdsNeedToBeSentToScheduler = new ArrayList<>();
+        List<File> listOfFilesNeedToBeZipped = new ArrayList<>();
         AtomicReference<JsonArray> hits = new AtomicReference<>();
         AtomicBoolean didResponseEnded = new AtomicBoolean(false);
         if (resourceId != null) {
@@ -1612,10 +1613,13 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 id = ((JsonObject) hit).getString("id");
                                 if (id.endsWith(".public")) {
                                     listOfEligibleIds.add(id);
+                                    //add files also
+                                    String fileName = ((JsonObject) hit).getJsonObject("data").getString("filename");
+                                    String fileDirectory = PROVIDER_PATH + "public/" + id + "/" + fileName;
+                                    listOfFilesNeedToBeZipped.add(new File(fileDirectory));
                                 }
                             }
                         }
-
                         if (listOfEligibleIds.size() == 0) {
                             return Single.error(new
                                     UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
@@ -1670,6 +1674,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             jobDataMap.put("finalHitsSize", hits.get().size());
                                             jobDataMap.put("resourceId", null);
                                             jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
+                                            jobDataMap.put("listOfFilesNeedToBeZipped", listOfFilesNeedToBeZipped);
                                             jobDataMap.put("email", email);
                                             jobDataMap.put("finalZipLinks", finalZipLinks);
 
@@ -2191,15 +2196,18 @@ public class HttpServerVerticle extends AbstractVerticle {
                     + "\n" + downloadLinks;
         }
         Properties properties = new Properties();
-        properties.put("mail.smtp.host", "smtp.gmail.com"); //host name
-        properties.put("mail.smtp.port", "587"); //TLS port
+        properties.put("mail.smtp.host", System.getenv("HOST")); //host name
+        properties.put("mail.smtp.port", System.getenv("EMAIL_PORT")); //TLS port
         properties.put("mail.debug", "false"); //enable when you want to see mail logs
         properties.put("mail.smtp.auth", "true"); //enable auth
         properties.put("mail.smtp.starttls.enable", "true"); //enable starttls
-        properties.put("mail.smtp.ssl.trust", "smtp.gmail.com"); //trust this host
+        properties.put("mail.smtp.ssl.trust", System.getenv("HOST")); //trust this host
         properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //specify secure protocol
         final String username = "patzzziejordan@gmail.com";
-        final String password = "jordan@4452";
+        final String password = System.getenv("EMAIL_PWD");
+        logger.debug("password = " + password);
+        logger.debug("host = " + System.getenv("HOST"));
+        logger.debug("port = " +  System.getenv("EMAIL_PORT"));
         try{
             Session session = Session.getInstance(properties,
                     new Authenticator(){
