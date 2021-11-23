@@ -1477,7 +1477,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Body=" + requestBody.encode());
         Queries query = new Queries();
 
-        int size = 80000; //max set of results per search request
+        int size = 100000;
         JsonObject providerByQuery = query.getProviderByQuery();
         JsonArray jsonArray = providerByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
                 .getJsonArray("filter");
