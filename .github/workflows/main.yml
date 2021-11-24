@@ -48,6 +48,9 @@ jobs:
     - name: Load sample data into ES
       run: cd setup && ./load_sample_data.sh
 
+    - name: Increase elastic search limit
+      run: cd setup && ./es.sh
+
     - name: Run tests and generate reports
       run:  cd setup && ./coverage.sh
 

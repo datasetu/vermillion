@@ -54,21 +54,23 @@ public class ProviderScheduler implements Job {
                 .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
         JobDataMap jobDataMap = jobExecutionContext.getJobDetail().getJobDataMap();
+
         UUID uuid = (UUID) jobDataMap.get("uuid");
         int finalHitsSize = jobDataMap.getInt("finalHitsSize");
         String resourceId = jobDataMap.getString("resourceId");
         String email = jobDataMap.getString("email");
         List<String> distinctIds = (List<String>) jobDataMap.get("distinctIds");
+        List<File> listOfFilesNeedToBeZipped = (List<File>) jobDataMap.get("listOfFilesNeedToBeZipped");
         List<String> finalZipLinks = (List<String>) jobDataMap.get("finalZipLinks");
+
         logger.debug("State values: "  + "\n" + uuid + "\n" + resourceId + "\n" + email);
         logger.debug("Distinct Ids: "  + distinctIds);
         logger.debug("final zip links: "  + finalZipLinks);
-//        logger.debug("finalHitsSize to be zipped: " + finalHitsSize);
-//        logger.debug("finalHitsSize size: " + finalHitsSize.size());
+        logger.debug("finalHitsSize to be zipped: " + finalHitsSize);
 
         if (finalHitsSize > 0) {
             try {
-                zipAFileFromItsMetadata(finalHitsSize, uuid, resourceId, distinctIds, email, finalZipLinks);
+                zipAFileFromItsMetadata(uuid, resourceId, distinctIds, listOfFilesNeedToBeZipped, email, finalZipLinks);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -79,14 +81,14 @@ public class ProviderScheduler implements Job {
 
     }
 
-    private void zipAFileFromItsMetadata(
-            int hitsSize, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
+    private void zipAFileFromItsMetadata(UUID uuid, String resourceId, List<String> distinctIds,
+                                         List<File> listOfFilesNeedToBeZipped, String email,
+                                         List<String> finalZipLinks) throws IOException {
         logger.debug("In zipAFileFromItsMetadata");
-        zipRequestedFiles(hitsSize, uuid, resourceId, distinctIds, email, finalZipLinks);
+        zipRequestedFiles(uuid, resourceId, distinctIds, listOfFilesNeedToBeZipped, email, finalZipLinks);
     }
 
-    private void zipRequestedFiles(
-            int hitsSize, UUID uuid, String resourceId, List<String> distinctIds, String email, List<String> finalZipLinks) throws IOException {
+    private void zipRequestedFiles(UUID uuid, String resourceId, List<String> distinctIds, List<File> listOfFilesNeedToBeZipped, String email, List<String> finalZipLinks) throws IOException {
 
         logger.debug("In zipRequestedFiles");
 
@@ -98,6 +100,8 @@ public class ProviderScheduler implements Job {
         String zippedDirectoryLink;
         List<String> zippedLinks = new ArrayList<>();
         List<String> zippedPaths = new ArrayList<>();
+        Map<String, List<File>> hashMap = new HashMap<>();
+        List<File> finalListOfFilesNeedToBeZipped;
 
         if (resourceId != null) {
             providerResourceDir = providerPath + resourceId;
@@ -138,38 +142,54 @@ public class ProviderScheduler implements Job {
                 logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
             });
         }
-        if (!distinctIds.isEmpty()) {
 
-            for (int i=0; i<distinctIds.size(); i++) {
-                providerResourceDir = providerPath + distinctIds.get(i);
-                providerResourcePath = Paths.get(providerResourceDir);
-                logger.debug("Provider Resource path: " + providerResourcePath.toString());
-                if (Files.list(providerResourcePath).findAny().isEmpty()) {
-                    logger.error("Requested resource ID(s) is not present on provider's resource path");
-                    throw new FileNotFoundException("Requested files are not present on provider's resource path");
+        if (!listOfFilesNeedToBeZipped.isEmpty()) {
+
+            int counter = 0;
+            for(int i=0; i<distinctIds.size(); i++) {
+                finalListOfFilesNeedToBeZipped = new ArrayList<>();
+                for(int j=0; j<listOfFilesNeedToBeZipped.size(); j++) {
+
+                    if (i < 1) {
+                        providerResourceDir = listOfFilesNeedToBeZipped.get(j).getAbsolutePath();
+                        providerResourcePath = Paths.get(providerResourceDir);
+                        logger.debug("Provider Resource path: " + providerResourcePath.toString());
+
+                        if (Files.notExists(Paths.get(String.valueOf(providerResourcePath)))) {
+                            counter++;
+                            logger.error("Requested resource ID(s) is not present on provider's resource path" + providerResourcePath);
+                        }
+                    }
+
+                    if (counter == listOfFilesNeedToBeZipped.size()) {
+                        throw new FileNotFoundException("Requested files are not present on provider's resource path");
+                    }
+
+                    if(listOfFilesNeedToBeZipped.get(j).toString().contains(distinctIds.get(i))) {
+                        finalListOfFilesNeedToBeZipped.add(listOfFilesNeedToBeZipped.get(j));
+                        hashMap.put(distinctIds.get(i), finalListOfFilesNeedToBeZipped);
+                    }
                 }
+            }
 
-                File providerResourceDirectory = new File(providerResourceDir);
-//                List<File> filesOnProviderPath = Arrays
-//                        .asList(Objects.requireNonNull(providerResourceDirectory.listFiles()));
-//                logger.debug("files on provider=" + filesOnProviderPath.toString());
-                String zippedDir = providerPath + uuid
-                        + distinctIds.get(i).substring(distinctIds.get(i).lastIndexOf("/"));
-                String zippedPath = zippedDir + distinctIds.get(i).substring(distinctIds.get(i).lastIndexOf("/")) + ".zip";
+            for (String id : hashMap.keySet()) {
+
+                logger.debug("segregated id =" + id);
+                String zippedDir = providerPath + uuid + id.substring(id.lastIndexOf("/"));
+                String zippedPath = zippedDir + id.substring(id.lastIndexOf("/")) + ".zip";
                 zippedPaths.add(zippedPath);
                 File zipFileDirectory = new File(zippedDir);
                 zipFileDirectory.mkdirs();
 
-                zip(providerResourcePath,null, zippedPath);
+                zip(null, hashMap.get(id), zippedPath);
 
                 zippedDirectoryLink = "https://" + System.getenv("SERVER_NAME") + zippedPath.substring(19);
                 zippedLinks.add(zippedDirectoryLink);
-                zippedLinks.addAll(finalZipLinks);
                 logger.debug("Final zipped directory= " + zipFileDirectory.toString());
 
-                setValue(distinctIds.get(i), zippedPath).subscribe();
+                setValue(id, zippedPath).subscribe();
             }
-
+            zippedLinks.addAll(finalZipLinks);
             logger.debug("zipped links= " + zippedLinks.toString());
             logger.debug("zipped paths= " + zippedPaths.toString());
 
@@ -178,8 +198,10 @@ public class ProviderScheduler implements Job {
 //            Vertx vertx = Vertx.vertx();
             long timerId = vertx.setTimer(86400000, id -> {
                 boolean isZippedFileDeleted;
-                isZippedFileDeleted = deleteDirectory(new File(providerPath + uuid));
-                logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
+                File directoryToBeDeleted = new File(providerPath + uuid);
+                isZippedFileDeleted = deleteDirectory(directoryToBeDeleted);
+                logger.debug("file directory to be deleted = " + directoryToBeDeleted.getName());
+                logger.debug("Is zipped file directory deleted: " + isZippedFileDeleted);
             });
         }
     }
@@ -257,15 +279,18 @@ public class ProviderScheduler implements Job {
                     + "\n" + downloadLinks;
         }
         Properties properties = new Properties();
-        properties.put("mail.smtp.host", "smtp.gmail.com"); //host name
-        properties.put("mail.smtp.port", "587"); //TLS port
+        properties.put("mail.smtp.host", System.getenv("HOST")); //host name
+        properties.put("mail.smtp.port", System.getenv("EMAIL_PORT")); //TLS port
         properties.put("mail.debug", "false"); //enable when you want to see mail logs
         properties.put("mail.smtp.auth", "true"); //enable auth
         properties.put("mail.smtp.starttls.enable", "true"); //enable starttls
         properties.put("mail.smtp.ssl.trust", "smtp.gmail.com"); //trust this host
         properties.put("mail.smtp.ssl.protocols", "TLSv1.2"); //specify secure protocol
         final String username = "patzzziejordan@gmail.com";
-        final String password = "jordan@4452";
+        final String password = System.getenv("EMAIL_PWD");
+        logger.debug("password = " + password);
+        logger.debug("host = " + System.getenv("HOST"));
+        logger.debug("port = " +  System.getenv("EMAIL_PORT"));
         try{
             Session session = Session.getInstance(properties,
                     new Authenticator(){
