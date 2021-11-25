@@ -1537,6 +1537,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                 + file.substring(36);
                                         didResponseEnded.set(true);
                                         response.setStatusCode(ACCEPTED)
+                                                .putHeader("content-type", "text/plain")
                                                 .setStatusMessage("Please kindly wait as your download links are getting ready-single")
                                                 .end("Please check your email for the links shortly..!!" + "\n");
                                         emailJob(downloadLink, null, email);
@@ -1594,6 +1595,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 }).subscribe(() -> {
                                     if (!didResponseEnded.get()) {
                                         response.setStatusCode(ACCEPTED)
+                                                .putHeader("content-type", "text/plain")
                                                 .setStatusMessage("Please kindly wait as your download links are getting ready")
                                                 .end("Please check your email for the links shortly..!!" + "\n");
                                     }
@@ -1652,6 +1654,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             emailJob(null, finalZipLinks, email);
                                             didResponseEnded.set(true);
                                             response.setStatusCode(ACCEPTED)
+                                                    .putHeader("content-type", "text/plain")
                                                     .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
                                                     .end("Please check your email for the links shortly..!!" + "\n");
                                             return Single.never();
@@ -1716,6 +1719,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         logger.debug("List size =" + itemList.size());
                                         if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
                                                 response.setStatusCode(ACCEPTED)
+                                                        .putHeader("content-type", "text/plain")
                                                         .setStatusMessage("Please kindly wait as your download links are getting ready")
                                                         .end("Please check your email for the links shortly..!!" + "\n");
                                             }

@@ -107,7 +107,7 @@ public class ProviderScheduler implements Job {
             providerResourceDir = providerPath + resourceId;
             providerResourcePath = Paths.get(providerResourceDir);
             File providerResourceDirectory = new File(providerResourceDir);
-            logger.debug("Provider Resource path: " + providerResourceDir);
+//            logger.debug("Provider Resource path: " + providerResourceDir);
 
             if (Files.list(providerResourcePath).findAny().isEmpty()) {
                 logger.error("Requested resource ID(s) is not present on provider's resource path");
@@ -153,7 +153,7 @@ public class ProviderScheduler implements Job {
                     if (i < 1) {
                         providerResourceDir = listOfFilesNeedToBeZipped.get(j).getAbsolutePath();
                         providerResourcePath = Paths.get(providerResourceDir);
-                        logger.debug("Provider Resource path: " + providerResourcePath.toString());
+//                        logger.debug("Provider Resource path: " + providerResourcePath.toString());
 
                         if (Files.notExists(Paths.get(String.valueOf(providerResourcePath)))) {
                             counter++;
