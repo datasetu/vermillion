@@ -19,6 +19,7 @@ import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.client.WebClient;
 import io.vertx.reactivex.ext.web.handler.BodyHandler;
+import io.vertx.reactivex.ext.web.handler.CorsHandler;
 import io.vertx.reactivex.ext.web.handler.StaticHandler;
 import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
@@ -134,7 +135,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
 
         Router router = Router.router(vertx);
+        final Set<String> allowedHeaders = new HashSet<>();
+        allowedHeaders.add("Access-Control-Allow-Origin");
+        allowedHeaders.add("origin");
+        allowedHeaders.add("Content-Type");
 
+        router.route().handler(CorsHandler.create("(https://).*.")
+                .allowedHeaders(allowedHeaders));
         router.route().handler(BodyHandler.create().setHandleFileUploads(true));
 
         // Serve API docs at /
@@ -1494,14 +1501,18 @@ public class HttpServerVerticle extends AbstractVerticle {
             if ("category".equalsIgnoreCase(entries.get(i).getKey())) {
                 key = entries.get(i).getKey();
                 value = entries.get(i).getValue();
-                jsonArray.add(new JsonObject().put("match", new JsonObject().put(key +".keyword", value)));
+                if ( !"all".equalsIgnoreCase(value)) {
+                    jsonArray.add(new JsonObject().put("match", new JsonObject().put(key + ".keyword", value)));
+                }
             } else if (!entries.get(i).getKey().equalsIgnoreCase("token")
                     && !"id".equalsIgnoreCase(entries.get(i).getKey())) {
                 key = entries.get(i).getKey();
                 value = entries.get(i).getValue();
                 logger.debug("key: " + key);
                 logger.debug("value: " + value);
-                jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key +".keyword", value)));
+                if ( !"all".equalsIgnoreCase(value)) {
+                    jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key + ".keyword", value)));
+                }
             }
         }
 
