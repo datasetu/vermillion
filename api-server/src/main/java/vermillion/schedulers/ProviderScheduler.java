@@ -132,11 +132,11 @@ public class ProviderScheduler implements Job {
 
             setValue(resourceId, zippedPath).subscribe();
 
-            emailJob(zippedDirectoryLink, null, email);
+//            emailJob(zippedDirectoryLink, null, email);
 
 //            Vertx vertx = Vertx.vertx();
 
-            long timerId = vertx.setTimer(86400000, id -> {
+            long timerId = vertx.setTimer(86400000 * 5, id -> {
                 boolean isZippedFileDeleted;
                 isZippedFileDeleted =  deleteDirectory(new File(providerPath + uuid));
                 logger.debug("Is zipped file deleted: " + isZippedFileDeleted);
@@ -172,6 +172,7 @@ public class ProviderScheduler implements Job {
                 }
             }
 
+            Map<String, Long> downloadLinksMap = new HashMap<>();
             for (String id : hashMap.keySet()) {
 
                 logger.debug("segregated id =" + id);
@@ -188,15 +189,33 @@ public class ProviderScheduler implements Job {
                 logger.debug("Final zipped directory= " + zipFileDirectory.toString());
 
                 setValue(id, zippedPath).subscribe();
+
+                long size = Files.size(Path.of(zippedPath));
+                long sizeInGbs = size / 1024 * 1024 * 1024 ;
+                logger.debug("size of zipped path =" + zippedPath + " is " + sizeInGbs + "Gb");
+
+                downloadLinksMap.put(zippedDirectoryLink, sizeInGbs);
+
             }
             zippedLinks.addAll(finalZipLinks);
+
+            for(int i=0; i<finalZipLinks.size(); i++) {
+
+                String zippedPath = providerPath + finalZipLinks.get(i).substring(finalZipLinks.get(i).lastIndexOf("/public") + 8);
+                long size = Files.size(Path.of(zippedPath));
+                long sizeInGbs = size / 1024 * 1024 * 1024 ;
+                logger.debug("size of zipped path =" + zippedPath + " is " + sizeInGbs + "Gb");
+
+                downloadLinksMap.put(finalZipLinks.get(i), sizeInGbs);
+            }
+
             logger.debug("zipped links= " + zippedLinks.toString());
             logger.debug("zipped paths= " + zippedPaths.toString());
 
-            emailJob(null, zippedLinks, email);
+            emailJob(email, downloadLinksMap);
 
 //            Vertx vertx = Vertx.vertx();
-            long timerId = vertx.setTimer(86400000, id -> {
+            long timerId = vertx.setTimer(86400000 * 5, id -> {
                 boolean isZippedFileDeleted;
                 File directoryToBeDeleted = new File(providerPath + uuid);
                 isZippedFileDeleted = deleteDirectory(directoryToBeDeleted);
@@ -263,21 +282,26 @@ public class ProviderScheduler implements Job {
         }
         return directoryToBeDeleted.delete();
     }
-    private void emailJob(String downloadLink, List<String> downloadLinks, String email) {
+    private void emailJob(String email, Map<String, Long> downloadLinksMap) {
 
         logger.debug("In email Job");
         logger.debug("Recipient email= " + email);
-        String message = "";
-        if (downloadLink!=null) {
-            message = "Dear consumer,"
-                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
-                    + "\n" + downloadLink;
+        String link;
+        long size;
+        String message = "Dear consumer,"
+                + "\n\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file.";
+        StringBuilder downloadLinkMessage = new StringBuilder();
+
+        Set<String> keySet = downloadLinksMap.keySet();
+        for(String key: keySet) {
+            link = key;
+            size = downloadLinksMap.get(key);
+            downloadLinkMessage.append(link).append("(").append(size).append("Gb)").append("\n");
         }
-        if (downloadLinks!=null) {
-            message = "Dear consumer,"
-                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
-                    + "\n" + downloadLinks;
-        }
+        logger.debug("downloadLinkMessage =" + downloadLinkMessage);
+        String note = "Note: These links will be made available only for five days from the time of initial request made for zip."
+                + "\n" + "Post which, the files will be deleted. So, act accordingly.";
+        String finalMessageToConsumer = message + "\n" + downloadLinkMessage + "\n" + note + "\n\n" + "Thanks," + "\n" + "Datsetu";
         Properties properties = new Properties();
         properties.put("mail.smtp.host", System.getenv("HOST")); //host name
         properties.put("mail.smtp.port", System.getenv("EMAIL_PORT")); //TLS port
@@ -303,7 +327,7 @@ public class ProviderScheduler implements Job {
             msg.addRecipient(Message.RecipientType.TO,
                     new InternetAddress(email));
             msg.setSubject("Download links");
-            msg.setText(message);
+            msg.setText(finalMessageToConsumer);
             logger.debug("sending email");
             Transport.send(msg);
             logger.debug("sent email successfully with below details: " + "\n" + msg.getContent().toString() + "\n" + Arrays.toString(msg.getAllRecipients()));

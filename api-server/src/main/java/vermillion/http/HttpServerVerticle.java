@@ -1501,7 +1501,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             if ("category".equalsIgnoreCase(entries.get(i).getKey())) {
                 key = entries.get(i).getKey();
                 value = entries.get(i).getValue();
-                if ( !"all".equalsIgnoreCase(value)) {
+                if ( !"all".equalsIgnoreCase(value) && !"".equalsIgnoreCase(value)) {
                     jsonArray.add(new JsonObject().put("match", new JsonObject().put(key + ".keyword", value)));
                 }
             } else if (!entries.get(i).getKey().equalsIgnoreCase("token")
@@ -1510,7 +1510,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 value = entries.get(i).getValue();
                 logger.debug("key: " + key);
                 logger.debug("value: " + value);
-                if ( !"all".equalsIgnoreCase(value)) {
+                if ( !"all".equalsIgnoreCase(value) && !"".equalsIgnoreCase(value)) {
                     jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key + ".keyword", value)));
                 }
             }
@@ -1550,8 +1550,9 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         response.setStatusCode(ACCEPTED)
                                                 .putHeader("content-type", "text/plain")
                                                 .setStatusMessage("Please kindly wait as your download links are getting ready-single")
-                                                .end("Please check your email for the links shortly..!!" + "\n");
-                                        emailJob(downloadLink, null, email);
+                                                .end("Please check your email for the links soon." + "\n"
+                                                        + "Note: The time frame for the email is subjected to the number of files to zip.");
+                                        emailJob(email, null);
                                     }
                                     return didResponseEnded.get();
                                 }).flatMapCompletable(didResponseEnd -> {
@@ -1608,7 +1609,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         response.setStatusCode(ACCEPTED)
                                                 .putHeader("content-type", "text/plain")
                                                 .setStatusMessage("Please kindly wait as your download links are getting ready")
-                                                .end("Please check your email for the links shortly..!!" + "\n");
+                                                .end("Please check your email for the links soon." + "\n"
+                                                        + "Note: The time frame for the email is subjected to the number of files to zip.");
                                     }
                                     }, throwable -> apiFailure(context, throwable));
                         return Completable.complete();
@@ -1641,6 +1643,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                         logger.debug("distinct Ids= " + distinctIds.get().toString());
 
                         List<String> itemList = new ArrayList<>();
+                        Map<String, Long> downloadLinksMap = new HashMap<>();
+
                         for (int i = 0; i < distinctIds.get().size(); i++) {
                             int finalI = i;
                             getValue(distinctIds.get().get(i))
@@ -1655,6 +1659,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             zipLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
                                                     + file.substring(36);
                                             finalZipLinks.add(zipLink);
+                                            downloadLinksMap.put(zipLink, Files.size(Path.of(file)) / 1024 * 1024 * 1024);
                                         } else {
                                             listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
                                         }
@@ -1662,12 +1667,13 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                                         if (itemList.size() == distinctIds.get().size()
                                                 && finalZipLinks.size() == distinctIds.get().size()) {
-                                            emailJob(null, finalZipLinks, email);
+                                            emailJob(email, downloadLinksMap);
                                             didResponseEnded.set(true);
                                             response.setStatusCode(ACCEPTED)
                                                     .putHeader("content-type", "text/plain")
                                                     .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
-                                                    .end("Please check your email for the links shortly..!!" + "\n");
+                                                    .end("Please check your email for the links soon." + "\n"
+                                                            + "Note: The time frame for the email is subjected to the number of files to zip.");
                                             return Single.never();
                                         }
                                         return Single.just(didResponseEnded.get());
@@ -1732,7 +1738,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                 response.setStatusCode(ACCEPTED)
                                                         .putHeader("content-type", "text/plain")
                                                         .setStatusMessage("Please kindly wait as your download links are getting ready")
-                                                        .end("Please check your email for the links shortly..!!" + "\n");
+                                                        .end("Please check your email for the links soon." + "\n"
+                                                                + "Note: The time frame for the email is subjected to the number of files to zip.");
                                             }
                                             }, throwable -> apiFailure(context, throwable));
                         }
@@ -2195,21 +2202,27 @@ public class HttpServerVerticle extends AbstractVerticle {
                 });
     }
 
-    private void emailJob(String downloadLink, List<String> downloadLinks, String email) {
+    private void emailJob(String email, Map<String, Long> downloadLinksMap) {
 
         logger.debug("In email Job");
         logger.debug("Recipient email= " + email);
-        String message = "";
-        if (downloadLink!=null) {
-            message = "Dear consumer,"
-                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
-                    + "\n" + downloadLink;
+        String link;
+        long size;
+        String message = "Dear consumer,"
+                + "\n\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file.";
+        StringBuilder downloadLinkMessage = new StringBuilder();
+
+        Set<String> keySet = downloadLinksMap.keySet();
+        for(String key: keySet) {
+            link = key;
+            size = downloadLinksMap.get(key);
+            downloadLinkMessage.append(link).append("(").append(size).append("Gb)").append("\n");
         }
-        if (downloadLinks!=null) {
-            message = "Dear consumer,"
-                    + "\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file."
-                    + "\n" + downloadLinks;
-        }
+        logger.debug("downloadLinkMessage =" + downloadLinkMessage);
+        String note = "Note: These links will be made available only for five days from the time of initial request made for zip."
+                + "\n" + "Post which, the files will be deleted. So, act accordingly.";
+        String finalMessageToConsumer = message + "\n" + downloadLinkMessage + "\n" + note + "\n\n" + "Thanks," + "\n" + "Datsetu";
+
         Properties properties = new Properties();
         properties.put("mail.smtp.host", System.getenv("HOST")); //host name
         properties.put("mail.smtp.port", System.getenv("EMAIL_PORT")); //TLS port
@@ -2235,7 +2248,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             msg.addRecipient(Message.RecipientType.TO,
                     new InternetAddress(email));
             msg.setSubject("Download links");
-            msg.setText(message);
+            msg.setText(finalMessageToConsumer);
             logger.debug("sending email");
             Transport.send(msg);
             logger.debug("sent email successfully with below details: " + "\n" + msg.getContent().toString() + "\n" + Arrays.toString(msg.getAllRecipients()));
