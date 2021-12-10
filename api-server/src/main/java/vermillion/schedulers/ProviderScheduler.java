@@ -191,7 +191,7 @@ public class ProviderScheduler implements Job {
                 setValue(id, zippedPath).subscribe();
 
                 long size = Files.size(Path.of(zippedPath));
-                long sizeInGbs = size / 1024 * 1024 * 1024 ;
+                long sizeInGbs = size / 1073741824 ;
                 logger.debug("size of zipped path =" + zippedPath + " is " + sizeInGbs + "Gb");
 
                 downloadLinksMap.put(zippedDirectoryLink, sizeInGbs);
@@ -204,7 +204,7 @@ public class ProviderScheduler implements Job {
                 String zippedPath = providerPath + finalZipLinks.get(i).substring(finalZipLinks.get(i).lastIndexOf("/public") + 8);
                 long size = Files.size(Path.of(zippedPath));
                 logger.debug("size of zipped path in bytes = " + size);
-                long sizeInGbs = size / 1024 * 1024 * 1024 ;
+                long sizeInGbs = size / 1073741824 ;
                 logger.debug("size of zipped path =" + zippedPath + " is " + sizeInGbs + "Gb");
 
                 downloadLinksMap.put(finalZipLinks.get(i), sizeInGbs);

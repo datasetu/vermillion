@@ -1661,7 +1661,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             finalZipLinks.add(zipLink);
                                             long fileSize = Files.size(Path.of(file));
                                             logger.debug("file size in bytes = " + fileSize);
-                                            downloadLinksMap.put(zipLink, fileSize / 1024 * 1024 * 1024);
+                                            downloadLinksMap.put(zipLink, fileSize / 1073741824);
                                         } else {
                                             listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
                                         }
