@@ -1659,7 +1659,9 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             zipLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
                                                     + file.substring(36);
                                             finalZipLinks.add(zipLink);
-                                            downloadLinksMap.put(zipLink, Files.size(Path.of(file)) / 1024 * 1024 * 1024);
+                                            long fileSize = Files.size(Path.of(file));
+                                            logger.debug("file size in bytes = " + fileSize);
+                                            downloadLinksMap.put(zipLink, fileSize / 1024 * 1024 * 1024);
                                         } else {
                                             listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
                                         }
@@ -2216,7 +2218,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         for(String key: keySet) {
             link = key;
             size = downloadLinksMap.get(key);
-            downloadLinkMessage.append(link).append("(").append(size).append("Gb)").append("\n");
+            downloadLinkMessage.append(link).append(" ").append("(").append(size).append("Gb)").append("\n");
         }
         logger.debug("downloadLinkMessage =" + downloadLinkMessage);
         String note = "Note: These links will be made available only for five days from the time of initial request made for zip."

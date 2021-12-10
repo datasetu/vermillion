@@ -203,6 +203,7 @@ public class ProviderScheduler implements Job {
 
                 String zippedPath = providerPath + finalZipLinks.get(i).substring(finalZipLinks.get(i).lastIndexOf("/public") + 8);
                 long size = Files.size(Path.of(zippedPath));
+                logger.debug("size of zipped path in bytes = " + size);
                 long sizeInGbs = size / 1024 * 1024 * 1024 ;
                 logger.debug("size of zipped path =" + zippedPath + " is " + sizeInGbs + "Gb");
 
@@ -296,7 +297,7 @@ public class ProviderScheduler implements Job {
         for(String key: keySet) {
             link = key;
             size = downloadLinksMap.get(key);
-            downloadLinkMessage.append(link).append("(").append(size).append("Gb)").append("\n");
+            downloadLinkMessage.append(link).append(" ").append("(").append(size).append("Gb)").append("\n");
         }
         logger.debug("downloadLinkMessage =" + downloadLinkMessage);
         String note = "Note: These links will be made available only for five days from the time of initial request made for zip."
