@@ -1495,6 +1495,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                     new JsonArray().add(resourceId))));
         }
         List<Map.Entry<String, String>> entries = parameters.entries();
+        JsonObject subCategoryEntryField = new JsonObject();
         for (int i = 0; i < entries.size(); i++) {
             String key;
             String value;
@@ -1513,9 +1514,13 @@ public class HttpServerVerticle extends AbstractVerticle {
                 if ( !"all".equalsIgnoreCase(value) && !"".equalsIgnoreCase(value)) {
                     jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key + ".keyword", value)));
                 }
+                if ("sub-category".equalsIgnoreCase(key)) {
+                    subCategoryEntryField.put(key, value);
+                }
             }
         }
 
+        logger.debug("subCategoryEntryField = " + subCategoryEntryField.encodePrettily());
         logger.debug("provider by query =" + query.getProviderByQuery().encodePrettily());
 
         if (jsonArray.size() == 0) {
@@ -1552,7 +1557,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                 .setStatusMessage("Please kindly wait as your download links are getting ready-single")
                                                 .end("Please check your email for the links soon." + "\n"
                                                         + "Note: The time frame for the email is subjected to the number of files to zip.");
-                                        emailJob(email, null);
+                                        emailJob(email, null, null);
                                     }
                                     return didResponseEnded.get();
                                 }).flatMapCompletable(didResponseEnd -> {
@@ -1669,12 +1674,15 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                                         if (itemList.size() == distinctIds.get().size()
                                                 && finalZipLinks.size() == distinctIds.get().size()) {
-                                            emailJob(email, downloadLinksMap);
+                                            String sub_category = subCategoryEntryField.getString("sub-category");
+                                            emailJob(email, downloadLinksMap, sub_category);
                                             didResponseEnded.set(true);
                                             response.setStatusCode(ACCEPTED)
                                                     .putHeader("content-type", "text/plain")
                                                     .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
-                                                    .end("Please check your email for the links soon." + "\n"
+                                                    .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
+                                                            "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
+                                                            "to the respective email-id which will contain downloadable links for the same." + "\n"
                                                             + "Note: The time frame for the email is subjected to the number of files to zip.");
                                             return Single.never();
                                         }
@@ -1691,6 +1699,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                                             logger.debug("distinct ids need to be sent for zip =" + listOfIdsNeedToBeSentToScheduler);
                                             logger.debug("Is scheduler started: " + scheduler.isStarted());
+                                            String sub_category = subCategoryEntryField.getString("sub-category");
                                             JobDataMap jobDataMap = new JobDataMap();
                                             jobDataMap.put("uuid", uuid);
                                             jobDataMap.put("finalHitsSize", hits.get().size());
@@ -1699,6 +1708,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                             jobDataMap.put("listOfFilesNeedToBeZipped", listOfFilesNeedToBeZipped);
                                             jobDataMap.put("email", email);
                                             jobDataMap.put("finalZipLinks", finalZipLinks);
+                                            jobDataMap.put("sub_category", sub_category);
 
                                             // define the job and tie it to our JobScheduler class
                                             JobDetail job = JobBuilder.newJob(ProviderScheduler.class)
@@ -1737,13 +1747,16 @@ public class HttpServerVerticle extends AbstractVerticle {
                                     }).subscribe(()-> {
                                         logger.debug("List size =" + itemList.size());
                                         if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
-                                                response.setStatusCode(ACCEPTED)
-                                                        .putHeader("content-type", "text/plain")
-                                                        .setStatusMessage("Please kindly wait as your download links are getting ready")
-                                                        .end("Please check your email for the links soon." + "\n"
-                                                                + "Note: The time frame for the email is subjected to the number of files to zip.");
-                                            }
-                                            }, throwable -> apiFailure(context, throwable));
+                                            String sub_category = subCategoryEntryField.getString("sub-category");
+                                            response.setStatusCode(ACCEPTED)
+                                                    .putHeader("content-type", "text/plain")
+                                                    .setStatusMessage("Please kindly wait as your download links are getting ready")
+                                                    .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
+                                                            "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
+                                                            "to the respective email-id which will contain downloadable links for the same." + "\n"
+                                                            + "Note: The time frame for the email is subjected to the number of files to zip.");
+                                        }
+                                        }, throwable -> apiFailure(context, throwable));
                         }
                         return Single.just("");
                     }).subscribe(s-> { }, throwable -> apiFailure(context, throwable));
@@ -2204,14 +2217,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                 });
     }
 
-    private void emailJob(String email, Map<String, Long> downloadLinksMap) {
+    private void emailJob(String email, Map<String, Long> downloadLinksMap, String sub_category) {
 
         logger.debug("In email Job");
         logger.debug("Recipient email= " + email);
         String link;
         long size;
         String message = "Dear consumer,"
-                + "\n\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file.";
+                + "\n\n" + "The downloadable links for the datasets <" + sub_category + "> you requested are ready to be served. Please use below link to download the datasets as a zip file.";
         StringBuilder downloadLinkMessage = new StringBuilder();
 
         Set<String> keySet = downloadLinksMap.keySet();

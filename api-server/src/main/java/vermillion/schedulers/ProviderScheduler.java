@@ -59,6 +59,7 @@ public class ProviderScheduler implements Job {
         int finalHitsSize = jobDataMap.getInt("finalHitsSize");
         String resourceId = jobDataMap.getString("resourceId");
         String email = jobDataMap.getString("email");
+        String sub_category = jobDataMap.getString("sub_category");
         List<String> distinctIds = (List<String>) jobDataMap.get("distinctIds");
         List<File> listOfFilesNeedToBeZipped = (List<File>) jobDataMap.get("listOfFilesNeedToBeZipped");
         List<String> finalZipLinks = (List<String>) jobDataMap.get("finalZipLinks");
@@ -70,7 +71,7 @@ public class ProviderScheduler implements Job {
 
         if (finalHitsSize > 0) {
             try {
-                zipAFileFromItsMetadata(uuid, resourceId, distinctIds, listOfFilesNeedToBeZipped, email, finalZipLinks);
+                zipAFileFromItsMetadata(uuid, resourceId, distinctIds, listOfFilesNeedToBeZipped, email, finalZipLinks, sub_category);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -83,12 +84,14 @@ public class ProviderScheduler implements Job {
 
     private void zipAFileFromItsMetadata(UUID uuid, String resourceId, List<String> distinctIds,
                                          List<File> listOfFilesNeedToBeZipped, String email,
-                                         List<String> finalZipLinks) throws IOException {
+                                         List<String> finalZipLinks, String sub_category) throws IOException {
         logger.debug("In zipAFileFromItsMetadata");
-        zipRequestedFiles(uuid, resourceId, distinctIds, listOfFilesNeedToBeZipped, email, finalZipLinks);
+        zipRequestedFiles(uuid, resourceId, distinctIds, listOfFilesNeedToBeZipped, email, finalZipLinks, sub_category);
     }
 
-    private void zipRequestedFiles(UUID uuid, String resourceId, List<String> distinctIds, List<File> listOfFilesNeedToBeZipped, String email, List<String> finalZipLinks) throws IOException {
+    private void zipRequestedFiles(UUID uuid, String resourceId, List<String> distinctIds,
+                                   List<File> listOfFilesNeedToBeZipped,
+                                   String email, List<String> finalZipLinks, String sub_category) throws IOException {
 
         logger.debug("In zipRequestedFiles");
 
@@ -213,7 +216,7 @@ public class ProviderScheduler implements Job {
             logger.debug("zipped links= " + zippedLinks.toString());
             logger.debug("zipped paths= " + zippedPaths.toString());
 
-            emailJob(email, downloadLinksMap);
+            emailJob(email, downloadLinksMap, sub_category);
 
 //            Vertx vertx = Vertx.vertx();
             long timerId = vertx.setTimer(86400000 * 5, id -> {
@@ -283,14 +286,14 @@ public class ProviderScheduler implements Job {
         }
         return directoryToBeDeleted.delete();
     }
-    private void emailJob(String email, Map<String, Long> downloadLinksMap) {
+    private void emailJob(String email, Map<String, Long> downloadLinksMap, String sub_category) {
 
         logger.debug("In email Job");
         logger.debug("Recipient email= " + email);
         String link;
         long size;
         String message = "Dear consumer,"
-                + "\n\n" + "The downloadable links for the datasets you requested are ready to be served. Please use below link to download the datasets as a zip file.";
+                + "\n\n" + "The downloadable links for the datasets <" + sub_category + "> you requested are ready to be served. Please use below link to download the datasets as a zip file.";
         StringBuilder downloadLinkMessage = new StringBuilder();
 
         Set<String> keySet = downloadLinksMap.keySet();
