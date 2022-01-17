@@ -1514,7 +1514,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 if ( !"all".equalsIgnoreCase(value) && !"".equalsIgnoreCase(value)) {
                     jsonArray.add(new JsonObject().put("match", new JsonObject().put("data.metadata." + key + ".keyword", value)));
                 }
-                if ("sub-category".equalsIgnoreCase(key)) {
+                if ("sub_category".equalsIgnoreCase(key)) {
                     subCategoryEntryField.put(key, value);
                 }
             }
@@ -1674,7 +1674,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                                         if (itemList.size() == distinctIds.get().size()
                                                 && finalZipLinks.size() == distinctIds.get().size()) {
-                                            String sub_category = subCategoryEntryField.getString("sub-category");
+                                            String sub_category = subCategoryEntryField.getString("sub_category");
                                             emailJob(email, downloadLinksMap, sub_category);
                                             didResponseEnded.set(true);
                                             response.setStatusCode(ACCEPTED)
@@ -1699,7 +1699,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                                             logger.debug("distinct ids need to be sent for zip =" + listOfIdsNeedToBeSentToScheduler);
                                             logger.debug("Is scheduler started: " + scheduler.isStarted());
-                                            String sub_category = subCategoryEntryField.getString("sub-category");
+                                            String sub_category = subCategoryEntryField.getString("sub_category");
                                             JobDataMap jobDataMap = new JobDataMap();
                                             jobDataMap.put("uuid", uuid);
                                             jobDataMap.put("finalHitsSize", hits.get().size());
@@ -1747,7 +1747,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                     }).subscribe(()-> {
                                         logger.debug("List size =" + itemList.size());
                                         if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
-                                            String sub_category = subCategoryEntryField.getString("sub-category");
+                                            String sub_category = subCategoryEntryField.getString("sub_category");
                                             response.setStatusCode(ACCEPTED)
                                                     .putHeader("content-type", "text/plain")
                                                     .setStatusMessage("Please kindly wait as your download links are getting ready")
