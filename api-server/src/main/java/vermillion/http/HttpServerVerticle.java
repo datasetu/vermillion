@@ -54,6 +54,7 @@ import java.nio.file.*;
 import java.time.Clock;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collector;
@@ -1484,7 +1485,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Body=" + requestBody.encode());
         Queries query = new Queries();
 
-        int size = 100000;
+        int size = 10000;
         JsonObject providerByQuery = query.getProviderByQuery();
         JsonArray jsonArray = providerByQuery.put("size", size).getJsonObject("query").getJsonObject("bool")
                 .getJsonArray("filter");
@@ -1536,6 +1537,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         List<File> listOfFilesNeedToBeZipped = new ArrayList<>();
         AtomicReference<JsonArray> hits = new AtomicReference<>();
         AtomicBoolean didResponseEnded = new AtomicBoolean(false);
+        AtomicInteger noOfScrollCalls = new AtomicInteger();
         if (resourceId != null) {
             dbService.rxSearch(providerByQuery, false, "")
                     .flatMapCompletable(result -> {
@@ -1621,8 +1623,20 @@ public class HttpServerVerticle extends AbstractVerticle {
                         return Completable.complete();
                     }).subscribe(() -> { }, throwable -> apiFailure(context, throwable));
         } else {
-            dbService.rxSearch(providerByQuery, false, "")
+            dbService.rxSearch(providerByQuery, true, "60m")
                     .flatMap(result -> {
+                        int total = result.getInteger("total");
+                        logger.debug("total no = "+ total);
+
+                        AtomicInteger totalNoOfTimesToInvokeScrollApi = new AtomicInteger();
+                        if ((total % size) == 0) {
+                            totalNoOfTimesToInvokeScrollApi.set((total / size) - 1);
+                        } else {
+                            totalNoOfTimesToInvokeScrollApi.set((total / size)) ;
+                        }
+                        noOfScrollCalls.set(totalNoOfTimesToInvokeScrollApi.get());
+                        logger.debug("totalNoOfTimesToInvokeScrollApi = "+ totalNoOfTimesToInvokeScrollApi);
+
                         hits.set(result.getJsonArray("hits"));
                         if (hits.get().size() == 0) {
                             return Single.error(new FileNotFoundThrowable("The requested files are not found"));
@@ -1640,124 +1654,157 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 }
                             }
                         }
-                        if (listOfEligibleIds.size() == 0) {
-                            return Single.error(new
-                                    UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
-                        }
-                        distinctIds.set(listOfEligibleIds.stream().distinct().collect(Collectors.toList()));
-                        logger.debug("distinct Ids= " + distinctIds.get().toString());
 
-                        List<String> itemList = new ArrayList<>();
-                        Map<String, Long> downloadLinksMap = new HashMap<>();
+                        List<String> itemList1 = new ArrayList<>();
+                        Single<JsonObject> scrolledSearchResult =
+                                dbService.rxScrolledSearch(result.getString("scroll_id"),
+                                        "60m", null, null);
+                        scrolledSearchResult.flatMap(scrolledResult-> {
+                            if (totalNoOfTimesToInvokeScrollApi.get() > 0) {
+                                itemList1.add("visited");
+                            }
+//                            logger.debug("scrolledResult = " + scrolledResult.encodePrettily());
 
-                        for (int i = 0; i < distinctIds.get().size(); i++) {
-                            int finalI = i;
-                            getValue(distinctIds.get().get(i))
-                                    .flatMap(file -> {
-                                        itemList.add("visited");
-                                        logger.debug("Item list size =" + itemList.size());
-                                        String zipLink;
-                                        logger.debug("result for multiple ids = " + file);
-                                        boolean doesFileExists = Files.exists(Path.of(file));
-                                        logger.debug("doesFileExists for multiple ids= " + doesFileExists);
-                                        if (doesFileExists) {
-                                            zipLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
-                                                    + file.substring(36);
-                                            finalZipLinks.add(zipLink);
-                                            long fileSize = Files.size(Path.of(file));
-                                            logger.debug("file size in bytes = " + fileSize);
-                                            downloadLinksMap.put(zipLink, fileSize / 1073741824);
-                                        } else {
-                                            listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
+                            for (int i = 0; i < scrolledResult.getJsonArray("hits").size(); i++) {
+                                if (scrolledResult.getJsonArray("hits").size() > 0
+                                        && scrolledResult.getJsonArray("hits") != null
+                                        && scrolledResult.getJsonArray("hits").getJsonObject(i) != null) {
+                                    String idFromScrolledSearch = scrolledResult.getJsonArray("hits").getJsonObject(i).getString("id");
+                                    logger.debug("idFromScrolledSearch = " + idFromScrolledSearch);
+                                    if (idFromScrolledSearch.endsWith(".public")) {
+                                        listOfEligibleIds.add(idFromScrolledSearch);
+                                        //add files also
+                                        String fileName = scrolledResult.getJsonArray("hits").getJsonObject(i).getJsonObject("data").getString("filename");
+                                        String fileDirectory = PROVIDER_PATH + "public/" + idFromScrolledSearch + "/" + fileName;
+                                        listOfFilesNeedToBeZipped.add(new File(fileDirectory));
+                                    }
+                                }
+                            }
+
+                            return Single.just(listOfFilesNeedToBeZipped);
+                        }).repeatUntil(() -> totalNoOfTimesToInvokeScrollApi.getAndDecrement() < 2).flatMapCompletable(res -> {
+                            logger.debug("item list 1 size after repeat = "+ itemList1.size());
+                            if (itemList1.size() == noOfScrollCalls.get()) {
+                                if (listOfEligibleIds.size() == 0) {
+                                    return Completable.error(new
+                                            UnauthorisedThrowable("This is used only for public datasets and not secure ones"));
+                                }
+                                distinctIds.set(listOfEligibleIds.stream().distinct().collect(Collectors.toList()));
+                                logger.debug("distinct Ids= " + distinctIds.get().toString());
+
+                                List<String> itemList = new ArrayList<>();
+                                Map<String, Long> downloadLinksMap = new HashMap<>();
+
+                                for (int i = 0; i < distinctIds.get().size(); i++) {
+                                    int finalI = i;
+                                    getValue(distinctIds.get().get(i))
+                                            .flatMap(file -> {
+                                                itemList.add("visited");
+                                                logger.debug("Item list size =" + itemList.size());
+                                                String zipLink;
+                                                logger.debug("result for multiple ids = " + file);
+                                                boolean doesFileExists = Files.exists(Path.of(file));
+                                                logger.debug("doesFileExists for multiple ids= " + doesFileExists);
+                                                if (doesFileExists) {
+                                                    zipLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
+                                                            + file.substring(36);
+                                                    finalZipLinks.add(zipLink);
+                                                    long fileSize = Files.size(Path.of(file));
+                                                    logger.debug("file size in bytes = " + fileSize);
+                                                    downloadLinksMap.put(zipLink, fileSize / 1073741824);
+                                                } else {
+                                                    listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
+                                                }
+                                                logger.debug("finalZipLinks of consumer =" + finalZipLinks);
+
+                                                if (itemList.size() == distinctIds.get().size()
+                                                        && finalZipLinks.size() == distinctIds.get().size()) {
+                                                    String sub_category = subCategoryEntryField.getString("sub_category");
+                                                    emailJob(email, downloadLinksMap, sub_category);
+                                                    didResponseEnded.set(true);
+                                                    response.setStatusCode(ACCEPTED)
+                                                            .putHeader("content-type", "text/plain")
+                                                            .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
+                                                            .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
+                                                                    "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
+                                                                    "to the respective email-id which will contain downloadable links for the same." + "\n"
+                                                                    + "Note: The time frame for the email is subjected to the number of files to zip.");
+                                                    return Single.never();
+                                                }
+                                                return Single.just(didResponseEnded.get());
+                                            }).flatMapCompletable(didResponseEnd -> {
+                                                logger.debug("did response end = " + didResponseEnd);
+                                                logger.debug("Item list size =" + itemList.size());
+
+                                                if (!didResponseEnd && itemList.size() == distinctIds.get().size()) {
+                                                    SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
+                                                    Scheduler scheduler = stdSchedulerFactory.getScheduler();
+                                                    scheduler.start();
+
+                                                    logger.debug("distinct ids need to be sent for zip =" + listOfIdsNeedToBeSentToScheduler);
+                                                    logger.debug("Is scheduler started: " + scheduler.isStarted());
+                                                    String sub_category = subCategoryEntryField.getString("sub_category");
+                                                    JobDataMap jobDataMap = new JobDataMap();
+                                                    jobDataMap.put("uuid", uuid);
+                                                    jobDataMap.put("finalHitsSize", hits.get().size());
+                                                    jobDataMap.put("resourceId", null);
+                                                    jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
+                                                    jobDataMap.put("listOfFilesNeedToBeZipped", listOfFilesNeedToBeZipped);
+                                                    jobDataMap.put("email", email);
+                                                    jobDataMap.put("finalZipLinks", finalZipLinks);
+                                                    jobDataMap.put("sub_category", sub_category);
+
+                                                    // define the job and tie it to our JobScheduler class
+                                                    JobDetail job = JobBuilder.newJob(ProviderScheduler.class)
+                                                            .withIdentity(String.valueOf(uuid), "provider")
+                                                            .usingJobData(jobDataMap)
+                                                            .build();
+                                                    logger.debug("Job key: " + job.getKey());
+
+                                                    // Trigger the job to run now
+                                                    Trigger trigger = newTrigger()
+                                                            .withIdentity(String.valueOf(uuid), "provider")
+                                                            .startNow()
+                                                            .withSchedule(simpleSchedule())
+                                                            .build();
+                                                    logger.debug("trigger key: " + trigger.getKey());
+
+                                                    scheduler.getListenerManager().addJobListener(
+                                                            new JobSchedulerListener());
+
+                                                    // Tell quartz to schedule the job using our trigger
+                                                    boolean isSchedulerExceptionCaught = false;
+                                                    try {
+                                                        scheduler.scheduleJob(job, trigger);
+                                                    } catch (SchedulerException e) {
+                                                        isSchedulerExceptionCaught = true;
+                                                        logger.debug("Scheduler exception caused due to: " + e.getMessage());
+                                                        e.printStackTrace();
+                                                    }
+                                                    if (isSchedulerExceptionCaught) {
+                                                        logger.debug("inside scheduler exception caught");
+                                                        return Completable.error(new SchedulerException("Scheduler exception caught"));
+                                                    }
+                                                    return Completable.complete();
+                                                }
+                                                return Completable.never();
+                                            }).subscribe(() -> {
+                                                logger.debug("List size =" + itemList.size());
+                                                if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
+                                                    String sub_category = subCategoryEntryField.getString("sub_category");
+                                                    response.setStatusCode(ACCEPTED)
+                                                            .putHeader("content-type", "text/plain")
+                                                            .setStatusMessage("Please kindly wait as your download links are getting ready")
+                                                            .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
+                                                                    "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
+                                                                    "to the respective email-id which will contain downloadable links for the same." + "\n"
+                                                                    + "Note: The time frame for the email is subjected to the number of files to zip.");
+                                                }
+                                            }, throwable -> apiFailure(context, throwable));
                                         }
-                                        logger.debug("finalZipLinks of consumer =" + finalZipLinks);
-
-                                        if (itemList.size() == distinctIds.get().size()
-                                                && finalZipLinks.size() == distinctIds.get().size()) {
-                                            String sub_category = subCategoryEntryField.getString("sub_category");
-                                            emailJob(email, downloadLinksMap, sub_category);
-                                            didResponseEnded.set(true);
-                                            response.setStatusCode(ACCEPTED)
-                                                    .putHeader("content-type", "text/plain")
-                                                    .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
-                                                    .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
-                                                            "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
-                                                            "to the respective email-id which will contain downloadable links for the same." + "\n"
-                                                            + "Note: The time frame for the email is subjected to the number of files to zip.");
-                                            return Single.never();
-                                        }
-                                        return Single.just(didResponseEnded.get());
-                                    }).flatMapCompletable(didResponseEnd -> {
-                                        logger.debug("did response end = " + didResponseEnd);
-                                        logger.debug("did response got ended = " + response.ended());
-                                        logger.debug("Item list size =" + itemList.size());
-
-                                        if (!didResponseEnd && itemList.size() == distinctIds.get().size()) {
-                                            SchedulerFactory stdSchedulerFactory = new StdSchedulerFactory();
-                                            Scheduler scheduler = stdSchedulerFactory.getScheduler();
-                                            scheduler.start();
-
-                                            logger.debug("distinct ids need to be sent for zip =" + listOfIdsNeedToBeSentToScheduler);
-                                            logger.debug("Is scheduler started: " + scheduler.isStarted());
-                                            String sub_category = subCategoryEntryField.getString("sub_category");
-                                            JobDataMap jobDataMap = new JobDataMap();
-                                            jobDataMap.put("uuid", uuid);
-                                            jobDataMap.put("finalHitsSize", hits.get().size());
-                                            jobDataMap.put("resourceId", null);
-                                            jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
-                                            jobDataMap.put("listOfFilesNeedToBeZipped", listOfFilesNeedToBeZipped);
-                                            jobDataMap.put("email", email);
-                                            jobDataMap.put("finalZipLinks", finalZipLinks);
-                                            jobDataMap.put("sub_category", sub_category);
-
-                                            // define the job and tie it to our JobScheduler class
-                                            JobDetail job = JobBuilder.newJob(ProviderScheduler.class)
-                                                    .withIdentity(String.valueOf(uuid), "provider")
-                                                    .usingJobData(jobDataMap)
-                                                    .build();
-                                            logger.debug("Job key: " + job.getKey());
-
-                                            // Trigger the job to run now
-                                            Trigger trigger = newTrigger()
-                                                    .withIdentity(String.valueOf(uuid), "provider")
-                                                    .startNow()
-                                                    .withSchedule(simpleSchedule())
-                                                    .build();
-                                            logger.debug("trigger key: " + trigger.getKey());
-
-                                            scheduler.getListenerManager().addJobListener(
-                                                    new JobSchedulerListener());
-
-                                            // Tell quartz to schedule the job using our trigger
-                                            boolean isSchedulerExceptionCaught = false;
-                                            try {
-                                                scheduler.scheduleJob(job, trigger);
-                                            } catch (SchedulerException e) {
-                                                isSchedulerExceptionCaught = true;
-                                                logger.debug("Scheduler exception caused due to: " + e.getMessage());
-                                                e.printStackTrace();
-                                            }
-                                            if (isSchedulerExceptionCaught) {
-                                                logger.debug("inside scheduler exception caught");
-                                                return Completable.error(new SchedulerException("Scheduler exception caught"));
-                                            }
-                                            return Completable.complete();
-                                        }
-                                        return Completable.never();
-                                    }).subscribe(()-> {
-                                        logger.debug("List size =" + itemList.size());
-                                        if (!didResponseEnded.get() && itemList.size() == distinctIds.get().size()) {
-                                            String sub_category = subCategoryEntryField.getString("sub_category");
-                                            response.setStatusCode(ACCEPTED)
-                                                    .putHeader("content-type", "text/plain")
-                                                    .setStatusMessage("Please kindly wait as your download links are getting ready")
-                                                    .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
-                                                            "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
-                                                            "to the respective email-id which will contain downloadable links for the same." + "\n"
-                                                            + "Note: The time frame for the email is subjected to the number of files to zip.");
-                                        }
-                                        }, throwable -> apiFailure(context, throwable));
-                        }
+                                    }
+                                    return Completable.complete();
+                                }).subscribe();
                         return Single.just("");
                     }).subscribe(s-> { }, throwable -> apiFailure(context, throwable));
         }
