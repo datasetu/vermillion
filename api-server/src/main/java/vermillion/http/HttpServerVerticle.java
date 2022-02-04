@@ -1243,13 +1243,15 @@ public class HttpServerVerticle extends AbstractVerticle {
         JsonObject requestBody = null;
 
         HashMap<String, FileUpload> fileUploads = new HashMap<>();
+        List<FileUpload> fileUploadList = new ArrayList<>();
 
         logger.debug("File uploads = " + context.fileUploads().size());
         logger.debug("Is empty = " + context.fileUploads().isEmpty());
         if (!context.fileUploads().isEmpty()) {
             context.fileUploads().forEach(f -> {
                 fileUploads.put(f.name(), f);
-                logger.debug(f.name() + " = " + fileUploads.get(f.name()));
+                fileUploadList.add(f);
+                logger.debug(f.name() + " = " + fileUploads.get(f.name()).uploadedFileName());
             });
 
         }
@@ -1259,18 +1261,18 @@ public class HttpServerVerticle extends AbstractVerticle {
         token = request.getParam("token");
         if (resourceId == null) {
             apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
-            deleteUploads(fileUploads);
+            deleteUploads(fileUploadList);
             return;
         }
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
-            deleteUploads(fileUploads);
+            deleteUploads(fileUploadList);
             return;
         }
 
         if (!isValidToken(token) || !isValidResourceID(resourceId)) {
             apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
-            deleteUploads(fileUploads);
+            deleteUploads(fileUploadList);
             return;
         }
 
@@ -1289,7 +1291,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             if (context.fileUploads().size() > 2 || !fileUploads.containsKey("file")) {
                 apiFailure(context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
                 // Delete uploaded files if inputs are not as required
-                deleteUploads(fileUploads);
+                deleteUploads(fileUploadList);
                 return;
             } else {
                 file = fileUploads.get("file");
@@ -1305,7 +1307,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         metaJson = metaBuffer.toJsonObject();
                     } catch (Exception e) {
                         apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
-                        deleteUploads(fileUploads);
+                        deleteUploads(fileUploadList);
                         return;
                     }
                     logger.debug("Metadata = " + metaJson.encode());
@@ -2238,8 +2240,8 @@ public class HttpServerVerticle extends AbstractVerticle {
         return token.matches(validRegex);
     }
 
-    private void deleteUploads(HashMap<String, FileUpload> fileUploads) {
-        fileUploads.forEach((k, v) -> {
+    private void deleteUploads(List<FileUpload> fileUploads) {
+        fileUploads.forEach(v -> {
             try {
                 Files.deleteIfExists(Paths.get(v.uploadedFileName()));
             } catch (IOException e) {
