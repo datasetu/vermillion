@@ -1729,7 +1729,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                             .setStatusMessage("Please kindly wait as your download links are getting ready-multiple")
                                                             .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
                                                                     "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
-                                                                    "to the respective email-id which will contain downloadable links for the same." + "\n"
+                                                                    "to the respective email-id which will contain downloadable links for the same." + "\n\n"
                                                                     + "Note: The time frame for the email is subjected to the number of files to zip.");
                                                     return Single.never();
                                                 }
@@ -1748,7 +1748,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                     String sub_category = subCategoryEntryField.getString("sub_category");
                                                     JobDataMap jobDataMap = new JobDataMap();
                                                     jobDataMap.put("uuid", uuid);
-                                                    jobDataMap.put("finalHitsSize", hits.get().size());
+                                                    jobDataMap.put("finalHitsSize", total);
                                                     jobDataMap.put("resourceId", null);
                                                     jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
                                                     jobDataMap.put("listOfFilesNeedToBeZipped", listOfFilesNeedToBeZipped);
@@ -1799,7 +1799,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                             .setStatusMessage("Please kindly wait as your download links are getting ready")
                                                             .end("Thanks for your interest in the <" + sub_category + "> corpus. \n" +
                                                                     "Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> " +
-                                                                    "to the respective email-id which will contain downloadable links for the same." + "\n"
+                                                                    "to the respective email-id which will contain downloadable links for the same." + "\n\n"
                                                                     + "Note: The time frame for the email is subjected to the number of files to zip.");
                                                 }
                                             }, throwable -> apiFailure(context, throwable));
