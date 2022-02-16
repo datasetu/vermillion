@@ -25,6 +25,7 @@ import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
 import io.vertx.serviceproxy.ServiceException;
+import net.lingala.zip4j.ZipFile;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
@@ -1537,6 +1538,8 @@ public class HttpServerVerticle extends AbstractVerticle {
         AtomicReference<List<String>> distinctIds = new AtomicReference<>();
         List<String> listOfIdsNeedToBeSentToScheduler = new ArrayList<>();
         List<File> listOfFilesNeedToBeZipped = new ArrayList<>();
+//        List<File> listOfFilesNeedToBeAddedToZipFile = new ArrayList<>();
+        AtomicReference<List<String>> finalListOfIdsNeedToBeSentToScheduler = new AtomicReference<>();
         AtomicReference<JsonArray> hits = new AtomicReference<>();
         AtomicBoolean didResponseEnded = new AtomicBoolean(false);
         AtomicInteger noOfScrollCalls = new AtomicInteger();
@@ -1707,7 +1710,22 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                 logger.debug("result for multiple ids = " + file);
                                                 boolean doesFileExists = Files.exists(Path.of(file));
                                                 logger.debug("doesFileExists for multiple ids= " + doesFileExists);
-                                                if (doesFileExists) {
+                                                int noOfFilesInZip = 0;
+                                                int noOfFilesInResourceId = 0;
+                                                if (!"absent".equals(file)) {
+                                                    noOfFilesInZip = new ZipFile(file).getFileHeaders()
+                                                            .stream().distinct().collect(Collectors.toList()).size();
+                                                    noOfFilesInResourceId = Objects.requireNonNull(
+                                                            new File("/api-server/webroot/provider/public/" +
+                                                                    distinctIds.get().get(finalI)).listFiles()).length;
+                                                    logger.debug("noOfFilesInZip of = " + file + "-->" + noOfFilesInZip);
+                                                    logger.debug("noOfFilesInResourceId of = " +
+                                                            distinctIds.get().get(finalI) + "-->" + noOfFilesInResourceId);
+                                                }
+
+                                                //find a way to add only listOfFilesNeedToBeAddedToZipFile to zip file instead of all files
+//                                                listOfFilesNeedToBeZipped.addAll(listOfFilesNeedToBeAddedToZipFile);
+                                                if (doesFileExists && !(noOfFilesInResourceId > noOfFilesInZip)) {
                                                     zipLink = "https://" + System.getenv("SERVER_NAME") + "/provider/public/"
                                                             + file.substring(36);
                                                     finalZipLinks.add(zipLink);
@@ -1717,10 +1735,14 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                 } else {
                                                     listOfIdsNeedToBeSentToScheduler.add(distinctIds.get().get(finalI));
                                                 }
+
+                                                finalListOfIdsNeedToBeSentToScheduler.set(listOfIdsNeedToBeSentToScheduler.stream().distinct().collect(Collectors.toList()));
+                                                logger.debug("finalListOfIdsNeedToBeSentToScheduler = " + finalListOfIdsNeedToBeSentToScheduler);
                                                 logger.debug("finalZipLinks of consumer =" + finalZipLinks);
 
                                                 if (itemList.size() == distinctIds.get().size()
-                                                        && finalZipLinks.size() == distinctIds.get().size()) {
+                                                        && finalZipLinks.size() == distinctIds.get().size()
+                                                        && !(noOfFilesInResourceId > noOfFilesInZip)) {
                                                     String sub_category = subCategoryEntryField.getString("sub_category");
                                                     emailJob(email, downloadLinksMap, sub_category);
                                                     didResponseEnded.set(true);
@@ -1750,7 +1772,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                                     jobDataMap.put("uuid", uuid);
                                                     jobDataMap.put("finalHitsSize", total);
                                                     jobDataMap.put("resourceId", null);
-                                                    jobDataMap.put("distinctIds", listOfIdsNeedToBeSentToScheduler);
+                                                    jobDataMap.put("distinctIds", finalListOfIdsNeedToBeSentToScheduler.get());
                                                     jobDataMap.put("listOfFilesNeedToBeZipped", listOfFilesNeedToBeZipped);
                                                     jobDataMap.put("email", email);
                                                     jobDataMap.put("finalZipLinks", finalZipLinks);

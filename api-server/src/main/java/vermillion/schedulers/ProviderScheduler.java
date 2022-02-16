@@ -68,6 +68,7 @@ public class ProviderScheduler implements Job {
         logger.debug("Distinct Ids: "  + distinctIds);
         logger.debug("final zip links: "  + finalZipLinks);
         logger.debug("finalHitsSize to be zipped: " + finalHitsSize);
+        logger.debug("size of listOfFilesNeedToBeZipped : " + listOfFilesNeedToBeZipped.size());
 
         if (finalHitsSize > 0) {
             try {
@@ -168,6 +169,7 @@ public class ProviderScheduler implements Job {
                         throw new FileNotFoundException("Requested files are not present on provider's resource path");
                     }
 
+                    //files and resourceId segregation
                     if(listOfFilesNeedToBeZipped.get(j).toString().contains(distinctIds.get(i))) {
                         finalListOfFilesNeedToBeZipped.add(listOfFilesNeedToBeZipped.get(j));
                         hashMap.put(distinctIds.get(i), finalListOfFilesNeedToBeZipped);
