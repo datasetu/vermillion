@@ -277,7 +277,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         Single<String> tokenDetailsFromRedis =  getValue(token);
 
         return tokenDetailsFromRedis.flatMapCompletable(
-                tokenDetailsFromCache -> "absent".equalsIgnoreCase(tokenDetailsFromCache) ? introspect(token) : Completable.complete())
+                tokenDetailsFromCache -> "absent".equalsIgnoreCase(tokenDetailsFromCache) ? introspect(token, null) : Completable.complete())
                 .andThen(Single.defer(() -> getValue(token)))
                 .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
                         ? Maybe.empty()
@@ -395,7 +395,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         } else {
             logger.debug("Secure search");
             JsonArray requestedIDs = new JsonArray().add(resourceID);
-            checkAuthorisation(token, READ_SCOPE, requestedIDs)
+            checkAuthorisation(token, READ_SCOPE, requestedIDs, null)
                     .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token, false, null)))
                     .subscribe(
                             result -> response.putHeader("content-type", "application/json")
@@ -1021,14 +1021,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             if (scroll) {
                 String finalScrollStr = scrollStr;
-                checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                checkAuthorisation(token, READ_SCOPE, requestedIDs, null)
                         .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, true, finalScrollStr)))
                         .subscribe(
                                 result -> response.putHeader("content-type", "application/json")
                                         .end(result.encode()),
                                 t -> apiFailure(context, t));
             } else {
-                checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                checkAuthorisation(token, READ_SCOPE, requestedIDs, null)
                         .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, false, null)))
                         .subscribe(
                                 result -> response.putHeader("content-type", "application/json")
@@ -1160,7 +1160,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                     })
                     .subscribe(() -> context.reroute(CONSUMER_PATH), t -> apiFailure(context, t));
         } else {
-            checkAuthorisation(token, READ_SCOPE, requestedIds)
+            checkAuthorisation(token, READ_SCOPE, requestedIds, null)
                     .andThen(Completable.fromCallable(() -> {
                         logger.debug("Requested IDs = " + requestedIds.encode());
                         for (int i = 0; i < requestedIds.size(); i++) {
@@ -1372,7 +1372,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 }
             }
 
-            checkAuthorisation(token, WRITE_SCOPE, requestedIdList)
+            checkAuthorisation(token, WRITE_SCOPE, requestedIdList, fileUploadList)
                     .andThen(Completable.defer(() -> {
                         new File(providerDirStructure).mkdirs();
                         try {
@@ -1996,7 +1996,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     // TODO: Handle server token
     // TODO: Handle regexes
     // Method that makes the HTTPS request to the auth server
-    public Completable introspect(String token) {
+    public Completable introspect(String token, List<FileUpload> fileUploads) {
         logger.debug("In introspect");
         JsonObject body = new JsonObject();
         body.put("token", token);
@@ -2025,14 +2025,22 @@ public class HttpServerVerticle extends AbstractVerticle {
                 })
                 .map(Optional::of)
                 .toSingle(Optional.empty())
-                .flatMapCompletable(data -> (data.isPresent())
-                        ? setValue(token, data.get())
-                        : Completable.error(new UnauthorisedThrowable("Unauthorised")));
+                .flatMapCompletable(data -> {
+                    if (data.isPresent()) {
+                        return setValue(token, data.get());
+                    } else {
+                        if (fileUploads != null) {
+                            deleteUploads(fileUploads);
+                        }
+                        return Completable.error(new UnauthorisedThrowable("Unauthorised"));
+                    }
+                });
     }
 
     // Method that uses the redis cache for authorising requests.
     // Uses introspect if needed
-    public Completable checkAuthorisation(String token, String scope, JsonArray requestedIds) {
+    public Completable checkAuthorisation(String token, String scope, JsonArray requestedIds,
+                                          List<FileUpload> fileUploads) {
 
         Set<String> requestedSet = IntStream.range(0, requestedIds.size())
                 .mapToObj(requestedIds::getString)
@@ -2040,7 +2048,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         return getValue(token)
                 .flatMapCompletable(
-                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
+                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token, fileUploads) : Completable.complete())
                 // TODO: Avoid reading from cache again
                 .andThen(Single.defer(() -> getValue(token)))
                 .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
@@ -2088,6 +2096,9 @@ public class HttpServerVerticle extends AbstractVerticle {
                                     if (!found) {
                                         // Requested resource ID has not been found in any of the authorised IDs in the
                                         // auth policy
+                                        if (fileUploads != null) {
+                                            deleteUploads(fileUploads);
+                                        }
                                         return Completable.error(new UnauthorisedThrowable("ACL does not match"));
                                     }
                                 }
@@ -2095,11 +2106,19 @@ public class HttpServerVerticle extends AbstractVerticle {
                                 if (authorisedCount == requestedSet.size()) {
                                     return Completable.complete();
                                 } else {
+                                    if (fileUploads != null) {
+                                        deleteUploads(fileUploads);
+                                    }
                                     return Completable.error(new UnauthorisedThrowable("ACL does not match"));
                                 }
                             }
                         })
-                        .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+                        .orElseGet(() -> {
+                            if (fileUploads != null) {
+                                deleteUploads(fileUploads);
+                            }
+                            return Completable.error(new UnauthorisedThrowable("Unauthorised"));
+                        }));
         //                .flatMapCompletable(hashSet -> hashSet.map(authorisedSet ->
         // (authorisedSet.containsAll(requestedSet)
         //                        ? Completable.complete()
@@ -2113,7 +2132,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         return getValue(token)
                 .flatMapCompletable(
-                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
+                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token, null) : Completable.complete())
                 // TODO: Avoid reading from cache again
                 .andThen(Single.defer(() -> getValue(token)))
                 .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
