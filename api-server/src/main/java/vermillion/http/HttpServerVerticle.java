@@ -1828,7 +1828,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                                         }
                                     }
                                     return Completable.complete();
-                                }).subscribe();
+                                }).subscribe(()-> { }, throwable -> apiFailure(context, throwable));
                         return Single.just("");
                     }).subscribe(s-> { }, throwable -> apiFailure(context, throwable));
         }
