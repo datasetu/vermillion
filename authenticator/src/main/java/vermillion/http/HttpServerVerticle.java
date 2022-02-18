@@ -19,11 +19,16 @@ import io.vertx.reactivex.ext.web.client.WebClient;
 import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
+import vermillion.throwables.UnauthorisedThrowable;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class HttpServerVerticle extends AbstractVerticle {
     public static final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
@@ -53,7 +58,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final int MAX_POOL_SIZE = 10;
     public final int MAX_WAITING_HANDLERS = 32;
 
-    RedisOptions options;
+    public RedisOptions options;
 
     @Override
     public void start(Promise<Void> promise) {
@@ -117,24 +122,27 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerResponse resp = request.response();
 
         // Ignore the password parameter. Username is the token
-        String username = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
+        String token = URLDecoder.decode(request.getParam("username"), StandardCharsets.UTF_8);
 
-        logger.debug("Token=" + username);
+        logger.debug("Token=" + token);
 
-        if (!isStringSafe(username)) {
+        if (!isValidToken(token)) {
             logger.debug("invalid entity name");
             ok(resp, "deny");
             return;
         }
 
-        getValue(username)
+        // Simply check if the auth server returns 200 for this introspect. Everything else will be done by other APIs
+        getValue(token)
                 .flatMapCompletable(
-                        cache -> cache.equalsIgnoreCase("absent") ? introspect(username) : Completable.complete())
+                        cache -> cache.equalsIgnoreCase("absent") ? introspect(token) : Completable.complete())
                 .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
 
     public void authVhost(RoutingContext context) {
 
+        // No restriction on accessing vhosts
+        // TODO: Restrict vhost to a set of allowed vhosts
         logger.debug("In auth vhost");
         HttpServerResponse resp = context.response();
         ok(resp, "allow");
@@ -146,13 +154,14 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerResponse resp = context.response();
         HttpServerRequest request = context.request();
 
-        String username = request.getParam("username");
+        // Username is the token
+        String token = request.getParam("username");
         String resourceType = request.getParam("resource");
         String resourceName = request.getParam("name");
         String permission = request.getParam("permission");
         String routingKey = request.getParam("routing_key");
 
-        logger.debug("Username=" + username);
+        logger.debug("Username=" + token);
         logger.debug("ResourceType=" + resourceType);
         logger.debug("ResourceName=" + resourceName);
         logger.debug("Permission=" + permission);
@@ -179,24 +188,34 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        getValue(username)
-                .flatMapCompletable(result -> {
-                    JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
-                    for (int i = 0; i < authorisedRequests.size(); i++) {
-                        JsonObject requestObject = authorisedRequests.getJsonObject(i);
-                        logger.debug("Authorised request=" + requestObject.toString());
+        if (!isValidResourceID(routingKey)) {
+            logger.debug("Routing key is not a valid ID");
+            ok(resp, "deny");
+            return;
+        }
 
-                        /* Return if a match is found. Cannot request for multiple IDs
-                         * in a single request
-                         */
-
-                        if (routingKey.equalsIgnoreCase(requestObject.getString("id"))) {
-                            return Completable.complete();
-                        }
-                    }
-                    return Completable.error(new Throwable("Unauthorised"));
-                })
+        // Routing key becomes the requested ID
+        checkAuthorisation(token, "write", new JsonArray().add(routingKey))
                 .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
+
+        //        getValue(token)
+        //                .flatMapCompletable(result -> {
+        //                    JsonArray authorisedRequests = new JsonObject(result).getJsonArray("request");
+        //                    for (int i = 0; i < authorisedRequests.size(); i++) {
+        //                        JsonObject requestObject = authorisedRequests.getJsonObject(i);
+        //                        logger.debug("Authorised request=" + requestObject.toString());
+        //
+        //                        /* Return if a match is found. Cannot request for multiple IDs
+        //                         * in a single request
+        //                         */
+        //
+        //                        if (routingKey.equals(requestObject.getString("id"))) {
+        //                            return Completable.complete();
+        //                        }
+        //                    }
+        //                    return Completable.error(new Throwable("Unauthorised"));
+        //                })
+        //                .subscribe(() -> ok(resp, "allow"), t -> apiFailure(context, t));
     }
 
     public void authResource(RoutingContext context) {
@@ -239,18 +258,6 @@ public class HttpServerVerticle extends AbstractVerticle {
         ok(resp, "allow");
     }
 
-    public boolean isStringSafe(String resource) {
-        logger.debug("In is_string_safe");
-
-        logger.debug("resource=" + resource);
-
-        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
-
-        logger.debug("Original resource name =" + resource);
-        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
-        return safe;
-    }
-
     public void ok(HttpServerResponse resp, String message) {
         if (!resp.closed()) {
             resp.setStatusCode(OK).end(message);
@@ -262,11 +269,15 @@ public class HttpServerVerticle extends AbstractVerticle {
         JsonObject body = new JsonObject();
         body.put("token", token);
 
-        WebClientOptions options = new WebClientOptions()
+        WebClientOptions webClientOptions = new WebClientOptions()
                 .setSsl(true)
                 .setKeyStoreOptions(new JksOptions().setPath(AUTH_TLS_CERT_PATH).setPassword(AUTH_TLS_CERT_PASSWORD));
 
-        WebClient client = WebClient.create(vertx, options);
+        if ("auth.local".equalsIgnoreCase(AUTH_SERVER)) {
+            webClientOptions.setTrustAll(true);
+        }
+
+        WebClient client = WebClient.create(vertx, webClientOptions);
 
         return client.post(443, AUTH_SERVER, INTROSPECT_ENDPOINT)
                 .ssl(true)
@@ -286,9 +297,66 @@ public class HttpServerVerticle extends AbstractVerticle {
                         : Completable.error(new Throwable("Unauthorised")));
     }
 
+    public Completable checkAuthorisation(String token, String scope, JsonArray requestedIds) {
+
+        Set<String> requestedSet = IntStream.range(0, requestedIds.size())
+                .mapToObj(requestedIds::getString)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        return getValue(token)
+                .flatMapCompletable(
+                        cache -> "absent".equalsIgnoreCase(cache) ? introspect(token) : Completable.complete())
+                // TODO: Avoid reading from cache again
+                .andThen(Single.defer(() -> getValue(token)))
+                .flatMapMaybe(result -> "absent".equalsIgnoreCase(result)
+                        ? Maybe.empty()
+                        : Maybe.just(new JsonObject(result).getJsonArray("request")))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapMaybe(resultArray -> resultArray
+                        .map(authorisedIds ->
+                                // TODO: In this case check for methods, body, API etc
+                                Maybe.just(IntStream.range(0, authorisedIds.size())
+                                        .filter(i -> authorisedIds
+                                                .getJsonObject(i)
+                                                .getJsonArray("scopes")
+                                                .contains(scope))
+                                        .mapToObj(i ->
+                                                authorisedIds.getJsonObject(i).getString("id"))
+                                        .collect(Collectors.toCollection(HashSet::new))))
+                        .orElseGet(Maybe::empty))
+                .map(Optional::of)
+                .toSingle(Optional.empty())
+                .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
+                                ? Completable.complete()
+                                : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                        .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
+    }
+
     public void apiFailure(RoutingContext context, Throwable t) {
         logger.debug("In apifailure");
         logger.debug("Message=" + t.getMessage());
         context.response().setStatusCode(OK).end("deny");
+    }
+
+    private boolean isValidResourceID(String resourceID) {
+
+        logger.debug("In isValidResourceId");
+        logger.debug("Received resource id = " + resourceID);
+        // TODO: Handle sub-categories correctly
+        String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+\\/[a-zA-Z0-9_.\\-]+\\/[a-zA-Z0-9_.\\-]+";
+
+        return resourceID.matches(validRegex);
+    }
+
+    private boolean isValidToken(String token) {
+
+        logger.debug("In isValidToken");
+        logger.debug("Received token = " + token);
+        // TODO: Handle sub-categories correctly
+        // TODO: Handle list of trusted auth servers
+        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
+
+        return token.matches(validRegex);
     }
 }

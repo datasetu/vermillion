@@ -15,7 +15,7 @@ COPY	./node-aperture/lib/ /aperture-cache/lib/
 COPY	./node-aperture/gen/ /aperture-cache/gen/
 COPY	./docker-images/auth-server/docker-entrypoint.sh /
 
-RUN	cd /auth-cache && npm install				&&  \
-	cd /aperture-cache && npm install
+RUN	 npm install /auth-cache				&&  \
+	 npm install /aperture-cache
 
 CMD	/wait && ./docker-entrypoint.sh

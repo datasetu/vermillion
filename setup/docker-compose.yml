@@ -12,7 +12,7 @@ volumes:
 services:
 
   vertx:
-    image: iudx/java
+    image: datasetu/java
     container_name: vertx
     hostname: vertx
     restart: on-failure
@@ -23,6 +23,7 @@ services:
     volumes:
       - ../api-server:/api-server/
       - ${PROVIDER_PATH}:/api-server/webroot/provider/
+      - ../index.html:/api-server/webroot/index.html
     env_file:
       - vermillion.conf
     environment:
@@ -32,7 +33,7 @@ services:
       - JAR_NAME=api-server-fat.jar
 
   authenticator:
-    image: iudx/java
+    image: datasetu/java
     container_name: authenticator
     hostname: authenticator
     restart: on-failure
@@ -46,6 +47,7 @@ services:
       - WAIT_HOSTS=redis:6379
       - PROJECT_DIR=authenticator
       - JAR_NAME=authenticator-fat.jar
+
 
   rabbit:
     image: rabbitmq:${RABBITMQ_VERSION}
@@ -65,7 +67,7 @@ services:
       - vermillion.conf
   
   elasticsearch:
-    image: elasticsearch:${ES_VERSION}
+    image: elasticsearch:7.9.2
     container_name: elasticsearch
     hostname: ${ES_HOSTNAME}
     ports:
@@ -73,15 +75,16 @@ services:
     restart: on-failure
     networks:
       - vermillion-net
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
+        #volumes:
+        #- es-data:/bitnami/elasticsearch/data
     env_file:
       - vermillion.conf
     environment:
       - discovery.type=single-node
+      #- ELASTICSEARCH_HEAP_SIZE=2048m
 
-  dbconnector:
-    image: iudx/db-connector
+  connector:
+    image: datasetu/db-connector
     container_name: connector
     hostname: connector
     restart: on-failure

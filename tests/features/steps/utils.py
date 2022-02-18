@@ -1,33 +1,44 @@
-'''
-This error is for cases when the expected status code does not match
-the status code from the API
-'''
-class UnexpectedStatusCodeError(Exception):
+import string
+import random
+import requests
 
-    def __init__(self, expected, actual, response_object):
-        self.expected = expected
-        self.actual = actual
-        self.message = "Expecting {0} from API call got {1} with response {2}".format(expected, actual, str(response_object))
-        super().__init__(self.message)
+VERMILLION_URL = 'https://localhost'
+SEARCH_ENDPOINT = '/search'
+PUBLISH_ENDPOINT = '/publish'
+LATEST_ENDPOINT = '/latest'
 
-'''
-This is for cases when the expected number of datapoints do not match
-the received datapoints from the API
-'''
-class ResponseCountMismatchError(Exception):
+headers = {
+    'Content-Type': 'application/json',
+}
 
-    def __init__(self, expected, actual):
-        self.expected = expected
-        self.actual = actual
-        self.message = "Expecting {0} responses from API call got {1}".format(expected, actual)
-        super().__init__(self.message)
+def post_request(url, params, data, context):
+    r = requests.post(url, headers=headers, params=params, data=data, verify=False)
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
 
-'''
-This error is for all kinds of unexpected behaviour of vermillion
-The exact error should be described in the message 
-'''
-class UnexpectedBehaviourError(Exception):
 
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
+def get_request(url, params, context):
+    r = requests.get(url, headers=headers, params=params, verify=False)
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+
+def post_files(params, files, context):
+    r = requests.post(VERMILLION_URL + PUBLISH_ENDPOINT, params=params, files=files, verify=False)
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+
+def generate_random_chars(n=32, letters=True, digits=True, special_chars=True):
+    generate = ''
+    if letters:
+        generate += string.ascii_letters
+    if digits:
+        generate += string.digits
+    if special_chars:
+        generate += string.punctuation
+
+    return ''.join([random.choice(generate) for _ in range(n)])

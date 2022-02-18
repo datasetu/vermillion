@@ -24,12 +24,13 @@ import io.vertx.reactivex.ext.web.handler.StaticHandler;
 import io.vertx.reactivex.redis.client.Redis;
 import io.vertx.reactivex.redis.client.RedisAPI;
 import io.vertx.redis.client.RedisOptions;
+import io.vertx.serviceproxy.ServiceException;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.validator.GenericValidator;
+import vermillion.broker.reactivex.BrokerService;
 import vermillion.database.Queries;
 import vermillion.database.reactivex.DbService;
 import vermillion.throwables.BadRequestThrowable;
-import vermillion.throwables.ConflictThrowable;
 import vermillion.throwables.InternalErrorThrowable;
 import vermillion.throwables.UnauthorisedThrowable;
 
@@ -37,21 +38,26 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
+
+import org.joda.time.format.ISODateTimeFormat;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
     public final Logger logger = LoggerFactory.getLogger(HttpServerVerticle.class);
+
     // HTTP Codes
     public final int OK = 200;
     public final int CREATED = 201;
     public final int ACCEPTED = 202;
     public final int BAD_REQUEST = 400;
     public final int FORBIDDEN = 403;
-    public final int CONFLICT = 409;
     public final int INTERNAL_SERVER_ERROR = 500;
 
     // Auth server constants
@@ -63,6 +69,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     public final String AUTH_TLS_CERT_PASSWORD = System.getenv("AUTH_TLS_CERT_PASSWORD");
     public final String WRITE_SCOPE = "write";
     public final String READ_SCOPE = "read";
+
     // Redis constants
     public final String REDIS_HOST = System.getenv("REDIS_HOSTNAME");
     /* Default port of redis. Port specified in the config file will
@@ -70,22 +77,28 @@ public class HttpServerVerticle extends AbstractVerticle {
     */
     public final String REDIS_PORT = "6379";
     public final String REDIS_PASSWORD = System.getenv("REDIS_PASSWORD");
+
     // There are 16 DBs available. Using 1 as the default database number
     public final String DB_NUMBER = "1";
     public final String CONNECTION_STR = "redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + "/" + DB_NUMBER;
+
     // public final String CONNECTION_STR =
     //				"redis://:" + REDIS_PASSWORD + "@" + REDIS_HOST + ":" + REDIS_PORT + "/" + DB_NUMBER;
     public final int MAX_POOL_SIZE = 10;
     public final int MAX_WAITING_HANDLERS = 32;
+
     // Certificate constants
     public final String SSL_CERT_NAME = System.getenv("SSL_CERT_NAME");
     public final String SSL_CERT_PASSWORD = System.getenv("SSL_CERT_PASSWORD");
+
     // HTTPS port
     public final int HTTPS_PORT = 443;
-    // TODO: Make it final
+    // RabbitMQ default exchange to publish to
+    public final String RABBITMQ_PUBLISH_EXCHANGE = "EXCHANGE";
     public String CONSUMER_PATH = "/consumer/";
     // Service Proxies
     public DbService dbService;
+    public BrokerService brokerService;
     public RedisOptions options;
 
     @Override
@@ -95,12 +108,16 @@ public class HttpServerVerticle extends AbstractVerticle {
         logger.debug("Redis constr=" + CONNECTION_STR);
 
         dbService = vermillion.database.DbService.createProxy(vertx.getDelegate(), "db.queue");
+        brokerService = vermillion.broker.BrokerService.createProxy(vertx.getDelegate(), "broker.queue");
 
         Router router = Router.router(vertx);
 
         router.route().handler(BodyHandler.create().setHandleFileUploads(true));
 
-        router.post("/latest").handler(this::latest);
+        // Serve API docs at /
+        router.route("/").handler(StaticHandler.create("webroot"));
+
+        router.get("/latest").handler(this::latest);
         router.post("/search").handler(this::search);
 
         // The path described by the regex is /consumer/<auth_server>/<token>/*
@@ -118,16 +135,18 @@ public class HttpServerVerticle extends AbstractVerticle {
         router.get("/download").handler(this::download);
         router.post("/publish").handler(this::publish);
 
+        router.post("/search/scroll").handler(this::scrolledSearch);
+
         options = new RedisOptions()
                 .setConnectionString(CONNECTION_STR)
                 .setMaxPoolSize(MAX_POOL_SIZE)
                 .setMaxWaitingHandlers(MAX_WAITING_HANDLERS);
 
         vertx.createHttpServer(new HttpServerOptions()
-                        .setSsl(true)
-                        .setCompressionSupported(true)
-                        .setKeyStoreOptions(
-                                new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
+                .setSsl(true)
+                .setCompressionSupported(true)
+                .setKeyStoreOptions(
+                        new JksOptions().setPath(SSL_CERT_NAME).setPassword(SSL_CERT_PASSWORD)))
                 .requestHandler(router)
                 .rxListen(HTTPS_PORT)
                 .subscribe(
@@ -180,31 +199,38 @@ public class HttpServerVerticle extends AbstractVerticle {
     // TODO: This can be a simple get request
     public void latest(RoutingContext context) {
         logger.debug("In latest API");
+        HttpServerRequest request = context.request();
         HttpServerResponse response = context.response();
 
-        JsonObject requestBody;
+        String token = request.getParam("token");
+        String resourceID = request.getParam("id");
 
-        try {
-            requestBody = context.getBodyAsJson();
-        } catch (Exception e) {
-            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+        logger.debug("id=" + resourceID);
+        logger.info("token=" + token);
+
+        if (resourceID == null) {
+            logger.debug("Resource id is null");
+            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
             return;
         }
 
-        logger.debug("Body=" + requestBody.encode());
-
-        if (!requestBody.containsKey("id")) {
-            apiFailure(context, new BadRequestThrowable("No id found in body"));
+        if (!isValidResourceID(resourceID)) {
+            logger.debug("Resource is is malformed");
+            apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
             return;
         }
 
-        String resourceID = requestBody.getString("id");
-
-        if(resourceID != null && !isStringSafe(resourceID)) {
-            apiFailure(context, new UnauthorisedThrowable("Token is not valid"));
+        if (!resourceID.endsWith(".public") && token == null) {
+            logger.debug("Id is secure but no access token provided");
+            apiFailure(context, new BadRequestThrowable("No access token found in request"));
             return;
         }
 
+        if (!resourceID.endsWith(".public") && token != null && !isValidToken(token)) {
+            logger.debug("Access token is malformed");
+            apiFailure(context, new BadRequestThrowable("Malformed access token"));
+            return;
+        }
 
         // Initialise queries object
         Queries queries = new Queries();
@@ -219,11 +245,158 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonObject constructedQuery = queries.getLatestQuery(baseQuery);
 
-        logger.debug(constructedQuery.encodePrettily());
+        logger.debug("Latest query = " + constructedQuery.encodePrettily());
 
-        dbService.rxSearch(constructedQuery).subscribe(result -> {
-            response.putHeader("content-type", "application/json").end(result.encode());
-        });
+        if (resourceID.endsWith(".public")) {
+            logger.debug("Search on public resources");
+            dbService.rxSearch(constructedQuery, false, null).subscribe(result -> response.putHeader(
+                    "content-type", "application/json")
+                    .end(result.encode()));
+        } else {
+            logger.debug("Secure search");
+            JsonArray requestedIDs = new JsonArray().add(resourceID);
+            checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                    .andThen(Single.defer(() -> dbService.rxSecureSearch(constructedQuery, token, false, null)))
+                    .subscribe(
+                            result -> response.putHeader("content-type", "application/json")
+                                    .end(result.encode()),
+                            t -> apiFailure(context, t));
+        }
+    }
+
+    // TODO: Should the scroll API need special permissions?
+    // After all, it puts quite a bit of load on the server for large responses
+    public void scrolledSearch(RoutingContext context) {
+        HttpServerRequest request = context.request();
+        HttpServerResponse response = context.response();
+
+        JsonObject requestBody;
+        int scrollValue;
+
+        String token = request.getParam("token");
+
+        if (token != null && !isValidToken(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
+            return;
+        }
+
+        try {
+            requestBody = context.getBodyAsJson();
+
+            if (requestBody == null) {
+                apiFailure(context, new BadRequestThrowable("Body is empty"));
+                return;
+            }
+
+        } catch (Exception e) {
+            apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
+            return;
+        }
+
+        logger.debug("Body=" + requestBody.encode());
+
+        if (!requestBody.containsKey("scroll_id")) {
+            apiFailure(context, new BadRequestThrowable("Obtain a scroll_id from the search API first"));
+            return;
+        }
+
+        if (!requestBody.containsKey("scroll_duration")) {
+            apiFailure(context, new BadRequestThrowable("Scroll duration not specified"));
+            return;
+        }
+
+        Set<String> permittedFieldSet = new HashSet<>();
+        permittedFieldSet.add("scroll_id");
+        permittedFieldSet.add("scroll_duration");
+
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
+            apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
+            return;
+        }
+
+        Object scrollIdObj = requestBody.getValue("scroll_id");
+
+        if (!(scrollIdObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Scroll ID is not valid"));
+            return;
+        }
+
+        Object scrollDurationObj = requestBody.getValue("scroll_duration");
+
+        if (!(scrollDurationObj instanceof String))
+        {
+            apiFailure(context, new BadRequestThrowable("Scroll Duration is not valid"));
+            return;
+        }
+
+        String scrollId = requestBody.getString("scroll_id");
+
+        String scrollDuration = requestBody.getString("scroll_duration");
+
+        if("".equals(scrollId)){
+            apiFailure(context, new BadRequestThrowable("Scroll Id is empty"));
+            return;
+        }
+
+//        if(!isValidScrollID(scrollId)){
+//            apiFailure(context, new BadRequestThrowable("Invalid Scroll Id"));
+//            return;
+//        }
+
+        if("".equals(scrollDuration)){
+            apiFailure(context, new BadRequestThrowable("Scroll Duration is empty"));
+            return;
+        }
+
+        String scrollUnit = scrollDuration.substring(scrollDuration.length() - 1);
+        String scrollValueStr = scrollDuration.substring(0, scrollDuration.length() - 1);
+
+        try {
+            scrollValue = NumberUtils.createInteger(scrollValueStr);
+        } catch (NumberFormatException numberFormatException) {
+            apiFailure(context, new BadRequestThrowable("Scroll value is not a valid integer"));
+            return;
+        }
+
+        if (scrollValue <= 0) {
+            apiFailure(context, new BadRequestThrowable("Scroll value cannot be less than or equal to zero"));
+            return;
+        }
+
+        if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
+                || (scrollUnit.equals("m") && scrollValue > 60)
+                || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
+            apiFailure(
+                    context,
+                    new BadRequestThrowable(
+                            "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
+            return;
+        }
+        else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
+            apiFailure(
+                    context,
+                    new BadRequestThrowable(
+                            "Scroll unit is invalid"));
+            return;
+        }
+
+        if (token != null) {
+            checkAuthorisation(token, "read")
+                    .flatMap(
+                            authorisedIDs -> dbService.rxScrolledSearch(scrollId, scrollDuration, token, authorisedIDs))
+                    .subscribe(
+                            result -> response.putHeader("content-type", "application/json")
+                                    .end(result.encode()),
+                            t -> apiFailure(context, t));
+        } else {
+            dbService
+                    .rxScrolledSearch(scrollId, scrollDuration, null, null)
+                    .subscribe(
+                            result -> response.putHeader("content-type", "application/json")
+                                    .end(result.encode()),
+                            t -> apiFailure(context, t));
+        }
     }
 
     public void search(RoutingContext context) {
@@ -233,10 +406,13 @@ public class HttpServerVerticle extends AbstractVerticle {
         HttpServerResponse response = context.response();
         JsonObject requestBody;
 
+        // Init a variable to check if scrolling has been requested
+        boolean scroll = false;
+
         // Read the token if present
         String token = request.getParam("token");
 
-        if(token != null && !isStringSafe(token)) {
+        if (token != null && !isValidToken(token)) {
             apiFailure(context, new UnauthorisedThrowable("Invalid Token"));
             return;
         }
@@ -254,6 +430,11 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         try {
             requestBody = context.getBodyAsJson();
+
+            if (requestBody == null) {
+                apiFailure(context, new BadRequestThrowable("Body is empty"));
+                return;
+            }
         } catch (Exception e) {
             apiFailure(context, new BadRequestThrowable("Body is not a valid JSON"));
             return;
@@ -273,6 +454,19 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
+        Set<String> permittedFieldSet = new HashSet<>();
+        permittedFieldSet.add("id");
+        permittedFieldSet.add("geo_distance");
+        permittedFieldSet.add("time");
+        permittedFieldSet.add("attribute");
+        permittedFieldSet.add("size");
+        permittedFieldSet.add("scroll_duration");
+
+        if (!permittedFieldSet.containsAll(requestBody.fieldNames())) {
+            apiFailure(context, new BadRequestThrowable("Body contains unnecessary fields"));
+            return;
+        }
+
         Object resourceIdObj = requestBody.getValue("id");
 
         if (!(resourceIdObj instanceof String) && !(resourceIdObj instanceof JsonArray)) {
@@ -280,6 +474,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
         if (resourceIdObj instanceof JsonArray) {
+            // Resource ID is an array of strings
             resourceIDArray = requestBody.getJsonArray("id");
             for (Object o : resourceIDArray) {
                 if (!(o instanceof String)) {
@@ -290,6 +485,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                     apiFailure(context, new BadRequestThrowable("Resource ID is empty"));
                     return;
                 }
+                if (!isValidResourceID(o.toString())) {
+                    apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
+                    return;
+                }
                 if (!(((String) o).endsWith(".public")) && token == null) {
                     apiFailure(context, new BadRequestThrowable("No token found in request"));
                     return;
@@ -298,9 +497,14 @@ public class HttpServerVerticle extends AbstractVerticle {
             termsQuery.getJsonObject("terms").put("id.keyword", resourceIDArray);
             filterQuery.add(termsQuery);
         } else {
+            // Standalone resource ID
             resourceIDstr = requestBody.getString("id");
             if ("".equalsIgnoreCase(resourceIDstr)) {
                 apiFailure(context, new BadRequestThrowable("Resource ID is empty"));
+                return;
+            }
+            if (!isValidResourceID(resourceIDstr)) {
+                apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                 return;
             }
             if (!resourceIDstr.endsWith(".public") && token == null) {
@@ -309,6 +513,32 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             termQuery.getJsonObject("term").put("id.keyword", resourceIDstr);
             filterQuery.add(termQuery);
+        }
+
+        // Response size
+
+        // Init default value of responses to 10k
+        int size = 10000;
+
+        if (requestBody.containsKey("size")) {
+            Object sizeObj = requestBody.getValue("size");
+
+            if (sizeObj instanceof String) {
+                apiFailure(context, new BadRequestThrowable("Response size should be an integer"));
+                return;
+            }
+
+            try {
+                size = NumberUtils.createInteger(sizeObj.toString());
+            } catch (NumberFormatException numberFormatException) {
+                apiFailure(context, new BadRequestThrowable("Response size is not a valid integer"));
+                return;
+            }
+
+            if (size <= 0 || size > 10000) {
+                apiFailure(context, new BadRequestThrowable("Response size must be between 1-10000"));
+                return;
+            }
         }
 
         // Geo Query
@@ -338,7 +568,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
             String distance = geoDistance.getString("distance");
 
-            if (!distance.endsWith("m") && !distance.endsWith("M")) {
+            if (!distance.endsWith("m")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
@@ -351,11 +581,18 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug("Is a valid number ?" + NumberUtils.isCreatable(distanceQuantity));
 
             // If the number preceding m, km, cm etc is a valid number
-            if (!NumberUtils.isCreatable(distanceQuantity)) {
+            int geoDistanceQuantity;
+            try{
+                geoDistanceQuantity = Integer.parseInt(distanceQuantity);
+                if(geoDistanceQuantity < 1){
+                    apiFailure(context, new BadRequestThrowable("Distance less than 1m"));
+                    return;
+                }
+            }
+            catch(NumberFormatException ex){
                 apiFailure(context, new BadRequestThrowable("Distance is not valid."));
                 return;
             }
-
             Object coordinatesObj = geoDistance.getValue("coordinates");
 
             if (!(coordinatesObj instanceof JsonArray)) {
@@ -370,6 +607,12 @@ public class HttpServerVerticle extends AbstractVerticle {
 
             if (coordinates.size() != 2) {
                 apiFailure(context, new BadRequestThrowable("Invalid coordinates"));
+                return;
+            }
+
+            if((coordinates.getValue(0) instanceof String) || (coordinates.getValue(1) instanceof String))
+            {
+                apiFailure(context, new BadRequestThrowable("Coordinates are not valid numbers"));
                 return;
             }
 
@@ -417,16 +660,37 @@ public class HttpServerVerticle extends AbstractVerticle {
             Object startObj = time.getValue("start");
             Object endObj = time.getValue("end");
 
-            if (!(startObj instanceof String) && !(endObj instanceof String)) {
+            if (!(startObj instanceof String) || !(endObj instanceof String)) {
                 apiFailure(context, new BadRequestThrowable("Start and end objects are not strings"));
                 return;
             }
 
             String start = time.getString("start");
             String end = time.getString("end");
-            Locale locale = new Locale("English", "UK");
+//            Locale locale = new Locale("English", "IN");
+//
+//            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+//                apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
+//                return;
+//            }
+//            /(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))/
 
-            if (!GenericValidator.isDate(start, locale) || !GenericValidator.isDate(end, locale)) {
+            DateTimeFormatter fmt = ISODateTimeFormat.dateTimeParser();
+
+            DateTime startDate;
+            DateTime endDate;
+            try
+            {
+                startDate = fmt.parseDateTime(start);
+                endDate = fmt.parseDateTime(end);
+                if(endDate.getMillis() - startDate.getMillis() < 0)
+                {
+                    apiFailure(context, new BadRequestThrowable("End date is smaller than start date"));
+                    return;
+                }
+            }
+            catch (Exception ex){
+                ex.printStackTrace();
                 apiFailure(context, new BadRequestThrowable("Start and/or end strings are not valid dates"));
                 return;
             }
@@ -465,7 +729,12 @@ public class HttpServerVerticle extends AbstractVerticle {
                 return;
             }
 
-            String attributeName = attribute.getString("term");
+            String attributeName = attribute.getString("term").trim();
+
+            if ("".equals(attributeName)) {
+                apiFailure(context, new BadRequestThrowable("Term parameter is empty"));
+                return;
+            }
 
             if (!(attribute.containsKey("min") && attribute.containsKey("max"))
                     == !(attribute.containsKey("term") && attribute.containsKey("value"))) {
@@ -494,6 +763,10 @@ public class HttpServerVerticle extends AbstractVerticle {
                 Double min = attribute.getDouble("min");
                 Double max = attribute.getDouble("max");
 
+                if (min > max) {
+                    apiFailure(context, new BadRequestThrowable("Min value is greater than max"));
+                    return;
+                }
                 attributeQuery = queries.getRangeQuery();
 
                 attributeQuery
@@ -517,11 +790,65 @@ public class HttpServerVerticle extends AbstractVerticle {
             }
         }
 
-        baseQuery
-                .put("size", 10000)
-                .getJsonObject("query")
-                .getJsonObject("bool")
-                .put("filter", filterQuery);
+        // Scroll feature
+
+        String scrollStr = null;
+        String scrollUnit;
+        String scrollValueStr;
+        int scrollValue;
+
+        if (requestBody.containsKey("scroll_duration")) {
+            scroll = true;
+
+            Object scrollObj = requestBody.getValue("scroll_duration");
+
+            if (!(scrollObj instanceof String)) {
+                apiFailure(context, new BadRequestThrowable("Scroll parameter must be a string"));
+                return;
+            }
+
+            scrollStr = scrollObj.toString();
+            if ("".equals(scrollStr)){
+                apiFailure(context, new BadRequestThrowable("Scroll parameter is empty"));
+                return;
+            }
+            // If the value is 10m, separate out '10' and 'm'
+            scrollUnit = scrollStr.substring(scrollStr.length() - 1);
+            scrollValueStr = scrollStr.substring(0, scrollStr.length() - 1);
+
+            try {
+                scrollValue = NumberUtils.createInteger(scrollValueStr);
+            } catch (NumberFormatException numberFormatException) {
+                apiFailure(context, new BadRequestThrowable("Scroll value is not a valid integer"));
+                return;
+            }
+
+            if (scrollValue <= 0) {
+                apiFailure(context, new BadRequestThrowable("Scroll value cannot be less than or equal to zero"));
+                return;
+            }
+
+            if ((scrollUnit.equalsIgnoreCase("h") && scrollValue != 1)
+                    || (scrollUnit.equals("m") && scrollValue > 60)
+                    || (scrollUnit.equalsIgnoreCase("s") && scrollValue > 3600)) {
+                apiFailure(
+                        context,
+                        new BadRequestThrowable(
+                                "Scroll value is too large. Max scroll duration cannot be more than 1 hour"));
+                return;
+            }
+            else if (!scrollUnit.equalsIgnoreCase("h") && !scrollUnit.equals("m") && !scrollUnit.equalsIgnoreCase("s")) {
+                apiFailure(
+                        context,
+                        new BadRequestThrowable(
+                                "Scroll unit is invalid"));
+                return;
+            }
+            logger.debug("Scroll value =" + scrollValue);
+            logger.debug("Scroll unit =" + scrollUnit);
+        }
+
+        baseQuery.put("size", size).getJsonObject("query").getJsonObject("bool").put("filter", filterQuery);
 
         logger.debug(baseQuery.encodePrettily());
 
@@ -531,16 +858,24 @@ public class HttpServerVerticle extends AbstractVerticle {
         // 2. When token is provided but ID is a public ID
         // 3. When token is provided but ID is a list of public IDs
         // Don't know why anyone would do 2 & 3, but you never know
-        if ((token == null)
-                || (resourceIDstr != null && resourceIDstr.endsWith(".public"))
+        if ((resourceIDstr != null && resourceIDstr.endsWith(".public"))
                 || (resourceIDArray != null
-                        && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
-            dbService
-                    .rxSearch(baseQuery)
-                    .subscribe(
-                            result -> response.putHeader("content-type", "application/json")
-                                    .end(result.encode()),
-                            t -> apiFailure(context, t));
+                && resourceIDArray.stream().map(Object::toString).allMatch(s -> s.endsWith(".public")))) {
+            if (scroll) {
+                dbService
+                        .rxSearch(baseQuery, true, scrollStr)
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            } else {
+                dbService
+                        .rxSearch(baseQuery, false, null)
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            }
         } else {
             JsonArray requestedIDs = new JsonArray();
 
@@ -555,12 +890,22 @@ public class HttpServerVerticle extends AbstractVerticle {
                 logger.debug("Requested IDs=" + requestedIDs.encodePrettily());
             }
 
-            checkAuthorisation(token, READ_SCOPE, requestedIDs)
-                    .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token)))
-                    .subscribe(
-                            result -> response.putHeader("content-type", "application/json")
-                                    .end(result.encode()),
-                            t -> apiFailure(context, t));
+            if (scroll) {
+                String finalScrollStr = scrollStr;
+                checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                        .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, true, finalScrollStr)))
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            } else {
+                checkAuthorisation(token, READ_SCOPE, requestedIDs)
+                        .andThen(Single.defer(() -> dbService.rxSecureSearch(baseQuery, token, false, null)))
+                        .subscribe(
+                                result -> response.putHeader("content-type", "application/json")
+                                        .end(result.encode()),
+                                t -> apiFailure(context, t));
+            }
         }
     }
 
@@ -574,15 +919,15 @@ public class HttpServerVerticle extends AbstractVerticle {
         String token = request.getParam("token");
         String idParam = request.getParam("id");
 
-        logger.info("token=" + token);
+        logger.debug("token=" + token);
 
         if (token == null) {
             apiFailure(context, new BadRequestThrowable("No access token found in request"));
             return;
         }
 
-        if(!isStringSafe(token)) {
-            apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+        if (!isValidToken(token)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed access token"));
             return;
         }
 
@@ -590,17 +935,20 @@ public class HttpServerVerticle extends AbstractVerticle {
         String basePath = PROVIDER_PATH + "secure/";
 
         if (idParam != null) {
+            // TODO: Handle possible issues here
             Arrays.asList(idParam.split(",")).forEach(requestedIds::add);
         }
 
         for (int i = 0; i < requestedIds.size(); i++) {
 
-            if(!isStringSafe(requestedIds.getString(i))) {
-                apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
+            String resourceIDStr = requestedIds.getString(i);
+
+            if (!isValidResourceID(resourceIDStr)) {
+                apiFailure(context, new BadRequestThrowable("Malformed resource ID"));
                 return;
             }
 
-            if (requestedIds.getString(i).endsWith(".public")) {
+            if (resourceIDStr.endsWith(".public")) {
                 apiFailure(
                         context,
                         new BadRequestThrowable(
@@ -634,8 +982,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                             String resourceId = authorisedIds.getString(i);
                             // Get the actual file name on disk
 
-                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/"
-                                    + resourceId.substring(0, resourceId.lastIndexOf('/'));
+                            String consumerResourceDir = WEBROOT + "consumer/" + token + "/" + resourceId;
 
                             // Create consumer directory path if it does not exist
                             new File(consumerResourceDir).mkdirs();
@@ -693,7 +1040,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             // Create consumer directory path if it does not exist
                             new File(consumerResourceDir).mkdirs();
-                            logger.debug("Created consumer subdirectory");
+                            logger.debug("Insubdirectory");
 
                             Path consumerResourcePath = Paths.get(WEBROOT + "consumer/" + token + "/" + resourceId);
                             Path providerResourcePath = Paths.get(basePath + resourceId);
@@ -738,39 +1085,10 @@ public class HttpServerVerticle extends AbstractVerticle {
         FileUpload metadata = null;
         JsonObject metaJson = null;
 
-        String fileName = null, resourceId, token;
+        String fileName = null;
+        String resourceId;
+        String token;
         JsonObject requestBody = null;
-
-        // TODO: Check for invalid IDs
-        resourceId = request.getParam("id");
-        token = request.getParam("token");
-
-        if (resourceId == null) {
-            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
-            return;
-        }
-        if (token == null) {
-            apiFailure(context, new BadRequestThrowable("No access token found in request"));
-            return;
-        }
-
-        if(!isStringSafe(token) || !isStringSafe(resourceId)) {
-            apiFailure(context, new UnauthorisedThrowable("Invalid Input"));
-            return;
-        }
-
-        String[] splitId = resourceId.split("/");
-
-        if (splitId.length < 5) {
-            apiFailure(context, new UnauthorisedThrowable("Resource ID is invalid"));
-            return;
-        }
-
-        // Rationale: resource ids are structured as domain/sha1/rs.com/category/id
-        // Since pre-checks have been done, it is safe to get splitId[3]
-        String category = splitId[3];
-
-        JsonArray requestedIdList = new JsonArray().add(resourceId);
 
         HashMap<String, FileUpload> fileUploads = new HashMap<>();
 
@@ -781,19 +1099,42 @@ public class HttpServerVerticle extends AbstractVerticle {
             logger.debug(fileUploads.toString());
         }
 
+        // TODO: Check for invalid IDs
+        resourceId = request.getParam("id");
+        token = request.getParam("token");
+        if (resourceId == null) {
+            apiFailure(context, new BadRequestThrowable("No resource ID found in request"));
+            deleteUploads(fileUploads);
+            return;
+        }
+        if (token == null) {
+            apiFailure(context, new BadRequestThrowable("No access token found in request"));
+            deleteUploads(fileUploads);
+            return;
+        }
+
+        if (!isValidToken(token) || !isValidResourceID(resourceId)) {
+            apiFailure(context, new UnauthorisedThrowable("Malformed resource ID or token"));
+            deleteUploads(fileUploads);
+            return;
+        }
+
+        String[] splitId = resourceId.split("/");
+
+        // TODO: Need to define the types of IDs supported
+
+        // Rationale: resource ids are structured as domain/sha1/rs.com/category/id
+        // Since pre-checks have been done, it is safe to get splitId[3]
+        String category = splitId[3];
+
+        JsonArray requestedIdList = new JsonArray().add(resourceId);
+
         if (context.fileUploads().size() > 0) {
 
             if (context.fileUploads().size() > 2 || !fileUploads.containsKey("file")) {
                 apiFailure(context, new BadRequestThrowable("Too many files and/or missing 'file' parameter"));
                 // Delete uploaded files if inputs are not as required
-                fileUploads.forEach((k, v) -> {
-                    try {
-                        Files.deleteIfExists(Paths.get(v.uploadedFileName()));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-
+                deleteUploads(fileUploads);
                 return;
             } else {
                 file = fileUploads.get("file");
@@ -809,6 +1150,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         metaJson = metaBuffer.toJsonObject();
                     } catch (Exception e) {
                         apiFailure(context, new BadRequestThrowable("Metadata is not a valid JSON"));
+                        deleteUploads(fileUploads);
                         return;
                     }
                     logger.debug("Metadata = " + metaJson.encode());
@@ -837,10 +1179,10 @@ public class HttpServerVerticle extends AbstractVerticle {
             // if it does not already exist
             String accessFolder = PROVIDER_PATH + (resourceId.endsWith(".public") ? "public/" : "secure/");
 
-            String providerDirStructure = accessFolder + resourceId.substring(0, resourceId.lastIndexOf("/"));
+            String providerDirStructure = accessFolder + resourceId;
             logger.debug("Provider dir structure=" + providerDirStructure);
 
-            String providerFilePath = accessFolder + resourceId;
+            String providerFilePath = accessFolder + resourceId + "/" + file.fileName();
             logger.debug("Provider file path=" + providerFilePath);
 
             logger.debug("Source=" + finalFileName);
@@ -854,8 +1196,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 fileLink = "/download";
             }
 
-            JsonObject dbJson = new JsonObject()
-                    .put("data", new JsonObject().put("link", fileLink))
+            JsonObject dbEntryJson = new JsonObject()
+                    .put("data", new JsonObject().put("link", fileLink).put("filename", file.fileName()))
                     .put("timestamp", Clock.systemUTC().instant().toString())
                     .put("id", resourceId)
                     .put("category", category);
@@ -863,7 +1205,7 @@ public class HttpServerVerticle extends AbstractVerticle {
             if (metaJson != null) {
                 logger.debug("Metadata is not null");
                 // TODO: Cap size of metadata
-                dbJson.getJsonObject("data").put("metadata", metaJson);
+                dbEntryJson.getJsonObject("data").put("metadata", metaJson);
                 try {
                     logger.debug("Metadata path = " + metadata.uploadedFileName());
                     Files.deleteIfExists(Paths.get(metadata.uploadedFileName()));
@@ -885,7 +1227,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         }
                         return Completable.complete();
                     }))
-                    .andThen(dbService.rxInsert(dbJson))
+                    .andThen(brokerService.rxAdminPublish(RABBITMQ_PUBLISH_EXCHANGE, resourceId, dbEntryJson.encode()))
                     .subscribe(() -> response.setStatusCode(201).end("Ok"), t -> apiFailure(context, t));
             return;
         }
@@ -938,9 +1280,10 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         JsonObject finalRequestBody = requestBody;
 
-        checkAuthorisation(token, WRITE_SCOPE, new JsonArray().add(resourceId))
-                .andThen(Completable.defer(() -> dbService.rxInsert(finalRequestBody)))
-                .subscribe(() -> response.setStatusCode(201).end(), t -> apiFailure(context, t));
+        // There is no need for introspect here. It will be done at the rmq auth backend level
+        brokerService
+                .rxPublish(token, RABBITMQ_PUBLISH_EXCHANGE, resourceId, finalRequestBody.encode())
+                .subscribe(() -> response.setStatusCode(202).end(), t -> apiFailure(context, t));
 
         logger.debug("Filename = " + fileName);
     }
@@ -1016,8 +1359,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .map(Optional::of)
                 .toSingle(Optional.empty())
                 .flatMapCompletable(hashSet -> hashSet.map(authorisedSet -> (authorisedSet.containsAll(requestedSet)
-                                ? Completable.complete()
-                                : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
+                        ? Completable.complete()
+                        : Completable.error(new UnauthorisedThrowable("ACL does not match"))))
                         .orElseGet(() -> Completable.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
@@ -1037,8 +1380,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .toSingle(Optional.empty())
                 .flatMapMaybe(resultArray -> resultArray
                         .map(authorisedIds ->
-                                // TODO: In this case check for methods,
-                                // body, API etc
+                                // TODO: In this case check for methods, body, API etc
                                 Maybe.just(new JsonArray(IntStream.range(0, authorisedIds.size())
                                         .filter(i -> authorisedIds
                                                 .getJsonObject(i)
@@ -1054,59 +1396,54 @@ public class HttpServerVerticle extends AbstractVerticle {
                         .orElseGet(() -> Single.error(new UnauthorisedThrowable("Unauthorised"))));
     }
 
-    public boolean isStringSafe(String resource) {
-        logger.debug("In is_string_safe");
-
-        logger.debug("resource=" + resource);
-
-        boolean safe = (resource.length() - (resource.replaceAll("[^a-zA-Z0-9-_./@]+", "")).length()) == 0;
-
-        logger.debug("Original resource name =" + resource);
-        logger.debug("Replaced resource name =" + resource.replaceAll("[^a-zA-Z0-9-_./@]+", ""));
-        return safe;
-    }
-
-    public void ok(HttpServerResponse resp) {
-        if (!resp.closed()) {
-            resp.setStatusCode(OK).end();
-        }
-    }
-
-    public void accepted(HttpServerResponse resp) {
-        if (!resp.closed()) {
-            resp.setStatusCode(ACCEPTED).end();
-        }
-    }
-
     private void apiFailure(RoutingContext context, Throwable t) {
         logger.debug("In apifailure");
         logger.debug("Message=" + t.getMessage());
         if (t instanceof BadRequestThrowable) {
+            logger.debug("In bad request");
             context.response()
                     .setStatusCode(BAD_REQUEST)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
         } else if (t instanceof UnauthorisedThrowable) {
+            logger.debug("In unauthorised");
             context.response()
                     .setStatusCode(FORBIDDEN)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        } else if (t instanceof ConflictThrowable) {
-            context.response()
-                    .setStatusCode(CONFLICT)
-                    .putHeader("content-type", "application/json")
-                    .end(t.getMessage());
-        } else if (t instanceof InternalErrorThrowable) {
+        } else if (t instanceof ServiceException) {
+
+            logger.debug("Service exception");
+            ServiceException serviceException = (ServiceException) t;
+
+            if (serviceException.failureCode() == 400 || serviceException.failureCode() == 404) {
+                context.response()
+                        .setStatusCode(BAD_REQUEST)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject()
+                                .put("status", "error")
+                                .put("message", serviceException.getMessage())
+                                .encode());
+            }
+            else
+            {
+                context.response()
+                        .setStatusCode(INTERNAL_SERVER_ERROR)
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject()
+                                .put("status", "error")
+                                .put("message", serviceException.getMessage())
+                                .encode());
+            }
+        } else {
+            logger.debug("In internal error");
             context.response()
                     .setStatusCode(INTERNAL_SERVER_ERROR)
                     .putHeader("content-type", "application/json")
                     .end(t.getMessage());
-        } else {
-            context.fail(t);
         }
     }
 
-    // TODO: Add adequate comments everywhere
     private String commonPrefix(JsonArray resourceIds) {
 
         // Getting length of shortest resourceId
@@ -1137,5 +1474,43 @@ public class HttpServerVerticle extends AbstractVerticle {
             commonPrefix += current;
         }
         return commonPrefix;
+    }
+
+    private boolean isValidResourceID(String resourceID) {
+
+        logger.debug("In isValidResourceId");
+        logger.debug("Received resource id = " + resourceID);
+        // TODO: Handle sub-categories correctly
+        String validRegex = "[a-z_.\\-]+\\/[a-f0-9]{40}\\/[a-z_.\\-]+\\/[a-zA-Z0-9_.\\-]+\\/[a-zA-Z0-9_.\\-]+";
+
+        return resourceID.matches(validRegex);
+    }
+
+//    private boolean isValidScrollID(String scrollID) {
+//
+//        logger.debug("In isValidScrollId");
+//        logger.debug("Received Scroll id = " + scrollID);
+//
+//        String validRegex = "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$";
+//        return scrollID.matches(validRegex);
+//    }
+
+    private boolean isValidToken(String token) {
+
+        logger.debug("In isValidToken");
+        logger.debug("Received token = " + token);
+
+        String validRegex = "^(auth.local|auth.datasetu.org)\\/[a-f0-9]{32}";
+        return token.matches(validRegex);
+    }
+
+    private void deleteUploads(HashMap<String, FileUpload> fileUploads){
+        fileUploads.forEach((k, v) -> {
+            try {
+                Files.deleteIfExists(Paths.get(v.uploadedFileName()));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 }

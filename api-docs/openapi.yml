@@ -214,6 +214,53 @@ paths:
            $ref: '#/components/responses/FORBIDDEN'
          500:
            $ref: '#/components/responses/INTERNAL-SERVER'
+
+  /search/scroll?token=ACCESS_TOKEN:
+    post:
+      tags:
+        - Consumer
+      description: Scroll API gives all the datasets in chunks of specified size. The size determines the pagination of data points and it is to be defined in search API. Prior to this, search API should be hit to obtain scroll_id.
+      operationId: scrolled-search
+      security:
+        - datasetu-auth-server: [ read ]
+      parameters:
+        - name: ACCESS_TOKEN
+          in: query
+          required: false
+          description: An access token granted by the datasetu auth server
+          schema:
+            type: string
+            example: "auth.datasetu.org/36a83204ea6ad6690a0eccda0f37e179"
+          allowReserved: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scroll_id:
+                  type: string
+                  description: This is the scroll Id associated with data.
+                  example: FGluY2x1ZGVfY29udGV4dF91dWlkDXF1ZXJ5QW5kRmV0Y2gBFDFXVGpZbmdCLXVCbkdFcEk3TFF1AAAAAAAAAAIWZWNVMWdVVkVUNHlub1kzdldYR2d3Zw==
+                scroll_duration:
+                  type: string
+                  description: The time duration specified/requested to scroll in and around the data
+                  example: 30m
+              required:
+                - scroll_id
+                - scroll_duration
+
+      responses:
+        200:
+          description: Lists down all the hits of scroll-search
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/scroll-search'
+        400:
+          $ref: '#/components/responses/BAD-REQUEST'
+        500:
+          $ref: '#/components/responses/INTERNAL-SERVER'
   /search?token=ACCESS_TOKEN:
     post:
       tags:
@@ -241,6 +288,7 @@ paths:
                 - $ref: '#/components/schemas/geo-spatial'
                 - $ref: '#/components/schemas/attribute-search'
                 - $ref: '#/components/schemas/complex-search'
+
         description: |
           The following lists the various filters which can be used in the search API. A filter can be clubbed with any other filter to perform a complex search.
           #### Time-series Search
@@ -342,6 +390,40 @@ components:
       scheme: custom
 
   schemas:
+    scroll-search:
+      type: object
+      properties:
+        hits:
+          type: object
+          description: This is the number of hits of data points of the resource in JSON format.
+          properties:
+            data:
+              type: object
+              description: This can be any free-form data of the resource in JSON format.
+              example: { "data": { "Project": "Vermillion","ApiDocs": "Redoc", "Definition": "OpenAPI" } }
+            timestamp:
+              type: string
+              description: Timestamp at which the data was recorded.
+              example: '2021-03-03T10:18:00.952628Z'
+            id:
+              type: string
+              description: A fully qualified id of the resource.
+              example: 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public'
+            category:
+              type: string
+              description: A broad category into which resourceId/data falls into.
+              example: test-category
+            co-ordinates:
+              type: array
+              description: An array of co-ordinates in [longitude, latitude] format.
+              example: [ '56.9', '76.5' ]
+            mime-type:
+              type: string
+              example: application/json
+        scroll_id:
+          type: string
+          example: FGluY2x1ZGVfY29udGV4dF91dWlkDXF1ZXJ5QW5kRmV0Y2gBFDFXVGpZbmdCLXVCbkdFcEk3TFF1AAAAAAAAAAIWZWNVMWdVVkVUNHlub1kzdldYR2d3Zw==
+          description: This is the scroll Id associated with data.
     publish-timeSeriesData:
       type: object
       properties:
@@ -393,6 +475,14 @@ components:
         time:
           type: object
           $ref: '#/components/schemas/time'
+        scroll_duration:
+          type: string
+          description: The time duration specified/requested for the ES context to be alive and subsequently to scroll in & around the data
+          example: 60m
+        size:
+          type: integer
+          description: The number of hits that consumer is interested in.
+          example: 3
       required:
         - id
         - time
@@ -406,6 +496,14 @@ components:
         geoDistance:
           type: object
           $ref: '#/components/schemas/geoDistance'
+        scroll_duration:
+          type: string
+          description: The time duration specified/requested for the ES context to be alive and subsequently to scroll in & around the data
+          example: 60m
+        size:
+          type: integer
+          description: The number of hits that consumer is interested in.
+          example: 6
       required:
         - id
         - geoDistance
@@ -429,6 +527,14 @@ components:
           oneOf:
             - $ref: '#/components/schemas/resourceId'
             - $ref: '#/components/schemas/resourceId-array'
+        scroll_duration:
+          type: string
+          description: The time duration specified/requested for the ES context to be alive and subsequently to scroll in & around the data
+          example: 60m
+        size:
+          type: integer
+          description: The number of hits that consumer is interested in.
+          example: 9
       required:
         - id
         - attribute
@@ -464,6 +570,14 @@ components:
           required:
             - id
             - geoDistance
+        scroll_duration:
+          type: string
+          description: The time duration specified/requested for the ES context to be alive and subsequently to scroll in & around the data
+          example: 60m
+        size:
+          type: integer
+          description: The number of hits that consumer is interested in.
+          example: 3
       required:
         - id
 
@@ -497,29 +611,37 @@ components:
       description: schema for search API response.
       type: object
       properties:
-        data:
+        hits:
           type: object
-          description: This can be any free-form data of the resource in JSON format.
-          example: {"data": {"Project": "Vermillion","ApiDocs": "Redoc", "Definition": "OpenAPI"}}
-        timestamp:
+          description: This is the number of hits of data of the resource in JSON format.
+          properties:
+            data:
+              type: object
+              description: This can be any free-form data of the resource in JSON format.
+              example: {"data": {"Project": "Vermillion","ApiDocs": "Redoc", "Definition": "OpenAPI"}}
+            timestamp:
+              type: string
+              description: Timestamp at which the data was recorded.
+              example: '2021-03-03T10:18:00.952628Z'
+            id:
+              type: string
+              description: A fully qualified id of the resource.
+              example: 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public'
+            category:
+              type: string
+              description: A broad category into which resourceId/data falls into.
+              example: test-category
+            co-ordinates:
+              type: array
+              description: An array of co-ordinates in [longitude, latitude] format.
+              example: [ '56.9', '76.5' ]
+            mime-type:
+              type: string
+              example: application/json
+        scroll_id:
           type: string
-          description: Timestamp at which the data was recorded.
-          example: '2021-03-03T10:18:00.952628Z'
-        id:
-          type: string
-          description: A fully qualified id of the resource.
-          example: 'rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/test-resource.public'
-        category:
-          type: string
-          description: A broad category into which resourceId/data falls into.
-          example: test-category
-        co-ordinates:
-          type: array
-          description: An array of co-ordinates in [longitude, latitude] format.
-          example: ['56.9', '76.5']
-        mime-type:
-          type: string
-          example: application/json
+          example: FGluY2x1ZGVfY29udGV4dF91dWlkDXF1ZXJ5QW5kRmV0Y2gBFDFXVGpZbmdCLXVCbkdFcEk3TFF1AAAAAAAAAAIWZWNVMWdVVkVUNHlub1kzdldYR2d3Zw==
+          description: This is the scroll Id associated with data.
     attribute-numeric:
       type: object
       properties:
