@@ -68,6 +68,49 @@ paths:
         500:
           $ref: '#/components/responses/INTERNAL-SERVER'
 
+  /ProviderByQuery?search_parameter1=value1&search_parameter2=value2:
+    post:
+      tags:
+        - Consumer
+      description: The API provides the capability for a data consumer to download the public datasets as a zip file based on the search query parameters that a data consumer provides as part of the API endpoint. To add more, the API will send a notification as an email to the respective data consumer with the downloadable link of the datasets.
+      operationId: providerbyquery
+      security:
+        - datasetu-auth-server: [ read ]
+      parameters:
+        - name: search_parameter1
+          in: query
+          required: true
+          description: Search_parameter1 can be details of any public dataset that a data consumer is interested.
+          schema:
+            type: string
+            example: "test"
+            description: Data consumer is interested in viewing the data of type "test"
+          allowReserved: true
+        - name: search_parameter2
+          in: query
+          description: Search_parameter2 can be details of any public dataset that a data consumer is interested.
+          schema:
+            type: string
+            example: "train"
+            description: Data consumer is interested in viewing the data of type "train"
+          allowReserved: true
+      responses:
+        202:
+          description: Data Consumer sees one or more requested public files/datasets that a data provider has made available publicly in a zip format.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: Thanks for your interest in the corpus. Your request for download has been received. Soon, you will receive an email from <DataSetu Team, patzzziejordan@gmail.com> to the respective email-id which will contain downloadable links for the same. Note that, the time frame for the email is subjected to the number of files to zip.
+        400:
+          $ref: '#/components/responses/BAD-REQUEST'
+        404:
+          $ref: '#/components/responses/NOT-FOUND'
+        403:
+          $ref: '#/components/responses/FORBIDDEN'
+        500:
+          $ref: '#/components/responses/INTERNAL-SERVER'
+
   /latest?id=RESOURCE_ID&token=ACCESS_TOKEN:
     get:
       tags:
