@@ -80,7 +80,7 @@ public class DbServiceImpl implements DbService {
         } catch (ResponseException e) {
             int responseCode = e.getResponse().getStatusLine().getStatusCode();
 
-            if(responseCode == 400)
+            if (responseCode == 400)
             {
                 resultHandler.handle(ServiceException.fail(
                         400,
@@ -129,6 +129,8 @@ public class DbServiceImpl implements DbService {
                     }
 
                     searchResponse.put("hits", hits);
+                    searchResponse.put("total", finalResponseJson.getJsonObject("hits")
+                            .getJsonObject("total").getValue("value"));
 
                     return searchResponse;
                 })
@@ -325,6 +327,9 @@ public class DbServiceImpl implements DbService {
                 .collect(JsonArray::new, JsonArray::add)
                 .map(hits -> new JsonObject()
                         .put("scroll_id", finalResponseJson.getString("_scroll_id"))
+                        .put("total", finalResponseJson.getJsonObject("hits")
+                                .getJsonObject("total")
+                                .getValue("value"))
                         .put("hits", hits))
                 .subscribe(SingleHelper.toObserver(resultHandler));
 

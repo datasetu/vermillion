@@ -37,8 +37,8 @@ def step_impl(context):
             raise ResponseCountMismatchError(1, len(context.response))
 
     if context.type == 'latest_public':
-        if len(context.response.json()) != 1:
-            raise ResponseCountMismatchError(1, len(context.response))
+        if len(context.response.json()['hits']) != 1:
+            raise ResponseCountMismatchError(1, len(context.response.json()['hits']))
 
     if context.type == 'scroll-search':
         if len(context.response) != 500:
