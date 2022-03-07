@@ -6,10 +6,12 @@ VERMILLION_URL = 'https://localhost'
 SEARCH_ENDPOINT = '/search'
 PUBLISH_ENDPOINT = '/publish'
 LATEST_ENDPOINT = '/latest'
-
+DOWNLOAD_BY_QUERY_ENDPOINT = '/downloadByQuery'
+PROVIDER_BY_QUERY_ENDPOINT = '/providerByQuery'
 headers = {
     'Content-Type': 'application/json',
 }
+
 
 def post_request(url, params, data, context):
     r = requests.post(url, headers=headers, params=params, data=data, verify=False)
@@ -31,6 +33,18 @@ def post_files(params, files, context):
     context.status_code = r.status_code
     print(context.status_code, context.response)
 
+
+def download_query(url, params, context):
+    r = requests.get(url=url, headers=headers, params=params, verify=False)
+    context.response = r
+    context.status_code = r.status_code
+    print(context.status_code, context.response)
+
+def provider_query(params, data, context):
+    r = requests.post(VERMILLION_URL+PROVIDER_BY_QUERY_ENDPOINT, params=params, data=data, headers=headers, verify=False)
+    context.response=r
+    context.status_code= r.status_code
+    print(context.status_code, context.response)
 
 def generate_random_chars(n=32, letters=True, digits=True, special_chars=True):
     generate = ''

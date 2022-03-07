@@ -1,3 +1,5 @@
+import json
+import time
 import requests
 import urllib3
 import os
@@ -8,7 +10,10 @@ from utils import post_files, generate_random_chars, get_request
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-
+CONSUMER_CERT_PATH = 'consumer.pem'
+CONSUMER_KEY_PATH = 'consumer.key.pem'
+PROVIDER_CERT_PATH = 'provider.pem'
+PROVIDER_KEY_PATH = 'provider.key.pem'
 
 # XXX Secure-files tests need definition here
 @when('The consumer publishes secure file with a valid token')
@@ -21,7 +26,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
-
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -37,6 +42,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -52,6 +58,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -67,6 +74,7 @@ def step_impl(context):
         'file': ('sample.txt', open('sample.txt', 'rb')),
         'metadata': ('meta.json', open('meta.json', 'rb')),
     }
+    time.sleep(3)
     post_files(params, files, context)
 
 
@@ -184,6 +192,56 @@ def step_impl(context):
     }
     post_files(params, files, context)
 
+@when('The consumer publishes secure file with an expired token')
+# This is a test case to test if the tokens which are expired can be used to publish or not
+#  First a policy is set for a resource id for 1sec; Next a token for the same is fetched
+#  Publish a secure file with the fetched token
+def step_impl(context):
+
+
+    headers = {
+        'content-type': 'application/json',
+        'Host': 'auth.local',
+}
+    requested_id2=[]
+    acl_set_policy = "consumer@iisc.ac.in can access example.com/test-category/tokenexpiry for 1 second"
+    data = {"policy": acl_set_policy}
+    # print(data)
+    response1 = requests.post(
+        'https://localhost:8443/auth/v1/acl/set',
+        headers=headers,
+        data=json.dumps(data),
+        cert=(PROVIDER_CERT_PATH, PROVIDER_KEY_PATH),
+        verify=False)
+    # print(response.json())
+
+    requested_id2.append({
+        "id": "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/tokenexpiry",
+        "scopes": ["read", "write"]
+    })
+
+    data = {"request": requested_id2}
+    # print(data)
+    response1 = requests.post(
+        'https://localhost:8443/auth/v1/token',
+        headers=headers,
+        cert=(CONSUMER_CERT_PATH, CONSUMER_KEY_PATH),
+        data=json.dumps(data),
+        verify=False)
+    # print(response.json())
+    r = response1.json()
+    tokens["16_rw"] = r['token']
+    res[16] = "rbccps.org/e096b3abef24b99383d9bd28e9b8c89cfd50be0b/example.com/test-category/tokenexpiry"
+    params= (
+        ('id',res[16]),
+        ('token',tokens["16_rw"])
+    )
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+    time.sleep(3)
+    post_files(params, files, context)
 
 @when('The consumer downloads file by passing a valid token')
 def step_impl(context):
@@ -290,3 +348,36 @@ def step_impl(context):
     }
     os.chmod("../setup/provider", 0o444)
     post_files(params, files, context)
+
+
+@when('The consumer publishes secure file with a valid token for 15 secs')
+def step_impl(context):
+    params = (
+        ('id', res[14]),
+        ('token', tokens["14_rw"]),
+    )
+
+    files = {
+        'file': ('sample.txt', open('sample.txt', 'rb')),
+        'metadata': ('meta.json', open('meta.json', 'rb')),
+    }
+
+    post_files(params, files, context)
+
+    time.sleep(30)
+
+
+@when('The consumer downloads with expired token')
+def step_impl(context):
+    params = (
+        ('id', res[14]),
+        ('token', tokens["14_rw"]),
+
+    )
+    url = 'https://localhost/download'
+    get_request(url,params, context)
+
+@when('The consumer downloads with expired token via reroute link')
+def step_impl(context):
+    url = 'https://localhost/consumer/' + tokens['14_rw']
+    get_request(url, None, context)
